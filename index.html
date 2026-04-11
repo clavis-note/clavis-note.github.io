@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Clavis Note - ながみ行政書士事務所</title>
+<title>Clavis Note - 入管業務特化の案件管理ツール</title>
 <!-- PWA -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -252,59 +252,14 @@ function getMinWageForPref(pref,wages){if(!pref)return null;const w=wages.find(p
 function checkMinWage(hourly,pref,wages){if(!hourly||!pref)return null;const mw=getMinWageForPref(pref,wages);if(!mw)return null;return hourly>=mw;}
 
 // ============================================================
-// 2. サンプルデータ（統合用）
+// 2. サンプルデータ（統合用）- 公開版は空
 // ============================================================
-const SAMPLE_CLIENTS = [
-  { client_id:"C001", name_roman:"ACHARYA BIBEK", name_kana:"アチャリャ ビベック", nationality:"ネパール", dob:"1990-03-15", gender:"男", passport_number:"PA1234567", passport_expiry:"2028-03-14", entry_date:"2020-06-01", residence_card:"AB12345678CD", residence_status:"技能", residence_expiry:"2026-05-31", phone:"090-1234-5678", email:"bibek@example.com", company_name:"株式会社ネパールフーズ", store:"品川店", work_start_date:"2020-06-15", notes:"調理師。2024年に一度転職あり。", dependent_of:null, client_status:"active", relationship:null, school_name:null, photo:null, archived:false,
-    salary_history:[
-      {id:"S001",effective_date:"2024-04-01",monthly_salary:200000,hourly_wage:1150,weekly_hours:40,employment_type:"正社員",min_wage_check:true,work_id:"W001",pref:"東京都"},
-      {id:"S002",effective_date:"2022-01-01",monthly_salary:185000,hourly_wage:1050,weekly_hours:40,employment_type:"正社員",min_wage_check:true,work_id:"W002",pref:"東京都"}
-    ],
-    work_history:[
-      {id:"W001",company_name:"株式会社ネパールフーズ",country:"日本",start_date:"2024-04-01",end_date:null,job_title:"調理師"},
-      {id:"W002",company_name:"ヒマラヤレストラン",country:"日本",start_date:"2020-06-15",end_date:"2024-03-31",job_title:"調理師"},
-      {id:"W003",company_name:"Mountain Hotel",country:"ネパール",start_date:"2016-01-01",end_date:"2020-05-15",job_title:"コック"}
-    ]
-  },
-  { client_id:"C002", name_roman:"SAPKOTA DIPAK", name_kana:"サプコタ ディパック", nationality:"ネパール", dob:"1985-07-22", gender:"男", passport_number:"PB9876543", passport_expiry:"2027-07-21", entry_date:"2019-04-01", residence_card:"CD98765432EF", residence_status:"技能", residence_expiry:"2026-04-15", phone:"080-9876-5432", email:"dipak@example.com", company_name:"株式会社カトマンドゥ", store:"新宿本店", work_start_date:"2019-04-10", notes:"", dependent_of:null, client_status:"active", relationship:null, school_name:null, photo:null, archived:false,
-    salary_history:[{id:"S003",effective_date:"2023-10-01",monthly_salary:220000,hourly_wage:1200,weekly_hours:40,employment_type:"正社員",min_wage_check:true,work_id:"W004",pref:"東京都"}],
-    work_history:[
-      {id:"W004",company_name:"株式会社カトマンドゥ",country:"日本",start_date:"2019-04-10",end_date:null,job_title:"調理師"},
-      {id:"W005",company_name:"Everest Restaurant",country:"ネパール",start_date:"2012-03-01",end_date:"2019-03-15",job_title:"シェフ"}
-    ]
-  },
-  { client_id:"C003", name_roman:"KHADKA SITA", name_kana:"カドカ シタ", nationality:"ネパール", dob:"1988-11-05", gender:"女", passport_number:"PC5555555", passport_expiry:"2029-11-04", entry_date:"2020-07-15", residence_card:"GH55555555IJ", residence_status:"家族滞在", residence_expiry:"2027-06-30", phone:"070-5555-1234", email:"", company_name:"（扶養家族）", store:"", work_start_date:"", notes:"", dependent_of:"C001", client_status:"active", relationship:"配偶者", school_name:null, photo:null, archived:false, salary_history:[], work_history:[] },
-  { client_id:"C004", name_roman:"ACHARYA PRIYA", name_kana:"アチャリャ プリヤ", nationality:"ネパール", dob:"2008-05-10", gender:"女", passport_number:"PD2222222", passport_expiry:"2030-08-09", entry_date:"2020-06-01", residence_card:"OP22222222QR", residence_status:"家族滞在", residence_expiry:"2026-05-31", phone:"", email:"", company_name:"（扶養家族）", store:"", work_start_date:"", notes:"", dependent_of:"C001", client_status:"active", relationship:"子", school_name:"立川第一小学校", photo:null, archived:false, salary_history:[], work_history:[] },
-];
+const SAMPLE_CLIENTS = [];
 
-const SAMPLE_CASES = [
-  // === 進行中案件（書類管理あり）===
-  {case_id:"A001",no:113,category:"国際",client_id:"C001",template_id:"T02",case_title:"ACHARYA BIBEK 技能更新",status:"許可",accepted_date:"2026-02-10",applied_date:"2026-03-05",result_date:"2026-03-20",receipt_number:"東オン認N25014591",result:"許可",new_card:"",period:"1年",next_renewal:"2027-03-20",fee:50000,paid:50000,applicant:"ACHARYA BIBEK",applicant_id:"C001",requester:"株式会社ネパールフーズ",requester_id:"CO02",notes:"",official_req_no:"",
-    docs:TEMPLATES.T02.docs.map(d=>({...d,status:"提出済"})),hearing_items:TEMPLATES.T02.hearing.map(h=>({...h,answer:"",year:"",month:""})),additional_requests:[]},
-  {case_id:"A002",no:112,category:"国際",client_id:"C002",template_id:"T03",case_title:"SAPKOTA DIPAK 技能更新",status:"書類収集中",accepted_date:"2026-03-01",applied_date:null,result_date:null,receipt_number:"",result:"",new_card:"",period:"",next_renewal:"",fee:40000,paid:0,applicant:"SAPKOTA DIPAK",applicant_id:"C002",requester:"株式会社カトマンドゥ",requester_id:"",notes:"",official_req_no:"",
-    docs:TEMPLATES.T03.docs.map((d,i)=>({...d,status:i<2?"取得済":"未取得"})),hearing_items:TEMPLATES.T03.hearing.map(h=>({...h,answer:"",year:"",month:""})),additional_requests:[]},
-  {case_id:"A003",no:111,category:"国際",client_id:"C003",template_id:"T06",case_title:"KHADKA SITA 家族滞在更新",status:"申請中",accepted_date:"2026-02-20",applied_date:"2026-03-10",result_date:null,receipt_number:"",result:"",new_card:"",period:"",next_renewal:"",fee:35000,paid:0,applicant:"KHADKA SITA",applicant_id:"C003",requester:"",requester_id:"",notes:"",official_req_no:"",
-    docs:TEMPLATES.T06.docs.map(d=>({...d,status:"提出済"})),hearing_items:[],additional_requests:[]},
-  // === 過去案件（事件簿レコード）===
-  {case_id:"J001",no:110,category:"国際",client_id:"",template_id:null,case_title:"在留期間更新許可申請",status:"許可",accepted_date:"2025-12-03",applied_date:"2025-12-20",result_date:"2026-01-15",receipt_number:"",result:"許可",new_card:"XX12345678EF",period:"1年",next_renewal:"2027-01-15",fee:21000,paid:21000,applicant:"SAPKOTA BODHI PRASAD",applicant_id:"C002",requester:"株式会社フォロー",requester_id:"CO01",notes:"",official_req_no:"",docs:null,hearing_items:null,additional_requests:null},
-  {case_id:"J002",no:109,category:"国際",client_id:"",template_id:null,case_title:"在留期間更新許可申請・資格外活動許可",status:"許可",accepted_date:"2025-11-15",applied_date:"2025-12-01",result_date:"2026-01-20",receipt_number:"",result:"許可",new_card:"XX98765432EF",period:"1年",next_renewal:"2027-01-20",fee:35000,paid:35000,applicant:"KHADKA SITA",applicant_id:"C003",requester:"",requester_id:"",notes:"家族滞在",official_req_no:"",docs:null,hearing_items:null,additional_requests:null},
-  {case_id:"J003",no:108,category:"国際",client_id:"",template_id:null,case_title:"在留資格認定証明書交付申請",status:"申請中",accepted_date:"2025-10-20",applied_date:null,result_date:null,receipt_number:"",result:"",new_card:"",period:"",next_renewal:"",fee:65000,paid:25000,applicant:"GIRI SARASWATI",applicant_id:"C007",requester:"",requester_id:"",notes:"着手金入金済。COE待ち",official_req_no:"",docs:null,hearing_items:null,additional_requests:null},
-  {case_id:"J004",no:107,category:"書類作成",client_id:"",template_id:null,case_title:"業務委託契約書作成",status:"完了",accepted_date:"2025-10-01",applied_date:null,result_date:"2025-11-30",receipt_number:"",result:"済",new_card:"",period:"",next_renewal:"",fee:30000,paid:30000,applicant:"",applicant_id:"",requester:"株式会社フォロー",requester_id:"CO01",notes:"",official_req_no:"",docs:null,hearing_items:null,additional_requests:null},
-  {case_id:"J005",no:106,category:"国際",client_id:"",template_id:null,case_title:"在留資格変更許可申請",status:"許可",accepted_date:"2025-09-19",applied_date:"2025-09-19",result_date:"2025-12-03",receipt_number:"",result:"許可",new_card:"",period:"",next_renewal:"",fee:240000,paid:140000,applicant:"合同会社BISHNU代表",applicant_id:"",requester:"合同会社BISHNU",requester_id:"CO03",notes:"経営管理。分割支払い",official_req_no:"",docs:null,hearing_items:null,additional_requests:null},
-  {case_id:"J006",no:105,category:"その他",client_id:"",template_id:null,case_title:"登録電気工事業者登録申請",status:"完了",accepted_date:"2025-09-07",applied_date:"2025-09-07",result_date:"2025-10-05",receipt_number:"",result:"済",new_card:"",period:"",next_renewal:"",fee:27500,paid:27500,applicant:"",applicant_id:"",requester:"TOEM",requester_id:"CO04",notes:"守岡 利数",official_req_no:"",docs:null,hearing_items:null,additional_requests:null},
-  {case_id:"J007",no:104,category:"国際",client_id:"",template_id:null,case_title:"在留資格変更許可申請",status:"追加資料対応中",accepted_date:"2025-08-15",applied_date:"2025-08-20",result_date:null,receipt_number:"",result:"",new_card:"",period:"",next_renewal:"",fee:300000,paid:300000,applicant:"SAHANI KRISHNA BAHADUR",applicant_id:"C006",requester:"",requester_id:"",notes:"経営管理",official_req_no:"",docs:null,hearing_items:null,additional_requests:null},
-  {case_id:"J008",no:103,category:"国際",client_id:"",template_id:null,case_title:"在留期間更新許可申請",status:"許可",accepted_date:"2025-07-23",applied_date:"2025-07-25",result_date:"2025-08-29",receipt_number:"",result:"許可",new_card:"",period:"1年",next_renewal:"2026-08-29",fee:43000,paid:43000,applicant:"REGMI DIL RAM",applicant_id:"C005",requester:"株式会社フォロー",requester_id:"CO01",notes:"",official_req_no:"",docs:null,hearing_items:null,additional_requests:null},
-  {case_id:"J009",no:102,category:"コンサル",client_id:"",template_id:null,case_title:"記帳代行",status:"受任",accepted_date:"2025-07-10",applied_date:null,result_date:null,receipt_number:"",result:"",new_card:"",period:"",next_renewal:"",fee:15000,paid:15000,applicant:"",applicant_id:"",requester:"株式会社フォロー",requester_id:"CO01",notes:"月次",official_req_no:"",docs:null,hearing_items:null,additional_requests:null},
-  {case_id:"J010",no:101,category:"国際",client_id:"",template_id:null,case_title:"在留期間更新許可申請",status:"許可",accepted_date:"2025-04-23",applied_date:"2025-04-25",result_date:"2025-06-10",receipt_number:"",result:"許可",new_card:"",period:"3年",next_renewal:"2028-06-10",fee:276000,paid:240000,applicant:"SHARMA PREM / SAPKOTA YAM KUMARI",applicant_id:"",requester:"株式会社フォロー",requester_id:"CO01",notes:"家族まとめ",official_req_no:"",docs:null,hearing_items:null,additional_requests:null},
-];
+const SAMPLE_CASES = [];
 
 // 会社DB
-const COMPANY_DB = [
-  {company_id:"CO01",name:"株式会社フォロー",kana:"カブシキガイシャフォロー",address:"東京都立川市高松町3-14-2",phone:"042-xxx-xxxx",representative:"岡崎 浩美",contact:"BODHI",drive_url:"",pref:"東京都"},
-  {company_id:"CO02",name:"株式会社ネパールフーズ",kana:"カブシキガイシャネパールフーズ",address:"東京都品川区xxx",phone:"03-xxxx-xxxx",representative:"",contact:"",drive_url:"",pref:"東京都"},
-  {company_id:"CO03",name:"合同会社BISHNU",kana:"ゴウドウガイシャビシュヌ",address:"東京都立川市高松町3丁目29番24号",phone:"",representative:"",contact:"",drive_url:"",pref:"東京都"},
-  {company_id:"CO04",name:"TOEM",kana:"トーエム",address:"東京都日野市日野本町6-6-6",phone:"090-7842-7406",representative:"守岡 利数",contact:"",drive_url:"",pref:"東京都"},
-];
+const COMPANY_DB = [];
 
 // payments[]は廃止。報酬情報はcases[]のfee/paid/invoice_*フィールドで管理。
 
@@ -563,7 +518,7 @@ function getInitialData(){
       return c;
     });
     // v9: office settings
-    if(!saved.office) saved.office = { name:"ながみ行政書士事務所", representative:"行政書士　長見　恵", phone:"080-5170-5665", email:"nagami.megumi@gmail.com", logo:LOGO_B64, stamp:STAMP_B64, bank_lines:["ゆうちょ銀行　〇一八支店　普通口座　93801281　ナガミ　メグミ","ゆうちょ　10140-93801281","三井住友銀行　立川支店　普通口座　04506118　ナガミ　メグミ"] };
+    if(!saved.office) saved.office = { name:"", representative:"", phone:"", email:"", logo:LOGO_B64, stamp:STAMP_B64, bank_lines:[] };
     if(saved.office && saved.office.postal===undefined) { saved.office.postal=""; saved.office.address1=""; saved.office.address2=""; }
     if(saved.office && !saved.office.bank_lines) saved.office.bank_lines = [];
     // v10: credential management
@@ -577,7 +532,7 @@ function getInitialData(){
     companies: COMPANY_DB.map(c=>({...c})),
     fee_master: JSON.parse(JSON.stringify(FEE_MASTER)),
     links: DEFAULT_LINKS,
-    office: { name:"ながみ行政書士事務所", representative:"行政書士　長見　恵", phone:"080-5170-5665", email:"nagami.megumi@gmail.com", logo:LOGO_B64, stamp:STAMP_B64, bank_lines:["ゆうちょ銀行　〇一八支店　普通口座　93801281　ナガミ　メグミ","ゆうちょ　10140-93801281","三井住友銀行　立川支店　普通口座　04506118　ナガミ　メグミ"], postal:"", address1:"", address2:"" },
+    office: { name:"", representative:"", phone:"", email:"", logo:LOGO_B64, stamp:STAMP_B64, bank_lines:[], postal:"", address1:"", address2:"" },
     version: 7,
   };
 }
