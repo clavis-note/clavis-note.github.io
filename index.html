@@ -2532,6 +2532,290 @@ function CaseDetail({c,onUpdate,clients,allCases,payments}){
   const YEARS=Array.from({length:50},(_,i)=>String(new Date().getFullYear()-i));
   const MONTHS=Array.from({length:12},(_,i)=>String(i+1).padStart(2,"0"));
 
+  // オンライン申請CSV出力（入管フォーマット直接出力）
+  function exportOnlineExcel(){
+    if(!client){alert("クライアントが紐づいていません");return;}
+    
+    // 日付変換 YYYY-MM-DD → YYYYMMDD
+    const toYMD=d=>d?d.replace(/-/g,""):"";
+    
+    // 半角→全角変換（住所用）
+    const toFullWidth=s=>{
+      if(!s)return"";
+      return s.replace(/[0-9]/g,c=>String.fromCharCode(c.charCodeAt(0)+0xFEE0))
+              .replace(/-/g,"－").replace(/\./g,"．");
+    };
+    
+    // 国籍コード変換（入管オンラインシステムコード）
+    const NATIONALITY_CODES={"ネパール":"7","インド":"85","中国":"2","フィリピン":"5","ベトナム":"3","韓国":"4","台湾":"10","タイ":"176","インドネシア":"8","ミャンマー":"9","バングラデシュ":"25","スリランカ":"167","パキスタン":"135","アメリカ":"11","米国":"11","イギリス":"188","英国":"188","オーストラリア":"20","カナダ":"41"};
+    const getNationalityCode=n=>{
+      if(!n)return"";
+      for(const[k,v]of Object.entries(NATIONALITY_CODES)){if(n.includes(k))return v;}
+      return"";
+    };
+    
+    // 性別コード（1=男, 2=女）
+    const getGenderCode=g=>{
+      if(!g)return"";
+      if(g.includes("男")||g.toLowerCase().includes("male"))return"1";
+      if(g.includes("女")||g.toLowerCase().includes("female"))return"2";
+      return"";
+    };
+    
+    // 在留資格コード
+    const VISA_CODES={"技能":"T20","技術・人文知識・国際業務":"T16","特定技能":"T46","技能実習":"T40","家族滞在":"T27","永住者":"T28","日本人の配偶者等":"T29","定住者":"T32","留学":"T25"};
+    const getVisaCode=v=>{
+      if(!v)return"";
+      for(const[k,code]of Object.entries(VISA_CODES)){if(v.includes(k))return code;}
+      return"";
+    };
+    
+    // 在留カード番号からED番号を抽出
+    const parseResidenceCard=card=>{
+      if(!card)return{eng:"",num:""};
+      const m=card.match(/^([A-Z]{2})(\d+)([A-Z]{2})$/i);
+      if(m)return{eng:m[1].toUpperCase()+m[3].toUpperCase(),num:m[2]};
+      return{eng:"",num:""};
+    };
+    const ed=parseResidenceCard(client.residence_card);
+    
+    // 会社情報を取得
+    const company=window.__clavisDB?.companies?.find(co=>co.name===client.company_name)||{};
+    
+    // 事務所情報（取次者情報）
+    const office=window.__clavisDB?.office||{};
+    
+    // 560列のヘッダー行
+    const CSV_HEADER=["","","","WCCBS010Dto:selNationalityAndRegion","txtName","radSex","selDateOfBirthYear(4),selDateOfBirthMonth(2),selDateOfBirthDay(2)","radSpouse","txtJob","txtHomeCountryAddress","WCCBS010Dto:hdnSearchedAddress","txtDetailHomeAddress","txtTelNum","txtCelPhoneNum","txtMailAddress","txtPassportNum","selPassportExpirationYear(4),selPassportExpirationMonth(2),selPassportExpirationDay(2)","radHnziUm1","txtHnziNiyu","radZincSnzkUm1","zincSnzkList[1].selNationalityAndRegion","zincSnzkList[1].txtName","zincSnzkList[1].selDateOfBirthYear(4),selDateOfBirthMonth(2),selDateOfBirthDay(2)","zincSnzkList[1].selZkgr","zincSnzkList[1].radDukyUm","zincSnzkList[1].txtWorkPlaceOrTugkskName","zincSnzkList[1].txtZiryCardNumOrTkeiNum","zincSnzkList[2].selNationalityAndRegion","zincSnzkList[2].txtName","zincSnzkList[2].selDateOfBirthYear(4),selDateOfBirthMonth(2),selDateOfBirthDay(2)","zincSnzkList[2].selZkgr","zincSnzkList[2].radDukyUm","zincSnzkList[2].txtWorkPlaceOrTugkskName","zincSnzkList[2].txtZiryCardNumOrTkeiNum","zincSnzkList[3].selNationalityAndRegion","zincSnzkList[3].txtName","zincSnzkList[3].selDateOfBirthYear(4),selDateOfBirthMonth(2),selDateOfBirthDay(2)","zincSnzkList[3].selZkgr","zincSnzkList[3].radDukyUm","zincSnzkList[3].txtWorkPlaceOrTugkskName","zincSnzkList[3].txtZiryCardNumOrTkeiNum","zincSnzkList[4].selNationalityAndRegion","zincSnzkList[4].txtName","zincSnzkList[4].selDateOfBirthYear(4),selDateOfBirthMonth(2),selDateOfBirthDay(2)","zincSnzkList[4].selZkgr","zincSnzkList[4].radDukyUm","zincSnzkList[4].txtWorkPlaceOrTugkskName","zincSnzkList[4].txtZiryCardNumOrTkeiNum","zincSnzkList[5].selNationalityAndRegion","zincSnzkList[5].txtName","zincSnzkList[5].selDateOfBirthYear(4),selDateOfBirthMonth(2),selDateOfBirthDay(2)","zincSnzkList[5].selZkgr","zincSnzkList[5].radDukyUm","zincSnzkList[5].txtWorkPlaceOrTugkskName","zincSnzkList[5].txtZiryCardNumOrTkeiNum","zincSnzkList[6].selNationalityAndRegion","zincSnzkList[6].txtName","zincSnzkList[6].selDateOfBirthYear(4),selDateOfBirthMonth(2),selDateOfBirthDay(2)","zincSnzkList[6].selZkgr","zincSnzkList[6].radDukyUm","zincSnzkList[6].txtWorkPlaceOrTugkskName","zincSnzkList[6].txtZiryCardNumOrTkeiNum","","radZiryCardJryHuhu","selJryuKnsh","txtTucSusnMailAddress","selCurrentZirySkk","WCCCS020Dto:selZiryPeriod","selExpirationDateYear(4),selExpirationDateMonth(2),selExpirationDateDay(2)","WCCCS020Dto:txtZiryCardNum","txtEdNumEng","txtEdNumNum","selNewZiryPeriod","WCCCS020Dto:txtKusnReason","txtDirnnName","txtDirnnZkgr","hdnSearchedDirnnAddress","txtDetailDirnnAddress","txtDirnnTelNum","txtDirnnCelPhoneNum","txtTrtgshName","chkDuiStmi","selEducation","txtOtherEducation","txtSchoolName","selGraduationDateYear(4),selGraduationDateMonth(2),selGraduationDateDay(2)","selMajorDigkinTnkDigk","txtOtherMajorDigkinTnkDigk","selMajorSnmn","txtOtherMajorSnmn","empHisList[1].txtWorkPlaceName","empHisList[1].selJobStartDateYear","empHisList[1].selJobStartDateMonth","empHisList[1].selJobEndDateYear","empHisList[1].selJobEndDateMonth","empHisList[2].txtWorkPlaceName","empHisList[2].selJobStartDateYear","empHisList[2].selJobStartDateMonth","empHisList[2].selJobEndDateYear","empHisList[2].selJobEndDateMonth","empHisList[3].txtWorkPlaceName","empHisList[3].selJobStartDateYear","empHisList[3].selJobStartDateMonth","empHisList[3].selJobEndDateYear","empHisList[3].selJobEndDateMonth","empHisList[4].txtWorkPlaceName","empHisList[4].selJobStartDateYear","empHisList[4].selJobStartDateMonth","empHisList[4].selJobEndDateYear","empHisList[4].selJobEndDateMonth","empHisList[5].txtWorkPlaceName","empHisList[5].selJobStartDateYear","empHisList[5].selJobStartDateMonth","empHisList[5].selJobEndDateYear","empHisList[5].selJobEndDateMonth","empHisList[6].txtWorkPlaceName","empHisList[6].selJobStartDateYear","empHisList[6].selJobStartDateMonth","empHisList[6].selJobEndDateYear","empHisList[6].selJobEndDateMonth","","","","","","","","","","","","","","","","","","","","","txtShzkKknKiykSkName","txtShzkKknKiykSkHujnNum","txtShzkKknKiykSkStnJgysh","hdnSearchedShzkKknKiykSkAddress","txtDetailShzkKknKiykSkAddress","txtShzkKknKiykSkTelNum","txtShzkKknKiykSkShnkn","txtShzkKknKiykSkUragdk","txtShzkKknKiykSkEmployee","txtShzkKknKiykSkForeignWorker","txtHknSkName","txtHknSkHujnNum","txtHknSkStnJgysh","hdnSearchedHknSkAddress","txtDetailHknSkAddress","txtHknSkTelNum","txtHknSkShnkn","txtHknSkUragdk","radKiykKiti","txtOtherKiykKiti","txaShkmNiyuShsi","radActDetail","txaActDetail","txtJtmKiknYears","txtHknPeriod","radWorkPosition","txtWorkPositionName","txtAllowancesAndSalary","WCCDS060Dto:selSzknMainGyosCode","WCCDS060Dto:selSzknOtheGyosCode1","WCCDS060Dto:selSzknOtheGyosCode2","WCCDS060Dto:txtSzknSkillNinzu","WCCDS060Dto:selHknskMainGyosCode","WCCDS060Dto:selHknskOtheGyosCode1","WCCDS060Dto:selHknskOtheGyosCode2","WCCDS060Dto:selSnsiKtdMainSyokusCode","WCCDS060Dto:selSnsiKtdOtheSyokusCode1","WCCDS060Dto:selSnsiKtdOtheSyokusCode2"];
+    // 残りの列を埋める（560列まで）
+    while(CSV_HEADER.length<560)CSV_HEADER.push("");
+    
+    // 560列のデータ行
+    const data=Array(560).fill("");
+    
+    // メタデータ
+    data[0]="1";
+    data[1]="04N";  // 技能
+    data[2]="04N3"; // 更新申請
+    
+    // 申請人情報
+    data[3]=getNationalityCode(client.nationality);  // 国籍コード
+    data[4]=(client.name_roman||"").toUpperCase();   // 氏名
+    data[5]=getGenderCode(client.gender);            // 性別
+    data[6]=toYMD(client.dob);                       // 生年月日
+    data[7]=client.spouse?"1":"0";                   // 配偶者有無
+    data[8]="";                                       // 職業
+    data[9]="";                                       // 本国住所
+    data[10]="";                                      // 住所コード（後で対応）
+    data[11]=toFullWidth(client.address||"");        // 住所詳細（全角変換）
+    data[12]=(client.phone||"").replace(/-/g,"");    // 電話番号
+    data[13]=(client.phone||"").replace(/-/g,"");    // 携帯電話
+    data[14]=client.email||"";                       // メール
+    data[15]=client.passport_number||"";             // パスポート番号
+    data[16]=toYMD(client.passport_expiry);          // パスポート有効期限
+    data[17]="0";                                     // 犯罪歴なし
+    data[18]="";                                      // 犯罪歴内容
+    data[19]=(client.dependents?.length>0)?"1":"0";  // 在日親族有無
+    
+    // 在留情報
+    data[63]="02";                                    // 在留カード受領方法（簡易書留）
+    data[64]="350";                                   // 受領官署（東京入管）
+    data[65]=client.email||"";                       // 通知用メール
+    data[66]=getVisaCode(client.residence_status);   // 現在の在留資格
+    data[67]="";                                      // 在留期間コード
+    data[68]=toYMD(client.residence_expiry);         // 在留期間満了日
+    data[69]=client.residence_card||"";              // 在留カード番号
+    data[70]=ed.eng;                                  // ED番号（英字）
+    data[71]=ed.num;                                  // ED番号（数字）
+    data[72]="";                                      // 希望在留期間
+    data[73]="引き続き、" + (client.company_name||"会社") + "にて調理業務に従事するため";  // 更新理由
+    
+    // 取次者情報
+    data[80]=office.representative||"長見恵";        // 取次者氏名
+    
+    // 所属機関情報
+    data[140]=client.company_name||company.name||""; // 所属機関名称
+    data[141]=company.corporate_number||"";          // 法人番号
+    data[142]=client.store||"";                      // 支店・事業所名
+    data[143]="";                                     // 所属機関住所コード
+    data[144]=company.address||"";                   // 所属機関住所詳細
+    data[145]=(company.phone||"").replace(/-/g,""); // 所属機関電話
+    data[146]=company.capital||"";                   // 資本金
+    data[147]=company.annual_sales||"";              // 年間売上高
+    data[148]=company.employee_count||"";            // 従業員数
+    data[149]=company.foreign_employee_count||"";    // 外国人従業員数
+    
+    // 雇用情報
+    const workStartYMD=toYMD(client.work_start_date);
+    if(workStartYMD){
+      // 雇用開始日は列224-226（年/月/日）
+      data[224]=workStartYMD.slice(0,4);             // 年
+      data[225]=workStartYMD.slice(4,6);             // 月
+      data[226]=workStartYMD.slice(6,8);             // 日
+    }
+    data[160]="";                                     // 職務内容
+    data[163]=client.experience_months||"";          // 実務経験月数
+    data[167]=client.monthly_salary||"";             // 月額給与
+    
+    // 申請人郵便番号
+    data[403]=(client.postal_code||"").replace(/-/g,"");  // 郵便番号（ハイフンなし）
+    
+    // 取次者情報
+    data[432]=(office.postal_code||"1900011").replace(/-/g,"");  // 取次者郵便番号
+    data[433]="";                                                 // 取次者住所コード（後で対応）
+    data[434]=toFullWidth(office.address||"高松町１－３－４・２Ｆ");  // 取次者住所
+    data[435]=office.name||"ながみ行政書士事務所";                   // 取次者所属機関
+    data[436]=(office.phone||"08051705665").replace(/-/g,"");    // 取次者電話番号
+    
+    // 所属機関郵便番号
+    data[438]=(company.postal_code||"").replace(/-/g,"");         // 所属機関郵便番号
+    
+    // CSV生成（UTF-16 LE, タブ区切り）
+    const headerLine=CSV_HEADER.join("\t");
+    const dataLine=data.join("\t");
+    const csvContent=headerLine+"\r\n"+dataLine;
+    
+    // UTF-16 LEに変換してダウンロード
+    const encoder=new TextEncoder();
+    const utf16Array=[];
+    utf16Array.push(0xFF,0xFE); // BOM (UTF-16 LE)
+    for(const char of csvContent){
+      const code=char.charCodeAt(0);
+      utf16Array.push(code&0xFF,(code>>8)&0xFF);
+    }
+    const blob=new Blob([new Uint8Array(utf16Array)],{type:"text/csv;charset=utf-16le"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");
+    a.href=url;
+    a.download=`SA_03_003_04N3_ver001.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  // 紙の申請書Excel出力（テンプレートにデータ流し込み）
+  async function exportPaperApplication(){
+    if(!client){alert("クライアントが紐づいていません");return;}
+    if(!window.XLSX){alert("SheetJS読み込みエラー");return;}
+    
+    // テンプレートURL（GitHub Pages）
+    const templateUrl = "./shinsei_template.xlsx";
+    
+    try{
+      // テンプレートをfetch
+      const res = await fetch(templateUrl);
+      if(!res.ok) throw new Error("テンプレートが見つかりません: " + templateUrl);
+      const buf = await res.arrayBuffer();
+      const wb = XLSX.read(buf, {type:"array"});
+      
+      // 会社情報を取得
+      const company = window.__clavisDB?.companies?.find(co=>co.name===client.company_name)||{};
+      const office = window.__clavisDB?.office||{};
+      
+      // 日付分解ヘルパー
+      const parseDate = d => {
+        if(!d) return {y:"",m:"",d:""};
+        const parts = d.split("-");
+        return {y:parts[0]||"", m:parseInt(parts[1])||"", d:parseInt(parts[2])||""};
+      };
+      const dob = parseDate(client.dob);
+      const passExp = parseDate(client.passport_expiry);
+      const resExp = parseDate(client.residence_expiry);
+      
+      // ========== シート1: 申請人用（更新）１ ==========
+      const ws1 = wb.Sheets["申請人用（更新）１"];
+      if(ws1){
+        // 国籍
+        ws1["G15"] = {t:"s", v:client.nationality||""};
+        // 生年月日
+        ws1["W15"] = {t:"n", v:dob.y}; ws1["AC15"] = {t:"n", v:dob.m}; ws1["AG15"] = {t:"n", v:dob.d};
+        // 氏名（ローマ字）
+        const nameParts = (client.name_roman||"").split(" ");
+        const familyName = nameParts[0]||"";
+        const givenName = nameParts.slice(1).join(" ")||"";
+        ws1["G18"] = {t:"s", v: familyName + "                    " + givenName};
+        // 職業
+        ws1["E24"] = {t:"s", v:"コック"};
+        // 本国住所
+        ws1["U24"] = {t:"s", v:""};
+        // 日本住所
+        ws1["G27"] = {t:"s", v:client.address||""};
+        // 電話
+        ws1["G30"] = {t:"s", v:client.phone||""};
+        ws1["Y30"] = {t:"s", v:client.phone||""};
+        // パスポート
+        ws1["I33"] = {t:"s", v:client.passport_number||""};
+        ws1["X33"] = {t:"n", v:passExp.y}; ws1["AD33"] = {t:"n", v:passExp.m}; ws1["AH33"] = {t:"n", v:passExp.d};
+        // 在留資格
+        ws1["I36"] = {t:"s", v:client.residence_status||""};
+        ws1["Z36"] = {t:"s", v:""};  // 在留期間
+        // 満了日
+        ws1["I39"] = {t:"n", v:resExp.y}; ws1["O39"] = {t:"n", v:resExp.m}; ws1["S39"] = {t:"n", v:resExp.d};
+        // 在留カード
+        ws1["I42"] = {t:"s", v:client.residence_card||""};
+        // 希望期間
+        ws1["I45"] = {t:"s", v:"5年"};
+        // 更新理由
+        ws1["I48"] = {t:"s", v:"引き続き、"+(client.company_name||"会社")+"において調理業務に従事するため"};
+      }
+      
+      // ========== シート2: 申請人用２Ｎ ==========
+      const ws2 = wb.Sheets["申請人用２Ｎ "];
+      if(ws2){
+        // 勤務先
+        ws2["E9"] = {t:"s", v:client.company_name||""};
+        ws2["W9"] = {t:"s", v:client.store||""};  // 支店名
+        // 所在地
+        ws2["F11"] = {t:"s", v:company.address||""};
+        ws2["Z11"] = {t:"s", v:company.phone||""};
+        // 取次者
+        ws2["E74"] = {t:"s", v:office.representative||"長見　恵"};
+        ws2["S74"] = {t:"s", v:office.address||"東京都立川市高松町１－３－４・２Ｆ"};
+        ws2["C79"] = {t:"s", v:office.name||"ながみ行政書士事務所"};
+        ws2["AA79"] = {t:"s", v:office.phone||"080-5170-5665"};
+      }
+      
+      // ========== シート3: 所属機関用１Ｎ ==========
+      const ws3 = wb.Sheets["所属機関用１Ｎ "];
+      if(ws3){
+        // 外国人の氏名
+        ws3["G9"] = {t:"s", v:client.name_roman||""};
+        ws3["S9"] = {t:"s", v:client.residence_card||""};  // 在留カード
+        // 会社名
+        ws3["G24"] = {t:"s", v:client.company_name||""};
+        // 法人番号（13桁）
+        if(company.corporate_number){
+          const cn = company.corporate_number.toString();
+          for(let i=0; i<13 && i<cn.length; i++){
+            const col = String.fromCharCode(84+i);  // T=84
+            ws3[col+"24"] = {t:"s", v:cn[i]};
+          }
+        }
+        // 支店名
+        ws3["J27"] = {t:"s", v:client.store||""};
+        // 所在地
+        ws3["H43"] = {t:"s", v:company.address||""};
+        ws3["AB43"] = {t:"s", v:company.phone||""};
+        // 資本金
+        ws3["H46"] = {t:"s", v:company.capital||""};
+        ws3["AC46"] = {t:"s", v:company.annual_sales||""};
+        // 従業員数
+        ws3["K49"] = {t:"n", v:company.employee_count||""};
+        // 外国人数
+        ws3["N51"] = {t:"n", v:company.foreign_employee_count||""};
+      }
+      
+      // Excel出力
+      const fileName = `在留期間更新許可申請書_${client.name_roman||"applicant"}_${new Date().toISOString().slice(0,10)}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+      
+    }catch(e){
+      console.error(e);
+      alert("紙の申請書の出力に失敗しました: " + e.message + "\n\nテンプレートファイル(shinsei_template.xlsx)がClavis Noteと同じフォルダにあるか確認してください。");
+    }
+  }
+
   return(
     <div style={{flex:1,overflowY:"auto",overflowX:"hidden",padding:18,display:"flex",flexDirection:"column",gap:14}}>
       {/* ヘッダー */}
@@ -2547,6 +2831,8 @@ function CaseDetail({c,onUpdate,clients,allCases,payments}){
               {client&&(client.drive_path||client.drive_url)&&<span onClick={()=>{if(client.drive_path){navigator.clipboard.writeText(client.drive_path);const b=document.getElementById("toast");if(b){b.textContent="📋 "+client.name_roman+" のパスをコピーしました";b.style.opacity=1;setTimeout(()=>b.style.opacity=0,1800);}}else if(client.drive_url){window.open(client.drive_url,"_blank","noopener");}}} style={{fontSize:11,cursor:"pointer",opacity:0.6}} title={(client.drive_path?"パスをコピー: "+client.drive_path:"Googleドライブを開く")}>📂</span>}
               <span style={{fontSize:11,color:"#999"}}>·</span><span style={{fontSize:11,color:"#666"}}>{tmpl?.label}</span>
               <button onClick={()=>setShowPreview(true)} style={{fontSize:10,padding:"2px 8px",cursor:"pointer",borderRadius:4,border:"0.5px solid #378ADD",background:"#E6F1FB",color:"#185FA5"}}>書類一覧</button>
+              <button onClick={exportOnlineExcel} style={{fontSize:10,padding:"2px 8px",cursor:"pointer",borderRadius:4,border:"0.5px solid #2E7D32",background:"#E8F5E9",color:"#2E7D32"}}>📤 申請CSV</button>
+              <button onClick={exportPaperApplication} style={{fontSize:10,padding:"2px 8px",cursor:"pointer",borderRadius:4,border:"0.5px solid #D84315",background:"#FBE9E7",color:"#BF360C"}}>📄 紙の申請書</button>
             </div>
           </div>
           <select value={c.status} onChange={e=>updateField("status",e.target.value)} style={{fontSize:12,padding:"4px 8px",borderRadius:6,border:"0.5px solid rgba(0,0,0,0.2)",background:"var(--bg2)",cursor:"pointer"}}>
