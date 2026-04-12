@@ -1139,7 +1139,10 @@ function Dashboard({data,setData,onNavClient,onNavCase,onNavPayment}){
     return s+itemsTotal+expTotal;
   },0);
   const yearPaid=(payments||[]).reduce((s,p)=>s+(p.payments_history||[]).filter(h=>h.date&&h.date.startsWith(thisYear)).reduce((a,h)=>a+h.amount,0),0);
-  const unpaidTotal=yearFee-yearPaid;
+  // 売掛残高は全期間の累計
+  const allFee=(payments||[]).reduce((s,p)=>s+calcGrandTotal(p.items,p.expenses,p.tax_mode||"tax_incl"),0);
+  const allPaid=(payments||[]).reduce((s,p)=>s+(p.payments_history||[]).reduce((a,h)=>a+h.amount,0),0);
+  const unpaidTotal=allFee-allPaid;
 
   // モーダル
   const [modal,setModal]=useState(null);
