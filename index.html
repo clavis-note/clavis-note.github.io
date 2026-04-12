@@ -35,7 +35,7 @@ table { width:100%; border-collapse:collapse; }
 <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://apis.google.com/js/api.js" async defer></script>
-</head><body><div id="root"></div>
+</head><body><div id="root"><div style="position:fixed;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#FAF8F5;font-family:-apple-system,BlinkMacSystemFont,sans-serif"><div style="display:flex;align-items:center;gap:12px;margin-bottom:16px"><span style="font-size:28px;font-weight:600;color:#185FA5">Clavis</span><span style="font-size:28px;font-weight:400;color:#1a1a1a">Note</span></div><div style="display:flex;gap:6px"><div style="width:8px;height:8px;border-radius:50%;background:#185FA5;animation:bounce 1.4s ease-in-out infinite"></div><div style="width:8px;height:8px;border-radius:50%;background:#185FA5;animation:bounce 1.4s ease-in-out 0.2s infinite"></div><div style="width:8px;height:8px;border-radius:50%;background:#185FA5;animation:bounce 1.4s ease-in-out 0.4s infinite"></div></div><style>@keyframes bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-10px)}}</style></div></div>
 <script type="text/babel">
 const { useState, useEffect, useCallback, useMemo, useRef, createContext, useContext } = React;
 
@@ -2508,6 +2508,7 @@ function NewCaseModal({onClose,onSave,clients,nextNo}){
 }
 
 function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments}){
+  const isMobile=useMobile();
   const client=clients.find(x=>x.client_id===c.client_id);
   const tmpl=TEMPLATES[c.template_id];
   const [showPreview,setShowPreview]=useState(false);
@@ -2828,16 +2829,16 @@ function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments}){
   }
 
   return(
-    <div style={{flex:1,overflowY:"auto",overflowX:"hidden",padding:18,display:"flex",flexDirection:"column",gap:14}}>
+    <div style={{flex:1,overflowY:"auto",overflowX:"hidden",padding:isMobile?12:18,display:"flex",flexDirection:"column",gap:14}}>
       {/* ヘッダー */}
-      <div style={{background:"var(--bg)",border:"0.5px solid rgba(0,0,0,0.1)",borderRadius:10,padding:"14px 16px"}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
+      <div style={{background:"var(--bg)",border:"0.5px solid rgba(0,0,0,0.1)",borderRadius:10,padding:isMobile?"12px 14px":"14px 16px"}}>
+        <div style={{display:"flex",flexDirection:isMobile?"column":"row",justifyContent:"space-between",alignItems:isMobile?"stretch":"flex-start",gap:isMobile?10:0,marginBottom:12}}>
           <div>
             {c.applicant&&<div style={{fontSize:16,fontWeight:600,marginBottom:2,display:"flex",alignItems:"center",gap:6}}>
               {client?<span onClick={()=>setShowClientModal(true)} style={{cursor:"pointer",borderBottom:"1px dashed #999"}} title="クライアント情報を表示">{c.applicant}</span>:<span>{c.applicant}</span>}
             </div>}
             <div style={{fontSize:13,color:c.applicant?"var(--text3)":"#1a1a1a",fontWeight:c.applicant?400:500,marginBottom:3}}>{c.case_title}</div>
-            <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
               <span style={{fontSize:12,color:"#666"}}>{client?.name_roman}</span>
               {client&&(client.drive_path||client.drive_url)&&<span onClick={()=>{if(client.drive_path){navigator.clipboard.writeText(client.drive_path);const b=document.getElementById("toast");if(b){b.textContent="📋 "+client.name_roman+" のパスをコピーしました";b.style.opacity=1;setTimeout(()=>b.style.opacity=0,1800);}}else if(client.drive_url){window.open(client.drive_url,"_blank","noopener");}}} style={{fontSize:11,cursor:"pointer",opacity:0.6}} title={(client.drive_path?"パスをコピー: "+client.drive_path:"Googleドライブを開く")}>📂</span>}
               <span style={{fontSize:11,color:"#999"}}>·</span><span style={{fontSize:11,color:"#666"}}>{tmpl?.label}</span>
@@ -2857,13 +2858,13 @@ function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments}){
           <div style={{fontSize:10,color:"#999",marginBottom:3}}>申請人</div>
           <input value={c.applicant||""} onChange={e=>updateField("applicant",e.target.value)} placeholder="申請人名（例: SAPKOTA DIPAK+BHAGAWATI）" style={{fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",width:"100%"}}/>
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:10}}>
+        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:10,marginBottom:10}}>
           {[["受任日","accepted_date"],["申請日","applied_date"],["結果日","result_date"]].map(([label,field])=>(
             <div key={field}><div style={{fontSize:10,color:"#999",marginBottom:3}}>{label}</div>
               <input type="date" max="9999-12-31" min="1900-01-01" value={c[field]||""} onChange={e=>updateField(field,e.target.value||null)} style={{fontSize:12,padding:"4px 6px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",width:"100%"}}/></div>
           ))}
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10}}>
           <div><div style={{fontSize:10,color:"#999",marginBottom:3}}>受付番号</div>
             <input value={c.receipt_number||""} onChange={e=>updateField("receipt_number",e.target.value)} placeholder="東オン認XXXXXXXX" style={{fontSize:12,padding:"4px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",width:"100%"}}/></div>
           <div><div style={{fontSize:10,color:"#999",marginBottom:3}}>📁 Googleドライブ</div>
@@ -5275,7 +5276,7 @@ function PaymentManagement({data,setData,navigatePaymentId,clearNavigate}){
   return(
     <div style={{position:isMobile?"relative":"fixed",top:isMobile?undefined:52,left:isMobile?undefined:0,right:isMobile?undefined:0,bottom:isMobile?undefined:0,height:isMobile?"calc(100vh - 52px)":undefined,display:"flex"}}>
       {/* サイドバー */}
-      <div style={{width:isMobile?undefined:280,flex:isMobile?"1":undefined,display:isMobile&&showDetail?"none":"flex",flexDirection:"column",background:"var(--bg)",borderRight:isMobile?"none":"0.5px solid rgba(0,0,0,0.1)"}}>
+      <div style={{width:isMobile?undefined:280,flex:isMobile?"1":undefined,minWidth:0,display:isMobile&&showDetail?"none":"flex",flexDirection:"column",background:"var(--bg)",borderRight:isMobile?"none":"0.5px solid rgba(0,0,0,0.1)",overflow:"hidden"}}>
         <div style={{padding:"12px 12px 8px",borderBottom:"0.5px solid rgba(0,0,0,0.08)"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
             <span style={{fontSize:14,fontWeight:500}}>報酬管理</span>
