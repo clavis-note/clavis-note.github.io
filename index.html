@@ -1130,8 +1130,15 @@ function Dashboard({data,setData,onNavClient,onNavCase,onNavPayment}){
   alerts.sort((a,b)=>(a.days??999)-(b.days??999));
 
   const activeCaseCount=cases.filter(c=>!["許可","不許可","完了","完了（許可）","完了（不許可）","完了（結果待ち）","キャンセル","取下","取下げ","取下予定","済","保留"].includes(c.status)).length;
-  const yearFee=(payments||[]).reduce((s,p)=>s+calcGrandTotal(p.items,p.expenses,p.tax_mode||"tax_incl"),0);
-  const yearPaid=(payments||[]).reduce((s,p)=>s+(p.payments_history||[]).reduce((a,h)=>a+h.amount,0),0);
+  const thisYear=new Date().getFullYear().toString();
+  // 個別の元請求日ベースで今年の売上を計算
+  const yearFee=(payments||[]).reduce((s,p)=>{
+    const taxRate=(p.tax_mode||"tax_incl")==="tax_excl"?1.1:1;
+    const itemsTotal=(p.items||[]).filter(i=>(i.original_date||p.invoice_date||"").startsWith(thisYear)).reduce((a,i)=>a+(i.unit_price||0)*(i.quantity||1),0)*taxRate;
+    const expTotal=(p.invoice_date||"").startsWith(thisYear)?(p.expenses||[]).filter(e=>e.billable).reduce((a,e)=>a+(e.amount||0),0):0;
+    return s+itemsTotal+expTotal;
+  },0);
+  const yearPaid=(payments||[]).reduce((s,p)=>s+(p.payments_history||[]).filter(h=>h.date&&h.date.startsWith(thisYear)).reduce((a,h)=>a+h.amount,0),0);
   const unpaidTotal=yearFee-yearPaid;
 
   // モーダル
@@ -4221,7 +4228,7 @@ function generateEstimate(p, cases, clients, office) {
     items.push({ name: "消費税（10%）", qty: 1, price: itemsTax });
   }
 
-  const MIN_ROWS = 10;
+  const MIN_ROWS = 6;
   let itemsHtml = items.map(item =>
     `<tr><td>${item.name}</td><td class="center">${item.qty}</td><td class="right">${item.price.toLocaleString()}</td><td class="right">${(item.price * item.qty).toLocaleString()}</td></tr>`
   ).join("");
@@ -4391,27 +4398,37 @@ function generateInvoice(p, cases, clients, office) {
   const items = (p.items || []).map(item => ({
     name: item.applicant ? item.applicant + " ／ " + item.name : item.name,
     qty: item.quantity || 1,
-    price: item.unit_price * (item.quantity || 1)
+    price: item.unit_price * (item.quantity || 1),
+    origDate: item.original_date || ""
   }));
+
+  // Sort by original date (oldest first, empty dates at end)
+  items.sort((a, b) => {
+    if (!a.origDate && !b.origDate) return 0;
+    if (!a.origDate) return 1;
+    if (!b.origDate) return -1;
+    return a.origDate.localeCompare(b.origDate);
+  });
 
   // Add expenses if billable
   (p.expenses || []).filter(e => e.billable).forEach(e => {
-    items.push({ name: "【立替】" + e.name, qty: 1, price: e.amount });
+    items.push({ name: "【立替】" + e.name, qty: 1, price: e.amount, origDate: "" });
   });
 
   // Tax line for tax_excl mode
   if (taxMode === "tax_excl") {
     const itemsTax = calcTax(itemsTotal, taxMode);
-    items.push({ name: "消費税（10%）", qty: 1, price: itemsTax });
+    items.push({ name: "消費税（10%）", qty: 1, price: itemsTax, origDate: "" });
   }
 
+  const hasOrigDate = items.some(i => i.origDate);
 
-  const MIN_ROWS = 10;
+  const MIN_ROWS = 6;
   let itemsHtml = items.map(item =>
-    `<tr><td>${item.name}</td><td class="center">${item.qty}</td><td class="right">${item.price.toLocaleString()}</td><td class="right">${(item.price * item.qty).toLocaleString()}</td></tr>`
+    `<tr><td>${item.name}</td>${hasOrigDate ? `<td class="center" style="font-size:8pt;color:#666">${item.origDate||""}</td>` : ""}<td class="center">${item.qty}</td><td class="right">${item.price.toLocaleString()}</td><td class="right">${(item.price * item.qty).toLocaleString()}</td></tr>`
   ).join("");
   for (let i = 0; i < Math.max(0, MIN_ROWS - items.length); i++) {
-    itemsHtml += `<tr class="empty-row"><td></td><td></td><td></td><td></td></tr>`;
+    itemsHtml += `<tr class="empty-row"><td></td>${hasOrigDate ? "<td></td>" : ""}<td></td><td></td><td></td></tr>`;
   }
 
   const fmtYen = n => "¥ " + n.toLocaleString();
@@ -4532,7 +4549,8 @@ body { font-family: "Yu Mincho", "游明朝", "Hiragino Mincho ProN", "MS Mincho
   <table class="items-table">
     <thead>
       <tr>
-        <th class="left" style="width:60%">品番・品名</th>
+        <th class="left" style="width:${hasOrigDate?"48%":"60%"}">品番・品名</th>
+        ${hasOrigDate ? '<th style="width:12%">元請求日</th>' : ""}
         <th style="width:8%">数量</th>
         <th style="width:14%">単価</th>
         <th style="width:18%">金額</th>
@@ -4541,7 +4559,7 @@ body { font-family: "Yu Mincho", "游明朝", "Hiragino Mincho ProN", "MS Mincho
     <tbody>${itemsHtml}</tbody>
     <tfoot>
       <tr class="tfoot-total">
-        <td colspan="3" class="tlabel">合　計</td>
+        <td colspan="${hasOrigDate?"4":"3"}" class="tlabel">合　計</td>
         <td class="tvalue right">${fmtYen(grandTotal)}</td>
       </tr>
     </tfoot>
@@ -4551,7 +4569,7 @@ body { font-family: "Yu Mincho", "游明朝", "Hiragino Mincho ProN", "MS Mincho
     <br>
     <div style="font-weight:bold; margin-bottom:2mm;">お振込先：</div>
     <div class="bank-info">
-      ${(ofc.bank_lines||[]).join("<br>")}
+      ${(ofc.bank_lines||[]).filter(b=>typeof b==="string"?true:b.show!==false).map(b=>typeof b==="string"?b:b.text).join("<br>")}
     </div>
   </div>
 </div>
@@ -4843,7 +4861,8 @@ function PaymentDetail({p,cases,clients,office,onUpdate,onDelete,onSplit,onItemS
                     padding:"0 0 1px",width:"100%",marginBottom:2,outline:"none"}}/>}
                   <div style={{fontSize:12,lineHeight:"1.3"}}>{item.name}</div>
                 </div>
-                {hasOrigDate&&<span style={{fontSize:10,color:"var(--text3)"}}>{item.original_date||"—"}</span>}
+                {hasOrigDate&&<input type="date" value={item.original_date||""} onChange={e=>updateItem(item.id,"original_date",e.target.value)}
+                  style={{fontSize:10,padding:"1px 2px",borderRadius:3,border:"0.5px solid rgba(0,0,0,0.12)",background:"var(--bg2)",color:"var(--text3)",width:82}}/>}
                 <input type="number" value={item.unit_price} onChange={e=>updateItem(item.id,"unit_price",parseInt(e.target.value)||0)}
                   style={{fontSize:12,padding:"2px 4px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",textAlign:"right",width:"100%"}}/>
                 <input type="number" value={item.quantity} min={1} onChange={e=>updateItem(item.id,"quantity",parseInt(e.target.value)||1)}
@@ -5070,6 +5089,7 @@ function PaymentManagement({data,setData,navigatePaymentId,clearNavigate}){
   const [showDetail,setShowDetail]=useState(()=>!!navigatePaymentId);
   const [showNew,setShowNew]=useState(false);
   const [filterStatus,setFilterStatus]=useState("全て");
+  const [filterYear,setFilterYear]=useState("全て");
   const [searchPay,setSearchPay]=useState("");
   const [mergeMode,setMergeMode]=useState(false);
   const [mergeIds,setMergeIds]=useState([]);
@@ -5233,6 +5253,7 @@ function PaymentManagement({data,setData,navigatePaymentId,clearNavigate}){
   }
 
   const allPayments=payments||[];
+  const yearOptions=useMemo(()=>{const years=new Set(allPayments.filter(p=>p.invoice_date).map(p=>p.invoice_date.slice(0,4)));return["全て",...[...years].sort().reverse()];},[allPayments]);
   const unpaidTotal=allPayments.filter(p=>paymentStatus(p)!=="入金済").reduce((s,p)=>{
     const total=calcGrandTotal(p.items,p.expenses,p.tax_mode||"tax_incl");
     const paid=(p.payments_history||[]).reduce((a,h)=>a+h.amount,0);
@@ -5240,8 +5261,9 @@ function PaymentManagement({data,setData,navigatePaymentId,clearNavigate}){
   },0);
 
   const statusList=["全て","未請求","請求済","一部入金","入金済"];
-  const stCounts=statusList.map(s=>({label:s,count:s==="全て"?allPayments.length:allPayments.filter(p=>paymentStatus(p)===s).length}));
-  const filtered=allPayments.filter(p=>{
+  const yearFiltered=filterYear==="全て"?allPayments:allPayments.filter(p=>p.invoice_date&&p.invoice_date.startsWith(filterYear));
+  const stCounts=statusList.map(s=>({label:s,count:s==="全て"?yearFiltered.length:yearFiltered.filter(p=>paymentStatus(p)===s).length}));
+  const filtered=yearFiltered.filter(p=>{
     if(filterStatus!=="全て"&&paymentStatus(p)!==filterStatus)return false;
     if(searchPay){const q=searchPay.toLowerCase();return[p.bill_to_name,p.invoice_number,...(p.case_ids||[]).map(id=>(cases.find(c=>c.case_id===id)?.case_title||"")),p.notes].some(s=>(s||"").toLowerCase().includes(q));}
     return true;
@@ -5273,7 +5295,15 @@ function PaymentManagement({data,setData,navigatePaymentId,clearNavigate}){
           </div>
         </div>
 
-        <div style={{display:"flex",gap:4,padding:"6px 12px 5px",flexWrap:"wrap"}}>
+        <div style={{display:"flex",gap:4,padding:"6px 12px 2px",flexWrap:"wrap",alignItems:"center"}}>
+          <span style={{fontSize:10,color:"var(--text3)",marginRight:2}}>年:</span>
+          {yearOptions.map(y=>(
+            <button key={y} onClick={()=>setFilterYear(y)} style={{fontSize:10,padding:"2px 7px",borderRadius:10,border:"0.5px solid",cursor:"pointer",
+              borderColor:filterYear===y?"#378ADD":"rgba(0,0,0,0.12)",background:filterYear===y?"#E6F1FB":"transparent",
+              color:filterYear===y?"#185FA5":"var(--text2)",fontWeight:filterYear===y?500:400}}>{y}</button>
+          ))}
+        </div>
+        <div style={{display:"flex",gap:4,padding:"4px 12px 5px",flexWrap:"wrap"}}>
           {stCounts.map(({label,count})=>{
             const sc=PAY_STATUS_COLORS[label]||{bg:"var(--bg3)",color:"var(--text2)"};
             return(
@@ -5362,9 +5392,11 @@ function MasterOffice({office,setOffice}){
     reader.onload=ev=>up(field,ev.target.result);
     reader.readAsDataURL(f);
   };
-  const bankLines=o.bank_lines||[];
-  const addBank=()=>up("bank_lines",[...bankLines,""]);
-  const updateBank=(i,v)=>{const a=[...bankLines];a[i]=v;up("bank_lines",a);};
+  // bank_linesを新形式に変換（マイグレーション）
+  const rawBanks=o.bank_lines||[];
+  const bankLines=rawBanks.map(b=>typeof b==="string"?{text:b,show:true}:b);
+  const addBank=()=>up("bank_lines",[...bankLines,{text:"",show:true}]);
+  const updateBank=(i,field,v)=>{const a=[...bankLines];a[i]={...a[i],[field]:v};up("bank_lines",a);};
   const removeBank=(i)=>up("bank_lines",bankLines.filter((_,j)=>j!==i));
   const inputS={fontSize:13,padding:"6px 10px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)",width:"100%"};
   const labelS={fontSize:10,color:"var(--text3)",fontWeight:500,marginBottom:4,letterSpacing:"0.05em"};
@@ -5418,13 +5450,17 @@ function MasterOffice({office,setOffice}){
             <button onClick={addBank} style={{fontSize:11,padding:"3px 10px",borderRadius:5,border:"0.5px solid var(--accent)",background:"var(--accent-bg)",color:"var(--accent-text)",cursor:"pointer"}}>＋ 口座追加</button>
           </div>
           {bankLines.length===0&&<div style={{fontSize:12,color:"var(--text3)",textAlign:"center",padding:12}}>口座情報を追加してください</div>}
-          {bankLines.map((line,i)=>(
+          {bankLines.map((bank,i)=>(
             <div key={i} style={{display:"flex",gap:8,marginBottom:8,alignItems:"center"}}>
-              <input value={line} onChange={e=>updateBank(i,e.target.value)} style={{...inputS,flex:1}} placeholder="例: 三井住友銀行　○○支店　普通　1234567　ヤマモト　タロウ"/>
+              <label style={{display:"flex",alignItems:"center",gap:4,cursor:"pointer",whiteSpace:"nowrap"}}>
+                <input type="checkbox" checked={bank.show!==false} onChange={e=>updateBank(i,"show",e.target.checked)} style={{width:16,height:16,cursor:"pointer"}}/>
+                <span style={{fontSize:10,color:bank.show!==false?"var(--text2)":"var(--text3)"}}>表示</span>
+              </label>
+              <input value={bank.text||""} onChange={e=>updateBank(i,"text",e.target.value)} style={{...inputS,flex:1,opacity:bank.show!==false?1:0.5}} placeholder="例: 三井住友銀行　○○支店　普通　1234567　ヤマモト　タロウ"/>
               <button onClick={()=>removeBank(i)} style={{fontSize:10,padding:"4px 8px",borderRadius:4,border:"0.5px solid #A32D2D",background:"transparent",color:"#A32D2D",cursor:"pointer",whiteSpace:"nowrap"}}>削除</button>
             </div>
           ))}
-          <div style={{fontSize:10,color:"var(--text3)",marginTop:8}}>※ 1行につき1口座。請求書に上から順に表示されます。</div>
+          <div style={{fontSize:10,color:"var(--text3)",marginTop:8}}>※ チェックを入れた口座のみ請求書に表示されます。</div>
         </div>
         {/* 申請取次管理 */}
         <div style={{background:"var(--bg)",border:"0.5px solid var(--border)",borderRadius:12,padding:20,marginTop:16}}>
