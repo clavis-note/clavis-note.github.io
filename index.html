@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Clavis Note - 入管業務特化の案件管理ツール</title>
@@ -2293,7 +2294,7 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
               const displayDays=tokurei.isTokurei?tokurei.tokureiDays:days;
               return(
                 <React.Fragment key={c.client_id}>
-                  <div onClick={()=>handleSelectClient(c)} style={{padding:indent?"6px 12px 6px 32px":"9px 12px",cursor:"pointer",borderBottom:"0.5px solid var(--border)",background:isSel?"var(--bg2)":"transparent",opacity:c.archived?0.45:1,borderLeft:isSel?"2px solid #378ADD":"2px solid transparent"}}>
+                  <div onClick={()=>handleSelectClient(c)} style={{padding:indent?"6px 12px 6px 32px":"9px 12px",cursor:"pointer",borderBottom:"0.5px solid var(--border)",background:isSel?"#E6F1FB":"transparent",opacity:c.archived?0.45:1,borderLeft:isSel?"3px solid #378ADD":"3px solid transparent"}}>
                     <div style={{display:"flex",alignItems:"center",gap:indent?6:8}}>
                       {indent&&<span style={{fontSize:10,color:"var(--text3)",flexShrink:0}}>└</span>}
                       <Avatar client={c} size={indent?24:30}/>
@@ -2496,7 +2497,7 @@ function NewCaseModal({onClose,onSave,clients,nextNo}){
   );
 }
 
-function CaseDetail({c,onUpdate,clients,allCases,payments}){
+function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments}){
   const client=clients.find(x=>x.client_id===c.client_id);
   const tmpl=TEMPLATES[c.template_id];
   const [showPreview,setShowPreview]=useState(false);
@@ -2835,9 +2836,12 @@ function CaseDetail({c,onUpdate,clients,allCases,payments}){
               <button onClick={exportPaperApplication} style={{fontSize:10,padding:"2px 8px",cursor:"pointer",borderRadius:4,border:"0.5px solid #D84315",background:"#FBE9E7",color:"#BF360C"}}>📄 紙の申請書</button>
             </div>
           </div>
-          <select value={c.status} onChange={e=>updateField("status",e.target.value)} style={{fontSize:12,padding:"4px 8px",borderRadius:6,border:"0.5px solid rgba(0,0,0,0.2)",background:"var(--bg2)",cursor:"pointer"}}>
-            {[...new Set([...CASE_STATUS_LIST,c.status])].map(s=><option key={s}>{s}</option>)}
-          </select>
+          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+            <select value={c.status} onChange={e=>updateField("status",e.target.value)} style={{fontSize:12,padding:"4px 8px",borderRadius:6,border:"0.5px solid rgba(0,0,0,0.2)",background:"var(--bg2)",cursor:"pointer"}}>
+              {[...new Set([...CASE_STATUS_LIST,c.status])].map(s=><option key={s}>{s}</option>)}
+            </select>
+            {onDelete&&<button onClick={onDelete} style={{fontSize:10,padding:"4px 10px",cursor:"pointer",borderRadius:5,border:"0.5px solid #A32D2D",background:"transparent",color:"#A32D2D"}}>🗑 削除</button>}
+          </div>
         </div>
         <div style={{marginBottom:10}}>
           <div style={{fontSize:10,color:"#999",marginBottom:3}}>申請人</div>
@@ -3220,9 +3224,10 @@ function NewGeneralCaseModal({onClose,onSave,clients,companies,nextNo}){
   const [clientId,setClientId]=useState("");
   const [requesterText,setRequesterText]=useState("");
   const [requesterId,setRequesterId]=useState("");
+  const [showError,setShowError]=useState(false);
   const allCompanies=companies||[];
   function handleSave(){
-    if(!title.trim())return;
+    if(!title.trim()){setShowError(true);return;}
     const cl=clients.find(c=>c.client_id===clientId);
     const co=allCompanies.find(c=>c.company_id===requesterId);
     onSave({
@@ -3248,8 +3253,8 @@ function NewGeneralCaseModal({onClose,onSave,clients,companies,nextNo}){
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
             <div><div style={{fontSize:10,color:"#999",marginBottom:4}}>カテゴリ</div>
               <select value={category} onChange={e=>setCategory(e.target.value)} style={{width:"100%",fontSize:13,padding:"6px 8px",borderRadius:6,border:"0.5px solid rgba(0,0,0,0.2)",background:"var(--bg2)"}}>{GENERAL_CASE_CATEGORIES.map(c=><option key={c}>{c}</option>)}</select></div>
-            <div><div style={{fontSize:10,color:"#999",marginBottom:4}}>案件タイトル *</div>
-              <input value={title} onChange={e=>setTitle(e.target.value)} placeholder="例: 車庫証明申請" style={{width:"100%",fontSize:13,padding:"6px 8px",borderRadius:6,border:"0.5px solid rgba(0,0,0,0.2)",background:"var(--bg2)"}}/></div>
+            <div><div style={{fontSize:10,color:"#999",marginBottom:4}}>案件タイトル <span style={{color:"#A32D2D"}}>*</span></div>
+              <input value={title} onChange={e=>{setTitle(e.target.value);if(e.target.value.trim())setShowError(false);}} placeholder="例: 車庫証明申請" style={{width:"100%",fontSize:13,padding:"6px 8px",borderRadius:6,border:showError?"1px solid #A32D2D":"0.5px solid rgba(0,0,0,0.2)",background:"var(--bg2)"}}/></div>
           </div>
           <div><div style={{fontSize:10,color:"#999",marginBottom:4}}>依頼者（会社）</div>
             <div style={{display:"flex",gap:6}}>
@@ -3260,9 +3265,10 @@ function NewGeneralCaseModal({onClose,onSave,clients,companies,nextNo}){
           <div><div style={{fontSize:10,color:"#999",marginBottom:4}}>クライアント（個人）</div>
             <select value={clientId} onChange={e=>setClientId(e.target.value)} style={{width:"100%",fontSize:13,padding:"6px 8px",borderRadius:6,border:"0.5px solid rgba(0,0,0,0.2)",background:"var(--bg2)"}}><option value="">なし</option>{clients.map(c=><option key={c.client_id} value={c.client_id}>{c.name_roman}</option>)}</select></div>
         </div>
-        <div style={{padding:"10px 16px",borderTop:"0.5px solid rgba(0,0,0,0.1)",display:"flex",justifyContent:"flex-end",gap:8}}>
+        <div style={{padding:"10px 16px",borderTop:"0.5px solid rgba(0,0,0,0.1)",display:"flex",justifyContent:"flex-end",alignItems:"center",gap:8}}>
+          {showError&&<span style={{fontSize:11,color:"#A32D2D"}}>タイトルを入力してください</span>}
           <button onClick={onClose} style={{fontSize:12,padding:"5px 14px",cursor:"pointer",borderRadius:6,border:"0.5px solid rgba(0,0,0,0.15)",background:"transparent",color:"#666"}}>キャンセル</button>
-          <button onClick={handleSave} disabled={!title.trim()} style={{fontSize:12,padding:"5px 14px",cursor:"pointer",borderRadius:6,border:"0.5px solid #378ADD",background:"#E6F1FB",color:"#185FA5",fontWeight:500,opacity:title.trim()?1:0.5}}>登録</button>
+          <button onClick={handleSave} style={{fontSize:12,padding:"5px 14px",cursor:"pointer",borderRadius:6,border:"0.5px solid #378ADD",background:"#E6F1FB",color:"#185FA5",fontWeight:500}}>登録</button>
         </div>
       </div>
     </div>
@@ -3346,7 +3352,7 @@ function ClientInfoModal({client,onClose}){
 // ============================================================
 // 8e. 一般案件：詳細ビュー
 // ============================================================
-function GeneralCaseDetail({c,onUpdate,clients,payments}){
+function GeneralCaseDetail({c,onUpdate,onDelete,clients,payments}){
   const [newDocName,setNewDocName]=useState("");
   const [showClientModal,setShowClientModal]=useState(false);
   const [openPaymentModal,setOpenPaymentModal]=useState(null);
@@ -3374,9 +3380,12 @@ function GeneralCaseDetail({c,onUpdate,clients,payments}){
               {c.requester&&displayName!==c.requester&&<span style={{fontSize:12,color:"#666"}}>{c.requester}</span>}
             </div>
           </div>
-          <select value={c.status} onChange={e=>updateField("status",e.target.value)} style={{fontSize:12,padding:"4px 8px",borderRadius:6,border:"0.5px solid rgba(0,0,0,0.2)",background:"var(--bg2)",cursor:"pointer"}}>
-            {[...new Set([...GENERAL_STATUS_LIST,...CASE_STATUS_LIST,c.status])].map(s=><option key={s}>{s}</option>)}
-          </select>
+          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+            <select value={c.status} onChange={e=>updateField("status",e.target.value)} style={{fontSize:12,padding:"4px 8px",borderRadius:6,border:"0.5px solid rgba(0,0,0,0.2)",background:"var(--bg2)",cursor:"pointer"}}>
+              {[...new Set([...GENERAL_STATUS_LIST,...CASE_STATUS_LIST,c.status])].map(s=><option key={s}>{s}</option>)}
+            </select>
+            {onDelete&&<button onClick={onDelete} style={{fontSize:10,padding:"4px 10px",cursor:"pointer",borderRadius:5,border:"0.5px solid #A32D2D",background:"transparent",color:"#A32D2D"}}>🗑 削除</button>}
+          </div>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:10}}>
           {[["受任日","accepted_date"],["申請日","applied_date"],["完了日","result_date"]].map(([label,field])=>(
@@ -3576,13 +3585,12 @@ function CaseManagement({data,setData,navigateCaseId,clearNavigate}){
             const total=c.docs?c.docs.length:0;
             const catColor=JOURNAL_CAT_COLOR[c.category]||{bg:"#F1EFE8",color:"#5F5E5A"};
             return(
-              <div key={c.case_id} onClick={()=>{setSelected(c);if(isMobile)setShowDetail(true);}} style={{padding:"9px 12px",cursor:"pointer",borderBottom:"0.5px solid rgba(0,0,0,0.06)",background:isSel?"#f5f5f3":"transparent",borderLeft:isSel?"2px solid #378ADD":"2px solid transparent"}}>
+              <div key={c.case_id} onClick={()=>{setSelected(c);if(isMobile)setShowDetail(true);}} style={{padding:"9px 12px",cursor:"pointer",borderBottom:"0.5px solid rgba(0,0,0,0.06)",background:isSel?"#E6F1FB":"transparent",borderLeft:isSel?"3px solid #378ADD":"3px solid transparent"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
                   <div style={{fontSize:12,fontWeight:500,marginBottom:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",flex:1,display:"flex",alignItems:"center",gap:4}}>
                     <span style={{overflow:"hidden",textOverflow:"ellipsis"}}>{subTab==="immigration"?(c.applicant||c.case_title):(()=>{const name=c.applicant||c.requester||(c.client_id?((data.clients||[]).find(x=>x.client_id===c.client_id)||{}).name_roman:"");return name||c.case_title;})()}</span>
                     {(c.drive_path||c.drive_url)&&<span onClick={e=>{e.stopPropagation();if(c.drive_path){navigator.clipboard.writeText(c.drive_path);const b=document.getElementById("toast");if(b){b.textContent="📋 パスをコピーしました";b.style.opacity=1;setTimeout(()=>b.style.opacity=0,1800);}}else if(c.drive_url){window.open(c.drive_url,"_blank");}}} style={{flexShrink:0,fontSize:11,opacity:0.5,cursor:"pointer"}} title={c.drive_path?"パスをコピー":"Googleドライブを開く"}>📂</span>}
                   </div>
-                  {isSel&&<button onClick={e=>{e.stopPropagation();if(confirm(`「${c.case_title}」を削除しますか？\n\n⚠️ 事件簿からも完全に消えます。\n記録を残したい場合は「キャンセル」を押して\nステータスを「キャンセル」に変更してください。`)){setCases(prev=>prev.filter(x=>x.case_id!==c.case_id));setSelected(null);}}} style={{fontSize:10,padding:"1px 5px",cursor:"pointer",borderRadius:3,border:"0.5px solid #A32D2D",background:"transparent",color:"#A32D2D",flexShrink:0,marginLeft:4}}>削除</button>}
                 </div>
                 {subTab==="immigration"&&<div style={{fontSize:11,color:"var(--text3)",marginBottom:3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{c.case_title}</div>}
                 {subTab==="general"&&<div style={{fontSize:11,color:"var(--text3)",marginBottom:3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{c.case_title}</div>}
@@ -3601,8 +3609,8 @@ function CaseManagement({data,setData,navigateCaseId,clearNavigate}){
       <div style={{flex:1,display:isMobile&&!showDetail?"none":"flex",flexDirection:"column",overflow:"hidden"}}>
         {isMobile&&showDetail&&<button onClick={()=>setShowDetail(false)} style={{display:"flex",alignItems:"center",gap:4,padding:"8px 14px",border:"none",background:"var(--bg)",borderBottom:"0.5px solid var(--border)",cursor:"pointer",color:"var(--accent-text)",fontSize:13,fontWeight:500,width:"100%"}}>← 一覧に戻る</button>}
         {!sel?<div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",color:"#bbb"}}>案件を選択してください</div>
-          :isGeneral?<GeneralCaseDetail c={sel} onUpdate={updated=>{setCases(prev=>prev.map(c=>c.case_id===updated.case_id?updated:c));setSelected(updated);}} clients={clients} payments={payments||[]}/>
-          :<CaseDetail c={sel} onUpdate={updated=>{setCases(prev=>prev.map(c=>c.case_id===updated.case_id?updated:c));setSelected(updated);}} clients={clients} allCases={cases} payments={payments||[]}/>}
+          :isGeneral?<GeneralCaseDetail c={sel} onUpdate={updated=>{setCases(prev=>prev.map(c=>c.case_id===updated.case_id?updated:c));setSelected(updated);}} onDelete={()=>{if(confirm(`「${sel.case_title}」を削除しますか？\n\n⚠️ 事件簿からも完全に消えます。\n記録を残したい場合は「キャンセル」を押して\nステータスを「キャンセル」に変更してください。`)){setCases(prev=>prev.filter(x=>x.case_id!==sel.case_id));setSelected(null);}}} clients={clients} payments={payments||[]}/>
+          :<CaseDetail c={sel} onUpdate={updated=>{setCases(prev=>prev.map(c=>c.case_id===updated.case_id?updated:c));setSelected(updated);}} onDelete={()=>{if(confirm(`「${sel.case_title}」を削除しますか？\n\n⚠️ 事件簿からも完全に消えます。\n記録を残したい場合は「キャンセル」を押して\nステータスを「キャンセル」に変更してください。`)){setCases(prev=>prev.filter(x=>x.case_id!==sel.case_id));setSelected(null);}}} clients={clients} allCases={cases} payments={payments||[]}/>}
       </div>
       {showNew&&subTab==="immigration"&&<NewCaseModal onClose={()=>setShowNew(false)} clients={clients} nextNo={nextNo} onSave={nc=>{setCases(prev=>[nc,...prev]);setSelected(nc);setShowNew(false);}}/>}
       {showNew&&subTab==="general"&&<NewGeneralCaseModal onClose={()=>setShowNew(false)} clients={clients} companies={companies||[]} nextNo={nextNo} onSave={nc=>{setCases(prev=>[nc,...prev]);setSelected(nc);setShowNew(false);}}/>}
@@ -3815,7 +3823,7 @@ function CaseJournal({data,setData}){
         </div>
       </div>
       <div style={{flex:1,overflow:"auto",background:"var(--bg)"}}>
-        <table style={{width:"100%",borderCollapse:"separate",borderSpacing:0,tableLayout:"fixed"}}>
+        <table style={{width:"100%",borderCollapse:"separate",borderSpacing:0,tableLayout:"fixed",minWidth:900}}>
           <colgroup>
             <col style={{width:28}}/><col style={{width:colWidths.no}}/><col style={{width:colWidths.accepted}}/>
             <col style={{width:colWidths.cat}}/><col style={{width:colWidths.title}}/><col style={{width:colWidths.req}}/>
@@ -4816,10 +4824,10 @@ function PaymentDetail({p,cases,clients,office,onUpdate,onDelete,onSplit,onItemS
           const hasOrigDate=p.items.some(i=>i.original_date);
           const canSplitItem=p.items.length>1&&onItemSplit;
           const cols=hasOrigDate
-            ?(canSplitItem?"1fr 72px 82px 46px 72px 32px 22px":"1fr 72px 82px 46px 72px 22px")
-            :(canSplitItem?"1fr 90px 50px 80px 32px 24px":"1fr 90px 50px 80px 24px");
+            ?(canSplitItem?"minmax(100px,1fr) 72px 82px 46px 72px 32px 22px":"minmax(100px,1fr) 72px 82px 46px 72px 22px")
+            :(canSplitItem?"minmax(100px,1fr) 90px 50px 80px 32px 24px":"minmax(100px,1fr) 90px 50px 80px 24px");
           return(
-          <div style={{border:"0.5px solid rgba(0,0,0,0.08)",borderRadius:6,overflow:"hidden"}}>
+          <div style={{border:"0.5px solid rgba(0,0,0,0.08)",borderRadius:6,overflow:"auto",minWidth:380}}>
             <div style={{display:"grid",gridTemplateColumns:cols,padding:"5px 10px",background:"var(--bg2)",fontSize:10,color:"var(--text3)",fontWeight:500,gap:6}}>
               <span>項目</span>
               {hasOrigDate&&<span>元請求日</span>}
@@ -5288,8 +5296,8 @@ function PaymentManagement({data,setData,navigatePaymentId,clearNavigate}){
             return(
               <div key={p.payment_id} onClick={()=>mergeMode?toggleMerge(p.payment_id):(setSelectedId(p.payment_id),isMobile&&setShowDetail(true))}
                 style={{padding:"9px 12px",cursor:"pointer",borderBottom:"0.5px solid rgba(0,0,0,0.06)",display:"flex",gap:8,alignItems:"flex-start",
-                  background:mergeMode&&mergeIds.includes(p.payment_id)?"#E6F1FB":isSel&&!mergeMode?"var(--bg2)":"transparent",
-                  borderLeft:isSel&&!mergeMode?"2px solid var(--accent)":"2px solid transparent"}}>
+                  background:mergeMode&&mergeIds.includes(p.payment_id)?"#E6F1FB":isSel&&!mergeMode?"#E6F1FB":"transparent",
+                  borderLeft:isSel&&!mergeMode?"3px solid var(--accent)":"3px solid transparent"}}>
                 {mergeMode&&<div style={{width:18,height:18,borderRadius:3,border:`1.5px solid ${mergeIds.includes(p.payment_id)?"var(--accent)":"#ccc"}`,
                   background:mergeIds.includes(p.payment_id)?"var(--accent)":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginTop:2}}>
                   {mergeIds.includes(p.payment_id)&&<span style={{color:"#fff",fontSize:10}}>✓</span>}
