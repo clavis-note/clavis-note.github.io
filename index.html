@@ -219,35 +219,51 @@ const EXPENSE_PRESETS = [
 
 // 最低賃金マスター（localStorageで永続化、10月改定時に更新）
 // 出典: 厚生労働省 地域別最低賃金 https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/koyou_roudou/roudoukijun/minimumichiran/
+// 令和7年度（2025年10月〜）版。発効日は都道府県により異なる（10月〜翌3月に順次発効）
 const MIN_WAGE_KEY = "clavis-note-minwage";
 const DEFAULT_MIN_WAGES = [
-  {pref:"北海道",wage:1010,effective:"2024-10-01"},{pref:"青森県",wage:953,effective:"2024-10-01"},
-  {pref:"岩手県",wage:952,effective:"2024-10-01"},{pref:"宮城県",wage:973,effective:"2024-10-01"},
-  {pref:"秋田県",wage:951,effective:"2024-10-01"},{pref:"山形県",wage:955,effective:"2024-10-01"},
-  {pref:"福島県",wage:955,effective:"2024-10-01"},{pref:"茨城県",wage:1005,effective:"2024-10-01"},
-  {pref:"栃木県",wage:1004,effective:"2024-10-01"},{pref:"群馬県",wage:985,effective:"2024-10-01"},
-  {pref:"埼玉県",wage:1078,effective:"2024-10-01"},{pref:"千葉県",wage:1076,effective:"2024-10-01"},
-  {pref:"東京都",wage:1163,effective:"2024-10-01"},{pref:"神奈川県",wage:1162,effective:"2024-10-01"},
-  {pref:"新潟県",wage:985,effective:"2024-10-01"},{pref:"富山県",wage:998,effective:"2024-10-01"},
-  {pref:"石川県",wage:984,effective:"2024-10-01"},{pref:"福井県",wage:984,effective:"2024-10-01"},
-  {pref:"山梨県",wage:988,effective:"2024-10-01"},{pref:"長野県",wage:998,effective:"2024-10-01"},
-  {pref:"岐阜県",wage:1001,effective:"2024-10-01"},{pref:"静岡県",wage:1034,effective:"2024-10-01"},
-  {pref:"愛知県",wage:1077,effective:"2024-10-01"},{pref:"三重県",wage:1023,effective:"2024-10-01"},
-  {pref:"滋賀県",wage:1017,effective:"2024-10-01"},{pref:"京都府",wage:1058,effective:"2024-10-01"},
-  {pref:"大阪府",wage:1114,effective:"2024-10-01"},{pref:"兵庫県",wage:1052,effective:"2024-10-01"},
-  {pref:"奈良県",wage:986,effective:"2024-10-01"},{pref:"和歌山県",wage:980,effective:"2024-10-01"},
-  {pref:"鳥取県",wage:957,effective:"2024-10-01"},{pref:"島根県",wage:962,effective:"2024-10-01"},
-  {pref:"岡山県",wage:982,effective:"2024-10-01"},{pref:"広島県",wage:1020,effective:"2024-10-01"},
-  {pref:"山口県",wage:979,effective:"2024-10-01"},{pref:"徳島県",wage:980,effective:"2024-10-01"},
-  {pref:"香川県",wage:970,effective:"2024-10-01"},{pref:"愛媛県",wage:956,effective:"2024-10-01"},
-  {pref:"高知県",wage:952,effective:"2024-10-01"},{pref:"福岡県",wage:992,effective:"2024-10-01"},
-  {pref:"佐賀県",wage:956,effective:"2024-10-01"},{pref:"長崎県",wage:953,effective:"2024-10-01"},
-  {pref:"熊本県",wage:952,effective:"2024-10-01"},{pref:"大分県",wage:954,effective:"2024-10-01"},
-  {pref:"宮崎県",wage:952,effective:"2024-10-01"},{pref:"鹿児島県",wage:953,effective:"2024-10-01"},
-  {pref:"沖縄県",wage:952,effective:"2024-10-01"},
+  {pref:"北海道",wage:1075,effective:"2025-10-04"},{pref:"青森県",wage:1029,effective:"2025-11-21"},
+  {pref:"岩手県",wage:1031,effective:"2025-12-01"},{pref:"宮城県",wage:1038,effective:"2025-10-04"},
+  {pref:"秋田県",wage:1031,effective:"2026-03-31"},{pref:"山形県",wage:1032,effective:"2025-12-23"},
+  {pref:"福島県",wage:1033,effective:"2026-01-01"},{pref:"茨城県",wage:1074,effective:"2025-10-12"},
+  {pref:"栃木県",wage:1068,effective:"2025-10-01"},{pref:"群馬県",wage:1063,effective:"2026-03-01"},
+  {pref:"埼玉県",wage:1141,effective:"2025-11-01"},{pref:"千葉県",wage:1140,effective:"2025-10-03"},
+  {pref:"東京都",wage:1226,effective:"2025-10-03"},{pref:"神奈川県",wage:1225,effective:"2025-10-04"},
+  {pref:"新潟県",wage:1050,effective:"2025-10-02"},{pref:"富山県",wage:1062,effective:"2025-10-12"},
+  {pref:"石川県",wage:1054,effective:"2025-10-08"},{pref:"福井県",wage:1053,effective:"2025-10-08"},
+  {pref:"山梨県",wage:1052,effective:"2025-12-01"},{pref:"長野県",wage:1061,effective:"2025-10-03"},
+  {pref:"岐阜県",wage:1065,effective:"2025-10-18"},{pref:"静岡県",wage:1097,effective:"2025-11-01"},
+  {pref:"愛知県",wage:1140,effective:"2025-10-18"},{pref:"三重県",wage:1087,effective:"2025-11-21"},
+  {pref:"滋賀県",wage:1080,effective:"2025-10-05"},{pref:"京都府",wage:1122,effective:"2025-11-21"},
+  {pref:"大阪府",wage:1177,effective:"2025-10-16"},{pref:"兵庫県",wage:1116,effective:"2025-10-04"},
+  {pref:"奈良県",wage:1051,effective:"2025-11-16"},{pref:"和歌山県",wage:1045,effective:"2025-11-01"},
+  {pref:"鳥取県",wage:1030,effective:"2025-10-04"},{pref:"島根県",wage:1033,effective:"2025-11-17"},
+  {pref:"岡山県",wage:1047,effective:"2025-12-01"},{pref:"広島県",wage:1085,effective:"2025-11-01"},
+  {pref:"山口県",wage:1043,effective:"2025-10-16"},{pref:"徳島県",wage:1046,effective:"2026-01-01"},
+  {pref:"香川県",wage:1036,effective:"2025-10-18"},{pref:"愛媛県",wage:1033,effective:"2025-12-01"},
+  {pref:"高知県",wage:1023,effective:"2025-12-01"},{pref:"福岡県",wage:1057,effective:"2025-11-16"},
+  {pref:"佐賀県",wage:1030,effective:"2025-11-21"},{pref:"長崎県",wage:1031,effective:"2025-12-01"},
+  {pref:"熊本県",wage:1034,effective:"2026-01-01"},{pref:"大分県",wage:1035,effective:"2026-01-01"},
+  {pref:"宮崎県",wage:1023,effective:"2025-11-16"},{pref:"鹿児島県",wage:1026,effective:"2025-11-01"},
+  {pref:"沖縄県",wage:1023,effective:"2025-12-01"},
 ];
-function loadMinWages(){try{const r=localStorage.getItem(MIN_WAGE_KEY);if(r)return JSON.parse(r);}catch(e){}return DEFAULT_MIN_WAGES;}
-function saveMinWages(data){try{localStorage.setItem(MIN_WAGE_KEY,JSON.stringify(data));}catch(e){}}
+const MIN_WAGE_VERSION = "2025-10"; // バージョン管理（年度が変わったら更新）
+const MIN_WAGE_VER_KEY = "clavis-note-minwage-ver";
+function loadMinWages(){
+  try{
+    const savedVer=localStorage.getItem(MIN_WAGE_VER_KEY);
+    // バージョンが違う場合は強制的に新しいデータで上書き
+    if(savedVer!==MIN_WAGE_VERSION){
+      localStorage.setItem(MIN_WAGE_KEY,JSON.stringify(DEFAULT_MIN_WAGES));
+      localStorage.setItem(MIN_WAGE_VER_KEY,MIN_WAGE_VERSION);
+      return DEFAULT_MIN_WAGES;
+    }
+    const r=localStorage.getItem(MIN_WAGE_KEY);
+    if(r)return JSON.parse(r);
+  }catch(e){}
+  return DEFAULT_MIN_WAGES;
+}
+function saveMinWages(data){try{localStorage.setItem(MIN_WAGE_KEY,JSON.stringify(data));localStorage.setItem(MIN_WAGE_VER_KEY,MIN_WAGE_VERSION);}catch(e){}}
 function calcHourlyFromMonthly(monthly,weeklyH){if(!monthly||!weeklyH||weeklyH<=0)return null;return Math.round(monthly/(weeklyH*(365/7/12)));}
 function getMinWageForPref(pref,wages){if(!pref)return null;const w=wages.find(p=>p.pref===pref);return w?w.wage:null;}
 function checkMinWage(hourly,pref,wages){if(!hourly||!pref)return null;const mw=getMinWageForPref(pref,wages);if(!mw)return null;return hourly>=mw;}
