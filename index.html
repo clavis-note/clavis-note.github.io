@@ -5765,7 +5765,7 @@ function MasterCompany({companies,setCompanies,clients,onNavigateToClient}){
 
   return(
     <div style={{display:"flex",height:"100%"}}>
-      <div style={{width:isMobile?undefined:240,flex:isMobile?"1":undefined,display:isMobile&&showDetail?"none":"flex",flexDirection:"column",borderRight:isMobile?"none":"0.5px solid var(--border)"}}>
+      <div style={{width:isMobile?undefined:240,flex:isMobile?"1":undefined,display:isMobile&&showDetail?"none":"flex",flexDirection:"column",borderRight:isMobile?"none":"0.5px solid var(--border)",background:"var(--bg)"}}>
         <div style={{padding:"10px 12px",borderBottom:"0.5px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <span style={{fontSize:13,fontWeight:500}}>取引先企業</span>
           <button onClick={handleAdd} style={{width:24,height:24,cursor:"pointer",borderRadius:5,background:"var(--bg2)",border:"0.5px solid var(--border2)",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
@@ -6286,7 +6286,6 @@ const MobileContext = React.createContext(false);
 function useMobile(){ return React.useContext(MobileContext); }
 
 const TABS = [
-  {id:"dashboard",label:"ダッシュボード",icon:"📊"},
   {id:"clients",label:"クライアント",icon:"👤"},
   {id:"cases",label:"案件管理",icon:"📋"},
   {id:"journal",label:"事件簿",icon:"📕"},
@@ -6493,7 +6492,7 @@ function App(){
     <div style={{minHeight:"100vh",background:"#eeede8",zoom:isMobile?"1":fs}}>
       {/* グローバルナビ */}
       <div style={{background:"var(--bg)",borderBottom:"0.5px solid var(--border)",display:"flex",alignItems:"center",height:52,padding:"0 16px",position:"sticky",top:0,zIndex:100}}>
-        <div style={{fontSize:15,fontWeight:600,color:"var(--text)",marginRight:isMobile?8:24,letterSpacing:"-0.02em",flexShrink:0}}>
+        <div onClick={()=>setActiveTab("dashboard")} style={{fontSize:15,fontWeight:600,color:"var(--text)",marginRight:isMobile?8:24,letterSpacing:"-0.02em",flexShrink:0,cursor:"pointer"}}>
           <span style={{color:"var(--accent-text)"}}>Clavis</span> Note
         </div>
         {!isMobile&&<div style={{display:"flex",gap:2,flex:1}}>
