@@ -6150,9 +6150,9 @@ function MasterTemplate({templates,setTemplates,data,setData}){
                 <datalist id="group-suggestions">{groups.map(g=><option key={g} value={g}/>)}</datalist>
               );})()}
               {editDocs.map((d,i)=>(
-                <div key={d.id} draggable onDragStart={()=>setDragDocIdx(i)} onDragOver={e=>{e.preventDefault();}} onDrop={()=>{moveDoc(dragDocIdx,i);setDragDocIdx(null);}} onDragEnd={()=>setDragDocIdx(null)}
+                <div key={d.id} onDragOver={e=>{e.preventDefault();}} onDrop={()=>{moveDoc(dragDocIdx,i);setDragDocIdx(null);}}
                   style={{display:"flex",gap:6,marginBottom:6,alignItems:"center",background:dragDocIdx===i?"var(--accent-bg)":"transparent",borderRadius:4,padding:"2px 0"}}>
-                  <span style={{cursor:"grab",color:"var(--text3)",fontSize:14,padding:"0 4px",userSelect:"none"}}>≡</span>
+                  <span draggable onDragStart={()=>setDragDocIdx(i)} onDragEnd={()=>setDragDocIdx(null)} style={{cursor:"grab",color:"var(--text3)",fontSize:16,padding:"4px 8px",userSelect:"none"}}>≡</span>
                   <input value={d.name} onChange={e=>updateDoc(i,"name",e.target.value)} style={{flex:1,fontSize:12,padding:"5px 8px",borderRadius:4,border:"0.5px solid var(--border)",background:"var(--bg2)"}} placeholder="書類名"/>
                   <input list="group-suggestions" value={d.group||""} onChange={e=>updateDoc(i,"group",e.target.value||null)} style={{width:100,fontSize:11,padding:"5px 6px",borderRadius:4,border:"0.5px solid var(--border)",background:"var(--bg2)"}} placeholder="グループ"/>
                   <button onClick={()=>removeDoc(i)} style={{fontSize:14,border:"none",background:"none",color:"#E57373",cursor:"pointer",padding:"2px 6px"}}>×</button>
@@ -6166,9 +6166,9 @@ function MasterTemplate({templates,setTemplates,data,setData}){
                 <button onClick={addHearing} style={{fontSize:10,padding:"3px 8px",borderRadius:4,border:"0.5px solid var(--accent)",background:"var(--accent-bg)",color:"var(--accent-text)",cursor:"pointer"}}>＋追加</button>
               </div>
               {editHearing.map((h,i)=>(
-                <div key={h.id} draggable onDragStart={()=>setDragHearingIdx(i)} onDragOver={e=>{e.preventDefault();}} onDrop={()=>{moveHearing(dragHearingIdx,i);setDragHearingIdx(null);}} onDragEnd={()=>setDragHearingIdx(null)}
+                <div key={h.id} onDragOver={e=>{e.preventDefault();}} onDrop={()=>{moveHearing(dragHearingIdx,i);setDragHearingIdx(null);}}
                   style={{display:"flex",gap:6,marginBottom:6,alignItems:"center",background:dragHearingIdx===i?"var(--accent-bg)":"transparent",borderRadius:4,padding:"2px 0"}}>
-                  <span style={{cursor:"grab",color:"var(--text3)",fontSize:14,padding:"0 4px",userSelect:"none"}}>≡</span>
+                  <span draggable onDragStart={()=>setDragHearingIdx(i)} onDragEnd={()=>setDragHearingIdx(null)} style={{cursor:"grab",color:"var(--text3)",fontSize:16,padding:"4px 8px",userSelect:"none"}}>≡</span>
                   <input value={h.label} onChange={e=>updateHearing(i,"label",e.target.value)} style={{flex:1,fontSize:12,padding:"5px 8px",borderRadius:4,border:"0.5px solid var(--border)",background:"var(--bg2)"}} placeholder="項目名"/>
                   <select value={h.type} onChange={e=>updateHearing(i,"type",e.target.value)} style={{width:100,fontSize:11,padding:"5px 6px",borderRadius:4,border:"0.5px solid var(--border)",background:"var(--bg2)"}}>
                     <option value="text">テキスト</option>
