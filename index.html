@@ -639,6 +639,7 @@ async function readDocument(fileBase64, mediaType, apiKey){
   "postal_code": "郵便番号（ハイフンなし7桁）",
   "address": "住所（日本語）",
   "residence_status": "在留資格（日本語のみ。例: 技能、技術・人文知識・国際業務）",
+  "residence_period": "在留期間（例: 1年、3年、5年、6月、11月など。在留カードの「在留期間」欄から読み取る）",
   "residence_expiry": "YYYY-MM-DD形式（在留期間の満了日）",
   "residence_card": "在留カード番号",
   "passport_number": "パスポート番号",
@@ -1527,11 +1528,16 @@ function TabResidence({c,editMode,update,office}){
   return(
     <div>
       <Card title="在留カード">
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:14}}>
           <div>
             <div style={{fontSize:10,color:"var(--text3)",fontWeight:500,marginBottom:3,letterSpacing:"0.05em"}}>在留資格</div>
             {editMode?<select value={c.residence_status||""} onChange={e=>update("residence_status",e.target.value)} style={{fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)",width:"100%"}}><option value="">選択してください</option>{["技能","家族滞在","技術・人文知識・国際業務","留学","特定技能1号","特定技能2号","技能実習1号","技能実習2号","短期滞在","技能実習3号","日本人の配偶者等","特定活動","高度専門職1号","高度専門職2号","経営・管理","永住者","永住者の配偶者等","企業内転勤","外交","公用","教授","芸術","宗教","報道","法律・会計業務","医療","研究","教育","介護","興行","文化活動","研修","定住者"].map(s=><option key={s} value={s}>{s}</option>)}</select>
               :<span style={{fontSize:13,color:"var(--text)"}}>{c.residence_status||"—"}</span>}
+          </div>
+          <div>
+            <div style={{fontSize:10,color:"var(--text3)",fontWeight:500,marginBottom:3,letterSpacing:"0.05em"}}>在留期間</div>
+            {editMode?(()=>{const opts=["6月","1年","3年","5年","3月","4月","11月","15日","30日","90日"];const cur=c.residence_period;if(cur&&!opts.includes(cur))opts.unshift(cur);return<select value={cur||""} onChange={e=>update("residence_period",e.target.value)} style={{fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)",width:"100%"}}><option value="">選択</option>{opts.map(s=><option key={s} value={s}>{s}</option>)}</select>;})()
+              :<span style={{fontSize:13,color:"var(--text)"}}>{c.residence_period||"—"}</span>}
           </div>
           <div>
             <div style={{fontSize:10,color:"var(--text3)",fontWeight:500,marginBottom:3,letterSpacing:"0.05em"}}>在留期限</div>
@@ -2102,8 +2108,8 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
           if(lastResult){
             // 在留・パスポート関連は常に最新で上書き（カード更新時に反映されるように）
             // 住所・電話・名前等は先勝ち（本国住所で上書きされないように）
-            const ALWAYS_OVERWRITE=["residence_status","residence_expiry","residence_card","passport_number","passport_expiry"];
-            const FIELD_MAP={"name_roman":"name_roman","name_kana":"name_kana","nationality":"nationality","date_of_birth":"dob","gender":"gender","phone":"phone","email":"email","postal_code":"postal_code","address":"address","residence_status":"residence_status","residence_expiry":"residence_expiry","residence_card":"residence_card","passport_number":"passport_number","passport_expiry":"passport_expiry","company_name":"company_name","store":"store","work_start_date":"work_start_date"};
+            const ALWAYS_OVERWRITE=["residence_status","residence_period","residence_expiry","residence_card","passport_number","passport_expiry"];
+            const FIELD_MAP={"name_roman":"name_roman","name_kana":"name_kana","nationality":"nationality","date_of_birth":"dob","gender":"gender","phone":"phone","email":"email","postal_code":"postal_code","address":"address","residence_status":"residence_status","residence_period":"residence_period","residence_expiry":"residence_expiry","residence_card":"residence_card","passport_number":"passport_number","passport_expiry":"passport_expiry","company_name":"company_name","store":"store","work_start_date":"work_start_date"};
             Object.entries(FIELD_MAP).forEach(([src,dst])=>{
               if(lastResult[src]){
                 if(ALWAYS_OVERWRITE.includes(dst)||!alreadyFilled[dst]){
@@ -2278,7 +2284,7 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
   const tabs=getTabs(cur);
 
   return(
-    <div style={{position:isMobile?"relative":"fixed",top:isMobile?undefined:52,left:isMobile?undefined:0,right:isMobile?undefined:0,bottom:isMobile?undefined:0,height:isMobile?"calc(100vh - 52px)":undefined,display:"flex",background:"#eeede8"}}>
+    <div style={{position:isMobile?"relative":"fixed",top:isMobile?undefined:"var(--header-h)",left:isMobile?undefined:0,right:isMobile?undefined:0,bottom:isMobile?undefined:0,height:isMobile?"calc(100vh - var(--header-h))":undefined,display:"flex",background:"#eeede8"}}>
       {/* Sidebar */}
       <div style={{width:isMobile?undefined:260,flex:isMobile?"1":undefined,display:isMobile&&showDetail?"none":"flex",flexDirection:"column",background:"var(--bg)",borderRight:isMobile?"none":"0.5px solid var(--border)"}}>
         <div style={{padding:"12px 12px 8px",borderBottom:"0.5px solid var(--border)",flex:"0 0 auto"}}>
@@ -2883,8 +2889,6 @@ function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments,templates}){
               {client&&(client.drive_path||client.drive_url)&&<span onClick={()=>{if(client.drive_path){navigator.clipboard.writeText(client.drive_path);const b=document.getElementById("toast");if(b){b.textContent="📋 "+client.name_roman+" のパスをコピーしました";b.style.opacity=1;setTimeout(()=>b.style.opacity=0,1800);}}else if(client.drive_url){window.open(client.drive_url,"_blank","noopener");}}} style={{fontSize:11,cursor:"pointer",opacity:0.6}} title={(client.drive_path?"パスをコピー: "+client.drive_path:"Googleドライブを開く")}>📂</span>}
               <span style={{fontSize:11,color:"#999"}}>·</span><span style={{fontSize:11,color:"#666"}}>{tmpl?.label}</span>
               <button onClick={()=>setShowPreview(true)} style={{fontSize:10,padding:"2px 8px",cursor:"pointer",borderRadius:4,border:"0.5px solid #378ADD",background:"#E6F1FB",color:"#185FA5"}}>書類一覧</button>
-              <button onClick={exportOnlineExcel} style={{fontSize:10,padding:"2px 8px",cursor:"pointer",borderRadius:4,border:"0.5px solid #2E7D32",background:"#E8F5E9",color:"#2E7D32"}}>📤 申請CSV</button>
-              <button onClick={exportPaperApplication} style={{fontSize:10,padding:"2px 8px",cursor:"pointer",borderRadius:4,border:"0.5px solid #D84315",background:"#FBE9E7",color:"#BF360C"}}>📄 紙の申請書</button>
             </div>
           </div>
           <div style={{display:"flex",gap:8,alignItems:"center"}}>
@@ -3600,14 +3604,14 @@ function CaseManagement({data,setData,navigateCaseId,clearNavigate}){
   const generalCases=cases.filter(c=>c.case_type==="general");
   const currentCases=subTab==="immigration"?immigrationCases:generalCases;
 
-  const filtered=[...currentCases.filter(c=>{const q=search.toLowerCase();return(!q||[c.case_title,c.applicant||"",c.requester||""].some(s=>s.toLowerCase().includes(q)))&&(filterStatus==="全て"||c.status===filterStatus);})].sort((a,b)=>subTab==="immigration"?((a.applicant||"").localeCompare(b.applicant||"")||(a.case_id||"").localeCompare(b.case_id||"")):((b.accepted_date||"").localeCompare(a.accepted_date||"")));
+  const filtered=[...currentCases.filter(c=>{const q=search.toLowerCase();return(!q||[c.case_title,c.applicant||"",c.requester||""].some(s=>s.toLowerCase().includes(q)))&&(filterStatus==="全て"||c.status===filterStatus);})].sort((a,b)=>subTab==="immigration"?((a.applied_date?"1":"0").localeCompare(b.applied_date?"1":"0")||(b.applied_date||"").localeCompare(a.applied_date||"")):((b.accepted_date||"").localeCompare(a.accepted_date||"")));
   const activeStatuses=["全て",...new Set(currentCases.map(c=>c.status))];
   const sel=cases.find(c=>c.case_id===selected?.case_id)||null;
   const nextNo=cases.length>0?Math.max(...cases.map(d=>Number(d.no)||0))+1:1;
   const isGeneral=sel?.case_type==="general"||(!sel?.template_id&&sel?.category!=="国際"&&sel?.case_id?.startsWith("G"));
 
   return(
-    <div style={{position:isMobile?"relative":"fixed",top:isMobile?undefined:52,left:isMobile?undefined:0,right:isMobile?undefined:0,bottom:isMobile?undefined:0,height:isMobile?"calc(100vh - 52px)":undefined,display:"flex",background:"#eeede8"}}>
+    <div style={{position:isMobile?"relative":"fixed",top:isMobile?undefined:"var(--header-h)",left:isMobile?undefined:0,right:isMobile?undefined:0,bottom:isMobile?undefined:0,height:isMobile?"calc(100vh - var(--header-h))":undefined,display:"flex",background:"#eeede8"}}>
       <div style={{width:isMobile?undefined:252,flex:isMobile?"1":undefined,display:isMobile&&showDetail?"none":"flex",flexDirection:"column",background:"var(--bg)",borderRight:isMobile?"none":"0.5px solid rgba(0,0,0,0.1)"}}>
         <div style={{padding:"12px 12px 8px",borderBottom:"0.5px solid rgba(0,0,0,0.08)",flex:"0 0 auto",background:"var(--bg)"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
@@ -3745,7 +3749,7 @@ function JournalModal({entry,onClose,onSave,nextNo,clients,companies}){
 
 function CaseJournal({data,setData}){
   const isMobile=useMobile();
-  const {cases,clients}=data;
+  const {cases,clients,companies}=data;
   const setCases=useCallback(fn=>{setData(prev=>{const nc=typeof fn==="function"?fn(prev.cases):fn;return{...prev,cases:nc};});},[setData]);
   const [search,setSearch]=useState("");
   const [selCats,setSelCats]=useState(new Set());      // 複数選択（空=全て）
@@ -3799,6 +3803,51 @@ function CaseJournal({data,setData}){
   const hasFilter=selCats.size>0||selStatuses.size>0||selApplicants.size>0||filterYM!=="全て"||filterPayment!=="全て"||search;
   function clearAll(){setSearch("");setSelCats(new Set());setSelStatuses(new Set());setSelApplicants(new Set());setFilterYM("全て");setFilterPayment("全て");}
 
+  function exportJournalExcel(){
+    if(!window.XLSX){alert("SheetJS読み込みエラー");return;}
+    function fmtAddr(cl){if(!cl)return "";return(cl.postal_code?"〒"+cl.postal_code+" ":"")+(cl.address||"");}
+    function findClientAddr(d){
+      // クライアント引き当て（ID → 名前マッチのフォールバック）
+      let cl=null;
+      if(d.client_id||d.applicant_id) cl=clients.find(c=>c.client_id===(d.client_id||d.applicant_id));
+      if(!cl&&d.applicant) cl=clients.find(c=>c.name_roman===d.applicant||(c.name_roman&&d.applicant&&c.name_roman.toLowerCase()===d.applicant.toLowerCase()));
+
+      const title=(d.case_title||"").toUpperCase();
+      const isCOE=title.includes("COE")||title.includes("認定");
+      const isKazoku=(d.case_title||"").includes("家族滞在")||(cl&&cl.residence_status==="家族滞在");
+
+      if(isCOE&&isKazoku){
+        // 家族滞在COE → 扶養者の住所
+        if(cl&&cl.dependent_of){
+          const sponsor=clients.find(c=>c.client_id===cl.dependent_of);
+          if(sponsor&&sponsor.address)return fmtAddr(sponsor);
+        }
+        return cl?fmtAddr(cl):"";
+      }else if(isCOE){
+        // COE（技能等）→ 会社の住所
+        if(cl&&cl.company_name){
+          const co=(companies||[]).find(c=>c.name===cl.company_name);
+          if(co&&co.address)return co.address;
+        }
+        return "";
+      }else{
+        // 通常（変更・更新等）→ 申請人の住所
+        return cl?fmtAddr(cl):"";
+      }
+    }
+    const header=["No","受任日","カテゴリー","件名","依頼主","依頼者住所","申請人","ステータス","申請日","結果日","結果","報酬額","入金済","備考"];
+    const rows=filtered.map(d=>[
+      d.no||"",d.accepted_date||"",d.category||"",d.case_title||"",d.requester||"",findClientAddr(d),d.applicant||"",
+      d.status||"",d.applied_date||"",d.result_date||"",d.result||"",d.fee||0,calcPaid(d)||0,d.notes||""
+    ]);
+    const wb=XLSX.utils.book_new();
+    const ws=XLSX.utils.aoa_to_sheet([header,...rows]);
+    ws["!cols"]=[{wch:5},{wch:11},{wch:10},{wch:30},{wch:18},{wch:30},{wch:18},{wch:10},{wch:11},{wch:11},{wch:6},{wch:10},{wch:10},{wch:20}];
+    const today=new Date().toISOString().slice(0,10);
+    XLSX.utils.book_append_sheet(wb,ws,"事件簿");
+    XLSX.writeFile(wb,`事件簿_${filterYM!=="全て"?filterYM+"年":"全件"}_${today}.xlsx`);
+  }
+
   // 複数選択ドロップダウン
   function MultiSelect({id,label,options,selected,onChange}){
     const isOpen=openFilter===id;
@@ -3848,11 +3897,14 @@ function CaseJournal({data,setData}){
   function RH({col}){return <div className="resizer" onMouseDown={e=>startResize(col,e)} onClick={e=>e.stopPropagation()}/>;}
 
   return(
-    <div style={{position:isMobile?"relative":"fixed",top:isMobile?undefined:52,left:isMobile?undefined:0,right:isMobile?undefined:0,bottom:isMobile?undefined:0,height:isMobile?"calc(100vh - 52px)":undefined,display:"flex",flexDirection:"column",background:"#eeede8"}} onClick={()=>openFilter&&setOpenFilter(null)}>
+    <div style={{position:isMobile?"relative":"fixed",top:isMobile?undefined:"var(--header-h)",left:isMobile?undefined:0,right:isMobile?undefined:0,bottom:isMobile?undefined:0,height:isMobile?"calc(100vh - var(--header-h))":undefined,display:"flex",flexDirection:"column",background:"#eeede8"}} onClick={()=>openFilter&&setOpenFilter(null)}>
       <div style={{background:"var(--bg)",borderBottom:"0.5px solid rgba(0,0,0,0.1)",padding:"10px 16px",flexShrink:0}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
           <span style={{fontSize:15,fontWeight:500}}>事件簿</span>
-          <button onClick={()=>setShowNew(true)} style={{fontSize:12,padding:"5px 14px",cursor:"pointer",borderRadius:6,border:"0.5px solid #378ADD",background:"#E6F1FB",color:"#185FA5",fontWeight:500}}>+ 新規登録</button>
+          <div style={{display:"flex",gap:6}}>
+            <button onClick={exportJournalExcel} style={{fontSize:11,padding:"5px 12px",cursor:"pointer",borderRadius:6,border:"0.5px solid #2E7D32",background:"#E8F5E9",color:"#2E7D32",fontWeight:500}}>📥 Excel出力</button>
+            <button onClick={()=>setShowNew(true)} style={{fontSize:12,padding:"5px 14px",cursor:"pointer",borderRadius:6,border:"0.5px solid #378ADD",background:"#E6F1FB",color:"#185FA5",fontWeight:500}}>+ 新規登録</button>
+          </div>
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}} onClick={e=>e.stopPropagation()}>
           <div style={{position:"relative",display:"inline-block"}}>
@@ -3944,7 +3996,7 @@ function NewPaymentModal({onClose,onSave,cases,clients,payments,feeMaster}){
   const [billType,setBillType]=useState("individual");
   const [billToName,setBillToName]=useState("");
   const [taxMode,setTaxMode]=useState("tax_incl");
-  const [isFollow,setIsFollow]=useState(false);
+  const [feeCategory,setFeeCategory]=useState("general");
   const [items,setItems]=useState([]);
   const [expenses,setExpenses]=useState([]);
   const [expSuffix,setExpSuffix]=useState("");
@@ -3966,14 +4018,15 @@ function NewPaymentModal({onClose,onSave,cases,clients,payments,feeMaster}){
   const selClient=selCase?clients.find(x=>x.client_id===selCase.client_id):null;
   const isGeneralCase=selCase?.case_type==="general"||(!selCase?.template_id&&selCase?.category!=="国際"&&selCase?.case_id?.startsWith("G"));
   const fm=feeMaster||FEE_MASTER;
-  const feeItems=isGeneralCase?(fm.general_biz||{items:{}}).items:(fm[isFollow?"follow":"general"]||{items:{}}).items;
+  const immigrationCategories=Object.entries(fm).filter(([k])=>k!=="general_biz");
+  const feeItems=isGeneralCase?(fm.general_biz||{items:{}}).items:(fm[feeCategory]||fm.general||{items:{}}).items;
 
   function handleCaseChange(id){
     setCaseId(id);setItems([]);setExpenses([]);
     const c=cases.find(x=>x.case_id===id);
     const cl=c?clients.find(x=>x.client_id===c.client_id):null;
     const followDetected=c?isFollowCase(c,clients):false;
-    setIsFollow(followDetected);
+    setFeeCategory(followDetected?"follow":"general");
     if(cl){
       const dt=followDetected?"company":"individual";
       setBillType(dt);setBillToName(dt==="company"?(cl.company_name||c.requester||""):(cl.name_roman||c.applicant||""));
@@ -4027,7 +4080,7 @@ function NewPaymentModal({onClose,onSave,cases,clients,payments,feeMaster}){
         </div>
 
         <div style={{display:"flex",gap:0,padding:"10px 16px 0",borderBottom:"0.5px solid rgba(0,0,0,0.08)"}}>
-          {[["single","個別請求"],["bundle","フォローまとめ請求"]].map(([m,label])=>(
+          {[["single","個別請求"],["bundle","まとめ請求"]].map(([m,label])=>(
             <button key={m} onClick={()=>{setMode(m);setItems([]);setExpenses([]);setCaseId("");setSelectedCaseIds([]);}}
               style={{fontSize:12,padding:"6px 14px",cursor:"pointer",border:"none",borderBottom:mode===m?"2px solid var(--accent)":"2px solid transparent",
                 background:"transparent",color:mode===m?"var(--accent-text)":"var(--text2)",fontWeight:mode===m?500:400}}>{label}</button>
@@ -4063,10 +4116,10 @@ function NewPaymentModal({onClose,onSave,cases,clients,payments,feeMaster}){
               <div style={{fontSize:10,color:"var(--text3)",marginBottom:6,display:"flex",alignItems:"center",gap:8}}>
                 <span>料金マスタから追加</span>
                 {isGeneralCase?<span style={{padding:"2px 8px",borderRadius:3,fontSize:10,fontWeight:500,background:"#F1EFE8",color:"#5F5E5A",border:"0.5px solid #D3D1C7"}}>一般業務</span>
-                :<button onClick={()=>setIsFollow(!isFollow)}
-                  style={{padding:"2px 8px",borderRadius:3,cursor:"pointer",border:"0.5px solid",fontSize:10,fontWeight:500,
-                    background:isFollow?"#FAEEDA":"var(--accent-bg)",color:isFollow?"#854F0B":"var(--accent-text)",
-                    borderColor:isFollow?"#854F0B":"var(--accent)"}}>{isFollow?"フォロー特別":"入管一般"} ▾</button>}
+                :<select value={feeCategory} onChange={e=>setFeeCategory(e.target.value)}
+                  style={{padding:"2px 8px",borderRadius:3,cursor:"pointer",border:"0.5px solid var(--border)",fontSize:10,fontWeight:500,background:"var(--bg2)",color:"var(--text)"}}>
+                  {immigrationCategories.map(([id,cat])=><option key={id} value={id}>{cat.label}</option>)}
+                </select>}
               </div>
               <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
                 {Object.entries(feeItems).map(([key,f])=>(
@@ -4081,8 +4134,14 @@ function NewPaymentModal({onClose,onSave,cases,clients,payments,feeMaster}){
 
           {mode==="bundle"&&<>
             <div>
-              <div style={{fontSize:10,color:"var(--text3)",marginBottom:6}}>フォロー案件を選択</div>
-              {bundlableCases.map(c=>{
+              <div style={{fontSize:10,color:"var(--text3)",marginBottom:6,display:"flex",alignItems:"center",gap:8}}>
+                <span>案件を選択</span>
+                <select value={feeCategory} onChange={e=>setFeeCategory(e.target.value)}
+                  style={{padding:"2px 8px",borderRadius:3,cursor:"pointer",border:"0.5px solid var(--border)",fontSize:10,fontWeight:500,background:"var(--bg2)",color:"var(--text)"}}>
+                  {immigrationCategories.map(([id,cat])=><option key={id} value={id}>{cat.label}</option>)}
+                </select>
+              </div>
+              {availableCases.filter(c=>c.template_id).map(c=>{
                 const checked=selectedCaseIds.includes(c.case_id);
                 const cl=clients.find(x=>x.client_id===c.client_id);
                 const applicantName=c.applicant||cl?.name_roman||"—";
@@ -4099,7 +4158,7 @@ function NewPaymentModal({onClose,onSave,cases,clients,payments,feeMaster}){
                     </div>
                     {checked&&<div style={{padding:"6px 10px 8px",background:"var(--bg2)",borderRadius:"0 0 6px 6px",border:"0.5px solid var(--accent)",borderTop:"none"}}>
                       <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
-                        {Object.entries((fm.follow||{items:{}}).items).map(([key,f])=>(
+                        {Object.entries((fm[feeCategory]||fm.general||{items:{}}).items).map(([key,f])=>(
                           <button key={key} onClick={(e)=>{e.stopPropagation();setItems(p=>[...p,{id:"i"+Date.now()+Math.random(),name:f.name,unit_price:f.price,quantity:1,applicant:applicantName,original_date:invoiceDate}]);}}
                             style={{fontSize:10,padding:"3px 8px",cursor:"pointer",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.12)",background:"var(--bg)",color:"var(--text2)"}}>
                             + {f.name}（{fmt(f.price)}）
@@ -5315,7 +5374,7 @@ function PaymentManagement({data,setData,navigatePaymentId,clearNavigate}){
   });
 
   return(
-    <div style={{position:isMobile?"relative":"fixed",top:isMobile?undefined:52,left:isMobile?undefined:0,right:isMobile?undefined:0,bottom:isMobile?undefined:0,height:isMobile?"calc(100vh - 52px)":undefined,display:"flex",background:"#eeede8"}}>
+    <div style={{position:isMobile?"relative":"fixed",top:isMobile?undefined:"var(--header-h)",left:isMobile?undefined:0,right:isMobile?undefined:0,bottom:isMobile?undefined:0,height:isMobile?"calc(100vh - var(--header-h))":undefined,display:"flex",background:"#eeede8"}}>
       {/* サイドバー */}
       <div style={{width:isMobile?undefined:280,flex:isMobile?"1":undefined,minWidth:0,display:isMobile&&showDetail?"none":"flex",flexDirection:"column",background:"var(--bg)",borderRight:isMobile?"none":"0.5px solid rgba(0,0,0,0.1)",overflow:"hidden"}}>
         <div style={{padding:"12px 12px 8px",borderBottom:"0.5px solid rgba(0,0,0,0.08)"}}>
@@ -5367,7 +5426,9 @@ function PaymentManagement({data,setData,navigatePaymentId,clearNavigate}){
             const isSel=selected?.payment_id===p.payment_id;
             const st=paymentStatus(p);
             const scBadge=PAY_STATUS_COLORS[st]||{bg:"#F1EFE8",color:"#5F5E5A"};
-            const caseNames=p.case_ids.map(id=>cases.find(c=>c.case_id===id)?.case_title).filter(Boolean).join(" / ");
+            const caseNames=p.case_ids.length>1
+              ?p.case_ids.map(id=>cases.find(c=>c.case_id===id)?.applicant).filter(Boolean).join("、")
+              :p.case_ids.map(id=>cases.find(c=>c.case_id===id)?.case_title).filter(Boolean).join(" / ");
             return(
               <div key={p.payment_id} onClick={()=>mergeMode?toggleMerge(p.payment_id):(setSelectedId(p.payment_id),isMobile&&setShowDetail(true))}
                 style={{padding:"9px 12px",cursor:"pointer",borderBottom:"0.5px solid rgba(0,0,0,0.06)",display:"flex",gap:8,alignItems:"flex-start",
@@ -5741,6 +5802,8 @@ function MasterCompany({companies,setCompanies,clients,onNavigateToClient}){
   const [draft,setDraft]=useState(null);
   const sel=companies.find(c=>c.company_id===selId)||null;
   const cur=editMode?draft:sel;
+  const [dragCoIdx,setDragCoIdx]=useState(null);
+  function moveCompany(from,to){if(from===to)return;setCompanies(prev=>{const arr=[...prev];const [item]=arr.splice(from,1);arr.splice(to,0,item);return arr;});}
 
   function startEdit(){setDraft(JSON.parse(JSON.stringify(sel)));setEditMode(true);}
   function cancelEdit(){setEditMode(false);setDraft(null);}
@@ -5771,13 +5834,22 @@ function MasterCompany({companies,setCompanies,clients,onNavigateToClient}){
           <button onClick={handleAdd} style={{width:24,height:24,cursor:"pointer",borderRadius:5,background:"var(--bg2)",border:"0.5px solid var(--border2)",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
         </div>
         <div style={{flex:1,overflowY:"auto"}}>
-          {companies.map(co=>(
-            <div key={co.company_id} onClick={()=>{setSelId(co.company_id);setEditMode(false);setDraft(null);if(isMobile)setShowDetail(true);}}
-              style={{padding:"8px 12px",cursor:"pointer",borderBottom:"0.5px solid rgba(0,0,0,0.06)",
+          {companies.map((co,idx)=>(
+            <div key={co.company_id} onDragOver={e=>{e.preventDefault();e.dataTransfer.dropEffect="move";}} onDrop={()=>{moveCompany(dragCoIdx,idx);setDragCoIdx(null);}}
+              onClick={()=>{setSelId(co.company_id);setEditMode(false);setDraft(null);if(isMobile)setShowDetail(true);}}
+              style={{padding:"10px 12px",cursor:"pointer",borderBottom:"0.5px solid rgba(0,0,0,0.06)",display:"flex",alignItems:"center",gap:8,
                 background:selId===co.company_id?"var(--bg2)":"transparent",
-                borderLeft:selId===co.company_id?"2px solid var(--accent)":"2px solid transparent"}}>
-              <div style={{fontSize:12,fontWeight:500}}>{co.name||"新規会社"}</div>
-              <div style={{fontSize:10,color:"var(--text3)"}}>{co.pref} {co.representative&&`· ${co.representative}`}</div>
+                borderLeft:selId===co.company_id?"2px solid var(--accent)":"2px solid transparent",
+                borderTop:dragCoIdx!==null&&dragCoIdx!==idx?"3px solid transparent":"none",
+                ...(dragCoIdx!==null&&dragCoIdx!==idx?{position:"relative"}:{})}}>
+              {dragCoIdx!==null&&dragCoIdx!==idx&&<div onDragOver={e=>{e.preventDefault();e.currentTarget.style.opacity="1";}} onDragLeave={e=>{e.currentTarget.style.opacity="0";}} onDrop={e=>{e.stopPropagation();moveCompany(dragCoIdx,idx);setDragCoIdx(null);}}
+                style={{position:"absolute",top:-2,left:0,right:0,height:12,zIndex:2,borderTop:"2.5px solid var(--accent)",opacity:0,transition:"opacity 0.1s"}}/>}
+              <span draggable onDragStart={e=>{e.stopPropagation();setDragCoIdx(idx);}} onDragEnd={()=>setDragCoIdx(null)}
+                style={{cursor:"grab",color:"var(--text3)",fontSize:18,userSelect:"none",flexShrink:0,padding:"4px 2px",lineHeight:1,opacity:0.5}}>≡</span>
+              <div style={{flex:1,minWidth:0,opacity:dragCoIdx===idx?0.4:1}}>
+                <div style={{fontSize:12,fontWeight:500}}>{co.name||"新規会社"}</div>
+                <div style={{fontSize:10,color:"var(--text3)"}}>{co.pref} {co.representative&&`· ${co.representative}`}</div>
+              </div>
             </div>
           ))}
         </div>
@@ -5836,19 +5908,73 @@ function MasterCompany({companies,setCompanies,clients,onNavigateToClient}){
 }
 
 function MasterFee({feeMaster,setFeeMaster}){
-  const [tab,setTab]=useState("follow");
+  const isMobile=useMobile();
   const fm=feeMaster||FEE_MASTER;
-  const current=fm[tab]||{items:{}};
-  const items=Object.entries(current.items||{});
+  const categories=fm._order
+    ?fm._order.filter(id=>fm[id]).map(id=>[id,fm[id]])
+    :Object.entries(fm).filter(([k])=>k!=="_order");
+  const [selCat,setSelCat]=useState(categories[0]?.[0]||"general");
+  const current=fm[selCat]||{items:{}};
+  const items=current._itemOrder
+    ?current._itemOrder.filter(k=>(current.items||{})[k]).map(k=>[k,(current.items||{})[k]])
+    :Object.entries(current.items||{});
   const [adding,setAdding]=useState(false);
-  const [newKey,setNewKey]=useState("");
   const [newName,setNewName]=useState("");
   const [newPrice,setNewPrice]=useState("");
+  const [editingCategory,setEditingCategory]=useState(null);
+  const [editCategoryName,setEditCategoryName]=useState("");
+  const [dragCatIdx,setDragCatIdx]=useState(null);
+  const [dragItemIdx,setDragItemIdx]=useState(null);
 
+  function ensureOrder(obj){
+    if(!obj._order){obj._order=Object.keys(obj).filter(k=>k!=="_order");}
+    return obj;
+  }
+  function moveCat(from,to){
+    if(from===to)return;
+    setFeeMaster(prev=>{
+      const next=JSON.parse(JSON.stringify(prev||FEE_MASTER));
+      ensureOrder(next);
+      const [item]=next._order.splice(from,1);
+      next._order.splice(to,0,item);
+      return next;
+    });
+  }
+  function duplicateCategory(catId){
+    const newId="cat_"+Date.now().toString().slice(-6);
+    setFeeMaster(prev=>{
+      const next=JSON.parse(JSON.stringify(prev||FEE_MASTER));
+      ensureOrder(next);
+      next[newId]={label:(next[catId]?.label||"カテゴリ")+"（コピー）",items:JSON.parse(JSON.stringify(next[catId]?.items||{}))};
+      const idx=next._order.indexOf(catId);
+      next._order.splice(idx+1,0,newId);
+      return next;
+    });
+    setSelCat(newId);
+  }
+
+  function moveItem(from,to){
+    if(from===to)return;
+    setFeeMaster(prev=>{
+      const next=JSON.parse(JSON.stringify(prev||FEE_MASTER));
+      if(!next[selCat])return next;
+      if(!next[selCat]._itemOrder)next[selCat]._itemOrder=Object.keys(next[selCat].items||{});
+      const [item]=next[selCat]._itemOrder.splice(from,1);
+      next[selCat]._itemOrder.splice(to,0,item);
+      return next;
+    });
+  }
   function updatePrice(key,price){
     setFeeMaster(prev=>{
       const next=JSON.parse(JSON.stringify(prev||FEE_MASTER));
-      if(next[tab]&&next[tab].items&&next[tab].items[key]) next[tab].items[key].price=price;
+      if(next[selCat]&&next[selCat].items&&next[selCat].items[key]) next[selCat].items[key].price=price;
+      return next;
+    });
+  }
+  function updateItemName(key,name){
+    setFeeMaster(prev=>{
+      const next=JSON.parse(JSON.stringify(prev||FEE_MASTER));
+      if(next[selCat]&&next[selCat].items&&next[selCat].items[key]) next[selCat].items[key].name=name;
       return next;
     });
   }
@@ -5856,61 +5982,143 @@ function MasterFee({feeMaster,setFeeMaster}){
     if(!confirm(`「${current.items[key]?.name}」を削除しますか？`))return;
     setFeeMaster(prev=>{
       const next=JSON.parse(JSON.stringify(prev||FEE_MASTER));
-      delete next[tab].items[key];
+      delete next[selCat].items[key];
+      if(next[selCat]._itemOrder)next[selCat]._itemOrder=next[selCat]._itemOrder.filter(k=>k!==key);
       return next;
     });
   }
   function addItem(){
-    if(!newKey||!newName)return;
+    if(!newName)return;
+    const autoKey="item_"+Date.now().toString().slice(-8);
     setFeeMaster(prev=>{
       const next=JSON.parse(JSON.stringify(prev||FEE_MASTER));
-      if(!next[tab]) next[tab]={label:tab==="follow"?"フォロー特別":tab==="general_biz"?"一般業務":"入管一般",items:{}};
-      next[tab].items[newKey]={name:newName,price:parseInt(newPrice)||0};
+      if(!next[selCat]) next[selCat]={label:"新規カテゴリ",items:{}};
+      next[selCat].items[autoKey]={name:newName,price:parseInt(newPrice)||0};
+      if(next[selCat]._itemOrder)next[selCat]._itemOrder.push(autoKey);
       return next;
     });
-    setNewKey("");setNewName("");setNewPrice("");setAdding(false);
+    setNewName("");setNewPrice("");setAdding(false);
+  }
+  function addCategory(){
+    const id="cat_"+Date.now().toString().slice(-6);
+    setFeeMaster(prev=>{
+      const next=JSON.parse(JSON.stringify(prev||FEE_MASTER));
+      ensureOrder(next);
+      next[id]={label:"新規カテゴリ",items:{}};
+      next._order.push(id);
+      return next;
+    });
+    setSelCat(id);
+    setEditingCategory(id);
+    setEditCategoryName("新規カテゴリ");
+  }
+  function deleteCategory(catId){
+    if(categories.length<=1){alert("最低1つのカテゴリが必要です");return;}
+    if(!confirm(`カテゴリ「${fm[catId]?.label}」を削除しますか？\n含まれる項目もすべて削除されます。`))return;
+    setFeeMaster(prev=>{
+      const next=JSON.parse(JSON.stringify(prev||FEE_MASTER));
+      delete next[catId];
+      if(next._order) next._order=next._order.filter(k=>k!==catId);
+      return next;
+    });
+    if(selCat===catId){const remaining=categories.filter(([k])=>k!==catId);setSelCat(remaining[0]?.[0]||"general");}
+  }
+  function saveCategoryName(){
+    if(!editCategoryName.trim()){setEditingCategory(null);return;}
+    setFeeMaster(prev=>{
+      const next=JSON.parse(JSON.stringify(prev||FEE_MASTER));
+      if(next[editingCategory]) next[editingCategory].label=editCategoryName.trim();
+      return next;
+    });
+    setEditingCategory(null);
   }
   const inputS={fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)"};
 
   return(
-    <div style={{padding:18}}>
-      <div style={{display:"flex",gap:0,borderBottom:"0.5px solid var(--border)",marginBottom:16}}>
-        {[["follow","フォロー特別"],["general","入管一般"],["general_biz","一般業務"]].map(([id,label])=>(
-          <button key={id} onClick={()=>setTab(id)}
-            style={{fontSize:12,padding:"8px 16px",border:"none",borderBottom:tab===id?"2px solid var(--accent)":"2px solid transparent",
-              background:"transparent",cursor:"pointer",color:tab===id?"var(--accent-text)":"var(--text2)",fontWeight:tab===id?500:400}}>{label}</button>
-        ))}
-      </div>
-      <div style={{background:"var(--bg)",border:"0.5px solid var(--border)",borderRadius:10,overflow:"hidden"}}>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 100px 40px",padding:"8px 16px",background:"var(--bg2)",fontSize:10,color:"var(--text3)",fontWeight:500}}>
-          <span>キー</span><span>項目名</span><span style={{textAlign:"right"}}>金額</span><span/>
+    <div style={{display:"flex",flexDirection:isMobile?"column":"row",height:"100%",overflow:"hidden"}}>
+      {/* 左: カテゴリ一覧 */}
+      <div style={{width:isMobile?"100%":220,borderRight:isMobile?"none":"0.5px solid var(--border)",background:"var(--bg)",display:"flex",flexDirection:"column"}}>
+        <div style={{padding:"10px 14px",borderBottom:"0.5px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <span style={{fontSize:12,fontWeight:500}}>カテゴリ</span>
+          <button onClick={addCategory} style={{fontSize:11,padding:"4px 10px",borderRadius:5,border:"0.5px solid var(--accent)",background:"var(--accent-bg)",color:"var(--accent-text)",cursor:"pointer"}}>＋ 追加</button>
         </div>
-        {items.map(([key,item])=>(
-          <div key={key} style={{display:"grid",gridTemplateColumns:"1fr 1fr 100px 40px",padding:"8px 16px",borderTop:"0.5px solid rgba(0,0,0,0.06)",alignItems:"center"}}>
-            <span style={{fontSize:11,color:"var(--text3)"}}>{key}</span>
-            <span style={{fontSize:12}}>{item.name}</span>
-            <input type="number" value={item.price} onChange={e=>updatePrice(key,parseInt(e.target.value)||0)}
-              style={{...inputS,width:"100%",textAlign:"right",fontSize:12,padding:"3px 6px"}}/>
-            <button onClick={()=>deleteItem(key)} style={{border:"none",background:"none",cursor:"pointer",color:"#ccc",fontSize:14,textAlign:"center"}}>×</button>
-          </div>
-        ))}
-        {adding?(
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 100px 70px",padding:"8px 16px",borderTop:"0.5px solid var(--border)",gap:8,alignItems:"center",background:"var(--bg2)"}}>
-            <input value={newKey} onChange={e=>setNewKey(e.target.value)} placeholder="キー（英数）" style={{...inputS,fontSize:11,padding:"4px 6px"}}/>
-            <IMEInput value={newName} onChange={v=>setNewName(v)} placeholder="項目名" style={{...inputS,fontSize:12,padding:"4px 6px"}}/>
-            <input type="number" value={newPrice} onChange={e=>setNewPrice(e.target.value)} placeholder="金額" style={{...inputS,fontSize:12,padding:"4px 6px",textAlign:"right"}}/>
-            <div style={{display:"flex",gap:4}}>
-              <button onClick={addItem} style={{fontSize:10,padding:"3px 8px",borderRadius:4,border:"0.5px solid var(--accent)",background:"var(--accent-bg)",color:"var(--accent-text)",cursor:"pointer",fontWeight:500}}>追加</button>
-              <button onClick={()=>setAdding(false)} style={{fontSize:10,padding:"3px 6px",borderRadius:4,border:"0.5px solid var(--border)",background:"transparent",color:"var(--text3)",cursor:"pointer"}}>✕</button>
+        <div style={{flex:1,overflowY:"auto",padding:8}}>
+          {categories.map(([id,cat],idx)=>(
+            <div key={id} style={{position:"relative"}} onDragOver={e=>{e.preventDefault();e.dataTransfer.dropEffect="move";}} onDrop={()=>{moveCat(dragCatIdx,idx);setDragCatIdx(null);}}>
+              {dragCatIdx!==null&&dragCatIdx!==idx&&<div onDragOver={e=>{e.preventDefault();e.currentTarget.style.opacity="1";}} onDragLeave={e=>{e.currentTarget.style.opacity="0";}} onDrop={e=>{e.stopPropagation();moveCat(dragCatIdx,idx);setDragCatIdx(null);}}
+                style={{position:"absolute",top:-2,left:0,right:0,height:12,zIndex:2,borderTop:"2.5px solid var(--accent)",opacity:0,transition:"opacity 0.1s"}}/>}
+              {editingCategory===id?(
+                <input value={editCategoryName} onChange={e=>setEditCategoryName(e.target.value)} onBlur={saveCategoryName} onKeyDown={e=>{if(e.key==="Enter")saveCategoryName();if(e.key==="Escape")setEditingCategory(null);}} autoFocus
+                  style={{width:"100%",fontSize:12,padding:"8px 10px",borderRadius:6,border:"0.5px solid var(--accent)",background:"var(--bg2)",outline:"none",marginBottom:4}}/>
+              ):(
+                <div onClick={()=>setSelCat(id)} onDoubleClick={()=>{setEditingCategory(id);setEditCategoryName(cat.label);}}
+                  style={{padding:"10px 10px",marginBottom:4,borderRadius:6,cursor:"pointer",display:"flex",alignItems:"center",gap:8,
+                    background:selCat===id?"var(--accent-bg)":"var(--bg2)",
+                    border:selCat===id?"0.5px solid var(--accent)":"0.5px solid transparent"}}>
+                  <span draggable onDragStart={e=>{e.stopPropagation();setDragCatIdx(idx);}} onDragEnd={()=>setDragCatIdx(null)}
+                    style={{cursor:"grab",color:"var(--text3)",fontSize:18,userSelect:"none",flexShrink:0,padding:"4px 2px",lineHeight:1,opacity:0.5}}>≡</span>
+                  <div style={{flex:1,minWidth:0,opacity:dragCatIdx===idx?0.4:1}}>
+                    <div style={{fontSize:12,fontWeight:selCat===id?500:400,color:selCat===id?"var(--accent-text)":"var(--text)"}}>{cat.label}</div>
+                    <div style={{fontSize:10,color:"var(--text3)",marginTop:2}}>{Object.keys(cat.items||{}).length}項目</div>
+                  </div>
+                </div>
+              )}
+              {selCat===id&&!editingCategory&&(
+                <div style={{position:"absolute",top:6,right:6,display:"flex",gap:3}}>
+                  <button onClick={(e)=>{e.stopPropagation();duplicateCategory(id);}} title="複製"
+                    style={{fontSize:10,width:20,height:20,borderRadius:"50%",border:"0.5px solid var(--accent)",background:"var(--accent-bg)",color:"var(--accent-text)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>⧉</button>
+                  {categories.length>1&&<button onClick={(e)=>{e.stopPropagation();deleteCategory(id);}} title="カテゴリ削除"
+                    style={{fontSize:10,width:20,height:20,borderRadius:"50%",border:"none",background:"#e74c3c",color:"#fff",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>}
+                </div>
+              )}
             </div>
-          </div>
-        ):(
-          <div style={{padding:"8px 16px",borderTop:"0.5px solid rgba(0,0,0,0.06)"}}>
-            <button onClick={()=>setAdding(true)} style={{fontSize:11,padding:"4px 12px",borderRadius:5,border:"0.5px solid var(--border)",background:"transparent",color:"var(--text2)",cursor:"pointer"}}>+ 項目を追加</button>
-          </div>
-        )}
+          ))}
+        </div>
+        <div style={{padding:"8px 12px",borderTop:"0.5px solid var(--border)",fontSize:10,color:"var(--text3)"}}>
+          ≡ ドラッグで並び替え ・ ダブルクリックで名前変更
+        </div>
       </div>
-      <div style={{marginTop:10,fontSize:10,color:"var(--text3)"}}>※ 金額変更は即時反映されます。新規請求作成時のマスタ選択に使われます。</div>
+
+      {/* 右: 項目一覧 */}
+      <div style={{flex:1,overflowY:"auto",padding:16}}>
+        <div style={{fontSize:14,fontWeight:500,marginBottom:12}}>{current.label||"—"}</div>
+        <div style={{background:"var(--bg)",border:"0.5px solid var(--border)",borderRadius:10,overflow:"hidden"}}>
+          <div style={{display:"grid",gridTemplateColumns:"28px 1fr 100px 40px",padding:"8px 16px",background:"var(--bg2)",fontSize:10,color:"var(--text3)",fontWeight:500}}>
+            <span/><span>項目名</span><span style={{textAlign:"right"}}>金額</span><span/>
+          </div>
+          {items.length===0&&<div style={{padding:20,textAlign:"center",color:"var(--text3)",fontSize:12}}>項目がありません</div>}
+          {items.map(([key,item],idx)=>(
+            <div key={key} onDragOver={e=>{e.preventDefault();e.dataTransfer.dropEffect="move";}} onDrop={()=>{moveItem(dragItemIdx,idx);setDragItemIdx(null);}}
+              style={{display:"grid",gridTemplateColumns:"28px 1fr 100px 40px",padding:"8px 16px",borderTop:"0.5px solid rgba(0,0,0,0.06)",alignItems:"center",position:"relative"}}>
+              {dragItemIdx!==null&&dragItemIdx!==idx&&<div onDragOver={e=>{e.preventDefault();e.currentTarget.style.opacity="1";}} onDragLeave={e=>{e.currentTarget.style.opacity="0";}} onDrop={e=>{e.stopPropagation();moveItem(dragItemIdx,idx);setDragItemIdx(null);}}
+                style={{position:"absolute",top:-2,left:0,right:0,height:12,zIndex:2,borderTop:"2.5px solid var(--accent)",opacity:0,transition:"opacity 0.1s"}}/>}
+              <span draggable onDragStart={()=>setDragItemIdx(idx)} onDragEnd={()=>setDragItemIdx(null)}
+                style={{cursor:"grab",color:"var(--text3)",fontSize:16,userSelect:"none",opacity:0.5,lineHeight:1}}>≡</span>
+              <IMEInput value={item.name} onChange={v=>updateItemName(key,v)}
+                style={{...inputS,width:"100%",fontSize:12,padding:"3px 6px",opacity:dragItemIdx===idx?0.4:1}}/>
+              <input type="number" value={item.price} onChange={e=>updatePrice(key,parseInt(e.target.value)||0)}
+                style={{...inputS,width:"100%",textAlign:"right",fontSize:12,padding:"3px 6px"}}/>
+              <button onClick={()=>deleteItem(key)} style={{border:"none",background:"none",cursor:"pointer",color:"#ccc",fontSize:14,textAlign:"center"}}>×</button>
+            </div>
+          ))}
+          {adding?(
+            <div style={{display:"grid",gridTemplateColumns:"28px 1fr 100px 70px",padding:"8px 16px",borderTop:"0.5px solid var(--border)",gap:8,alignItems:"center",background:"var(--bg2)"}}>
+              <span/>
+              <IMEInput value={newName} onChange={v=>setNewName(v)} placeholder="項目名" style={{...inputS,fontSize:12,padding:"4px 6px"}}/>
+              <input type="number" value={newPrice} onChange={e=>setNewPrice(e.target.value)} placeholder="金額" style={{...inputS,fontSize:12,padding:"4px 6px",textAlign:"right"}}/>
+              <div style={{display:"flex",gap:4}}>
+                <button onClick={addItem} style={{fontSize:10,padding:"3px 8px",borderRadius:4,border:"0.5px solid var(--accent)",background:"var(--accent-bg)",color:"var(--accent-text)",cursor:"pointer",fontWeight:500}}>追加</button>
+                <button onClick={()=>setAdding(false)} style={{fontSize:10,padding:"3px 6px",borderRadius:4,border:"0.5px solid var(--border)",background:"transparent",color:"var(--text3)",cursor:"pointer"}}>✕</button>
+              </div>
+            </div>
+          ):(
+            <div style={{padding:"8px 16px",borderTop:"0.5px solid rgba(0,0,0,0.06)"}}>
+              <button onClick={()=>setAdding(true)} style={{fontSize:11,padding:"4px 12px",borderRadius:5,border:"0.5px solid var(--border)",background:"transparent",color:"var(--text2)",cursor:"pointer"}}>+ 項目を追加</button>
+            </div>
+          )}
+        </div>
+        <div style={{marginTop:10,fontSize:10,color:"var(--text3)"}}>※ 項目名・金額は直接編集できます。</div>
+      </div>
     </div>
   );
 }
@@ -5981,7 +6189,9 @@ function MasterTemplate({templates,setTemplates,data,setData}){
   const [selId,setSelId]=useState(null);
   const [editMode,setEditMode]=useState(false);
   const [showNew,setShowNew]=useState(false);
-  const entries=Object.entries(templates).sort((a,b)=>a[0].localeCompare(b[0]));
+  const entries=templates._order
+    ?templates._order.filter(id=>templates[id]).map(id=>[id,templates[id]])
+    :Object.entries(templates).filter(([k])=>k!=="_order").sort((a,b)=>a[0].localeCompare(b[0]));
   const sel=selId?templates[selId]:null;
 
   // 編集用ローカルstate
@@ -5991,7 +6201,41 @@ function MasterTemplate({templates,setTemplates,data,setData}){
   const [editDocs,setEditDocs]=useState([]);
   const [editHearing,setEditHearing]=useState([]);
   
-  // ドラッグ並び替え用
+  // サイドバー並び替え用
+  const [dragTplIdx,setDragTplIdx]=useState(null);
+  function ensureTplOrder(obj){
+    if(!obj._order){obj._order=Object.keys(obj).filter(k=>k!=="_order").sort();}
+    return obj;
+  }
+  function moveTpl(from,to){
+    if(from===to)return;
+    setTemplates(prev=>{
+      const next={...prev};
+      ensureTplOrder(next);
+      const order=[...next._order];
+      const [item]=order.splice(from,1);
+      order.splice(to,0,item);
+      return {...next,_order:order};
+    });
+  }
+  function duplicateTemplate(tid){
+    if(!templates[tid])return;
+    const src=templates[tid];
+    const newId=tid+"_COPY";
+    const finalId=templates[newId]?tid+"_"+Date.now().toString().slice(-4):newId;
+    setTemplates(prev=>{
+      const next={...prev};
+      ensureTplOrder(next);
+      next[finalId]={label:src.label+"（コピー）",note:src.note||"",docs:JSON.parse(JSON.stringify(src.docs)),hearing:JSON.parse(JSON.stringify(src.hearing))};
+      const order=[...next._order];
+      const idx=order.indexOf(tid);
+      order.splice(idx+1,0,finalId);
+      return {...next,_order:order};
+    });
+    setSelId(finalId);setEditMode(false);
+  }
+
+  // ドラッグ並び替え用（書類・ヒアリング内）
   const [dragDocIdx,setDragDocIdx]=useState(null);
   const [dragHearingIdx,setDragHearingIdx]=useState(null);
   function moveDoc(from,to){
@@ -6026,6 +6270,7 @@ function MasterTemplate({templates,setTemplates,data,setData}){
         const newTemplates={...prev.templates};
         delete newTemplates[selId];
         newTemplates[newId]={label:editLabel,note:editNote,docs:editDocs,hearing:editHearing};
+        if(newTemplates._order)newTemplates._order=newTemplates._order.map(k=>k===selId?newId:k);
         const newCases=(prev.cases||[]).map(c=>c.template_id===selId?{...c,template_id:newId}:c);
         return {...prev,templates:newTemplates,cases:newCases};
       });
@@ -6060,12 +6305,14 @@ function MasterTemplate({templates,setTemplates,data,setData}){
   function deleteTemplate(){
     if(!selId)return;
     if(!confirm(`「${sel.label}」を削除しますか？`))return;
-    setTemplates(prev=>{const copy={...prev};delete copy[selId];return copy;});
+    setTemplates(prev=>{const copy={...prev};delete copy[selId];if(copy._order)copy._order=copy._order.filter(k=>k!==selId);return copy;});
     setSelId(null);
   }
   function resetToDefault(){
     if(!confirm("全てのテンプレートを初期状態に戻しますか？\nカスタマイズは失われます。"))return;
-    setTemplates(JSON.parse(JSON.stringify(DEFAULT_TEMPLATES)));
+    const d=JSON.parse(JSON.stringify(DEFAULT_TEMPLATES));
+    delete d._order;
+    setTemplates(d);
     setSelId(null);
   }
 
@@ -6075,7 +6322,11 @@ function MasterTemplate({templates,setTemplates,data,setData}){
   function createNew(){
     if(!newId||!newLabel)return;
     if(templates[newId]){alert("このIDは既に存在します");return;}
-    setTemplates(prev=>({...prev,[newId]:{label:newLabel,note:"",docs:[],hearing:[]}}));
+    setTemplates(prev=>{
+      const next={...prev,[newId]:{label:newLabel,note:"",docs:[],hearing:[]}};
+      if(next._order)next._order=[...next._order,newId];
+      return next;
+    });
     setSelId(newId);
     setShowNew(false);
     setNewId("");setNewLabel("");
@@ -6093,13 +6344,25 @@ function MasterTemplate({templates,setTemplates,data,setData}){
           </div>
         </div>
         <div style={{flex:1,overflowY:"auto",padding:8}}>
-          {entries.map(([tid,t])=>(
-            <div key={tid} onClick={()=>{setSelId(tid);setEditMode(false);}}
-              style={{padding:"8px 10px",marginBottom:4,borderRadius:6,cursor:"pointer",
-                background:selId===tid?"var(--accent-bg)":"var(--bg2)",
-                border:selId===tid?"0.5px solid var(--accent)":"0.5px solid transparent"}}>
-              <div style={{fontSize:12,fontWeight:selId===tid?500:400,color:selId===tid?"var(--accent-text)":"var(--text)"}}>{t.label}</div>
-              <div style={{fontSize:10,color:"var(--text3)",marginTop:2}}>ID: {tid} ・ 書類{t.docs.length}件</div>
+          {entries.map(([tid,t],idx)=>(
+            <div key={tid} style={{position:"relative"}} onDragOver={e=>{e.preventDefault();e.dataTransfer.dropEffect="move";}} onDrop={()=>{moveTpl(dragTplIdx,idx);setDragTplIdx(null);}}>
+              {dragTplIdx!==null&&dragTplIdx!==idx&&<div onDragOver={e=>{e.preventDefault();e.currentTarget.style.opacity="1";}} onDragLeave={e=>{e.currentTarget.style.opacity="0";}} onDrop={e=>{e.stopPropagation();moveTpl(dragTplIdx,idx);setDragTplIdx(null);}}
+                style={{position:"absolute",top:-2,left:0,right:0,height:12,zIndex:2,borderTop:"2.5px solid var(--accent)",opacity:0,transition:"opacity 0.1s"}}/>}
+              <div onClick={()=>{setSelId(tid);setEditMode(false);}}
+                style={{padding:"10px 10px",marginBottom:4,borderRadius:6,cursor:"pointer",display:"flex",alignItems:"center",gap:8,
+                  background:selId===tid?"var(--accent-bg)":"var(--bg2)",
+                  border:selId===tid?"0.5px solid var(--accent)":"0.5px solid transparent"}}>
+                <span draggable onDragStart={e=>{e.stopPropagation();setDragTplIdx(idx);}} onDragEnd={()=>setDragTplIdx(null)}
+                  style={{cursor:"grab",color:"var(--text3)",fontSize:18,userSelect:"none",flexShrink:0,padding:"4px 2px",lineHeight:1,opacity:0.5}}>≡</span>
+                <div style={{flex:1,minWidth:0,opacity:dragTplIdx===idx?0.4:1}}>
+                  <div style={{fontSize:12,fontWeight:selId===tid?500:400,color:selId===tid?"var(--accent-text)":"var(--text)"}}>{t.label}</div>
+                  <div style={{fontSize:10,color:"var(--text3)",marginTop:2}}>ID: {tid} ・ 書類{t.docs.length}件</div>
+                </div>
+              </div>
+              {selId===tid&&(
+                <button onClick={(e)=>{e.stopPropagation();duplicateTemplate(tid);}} title="複製"
+                  style={{position:"absolute",top:8,right:8,fontSize:10,width:20,height:20,borderRadius:"50%",border:"0.5px solid var(--accent)",background:"var(--accent-bg)",color:"var(--accent-text)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>⧉</button>
+              )}
             </div>
           ))}
         </div>
@@ -6258,7 +6521,7 @@ function MasterRegistration({data,setData,onNavigateToClient}){
   },[setData]);
 
   return(
-    <div style={{position:isMobile?"relative":"fixed",top:isMobile?undefined:52,left:isMobile?undefined:0,right:isMobile?undefined:0,bottom:isMobile?undefined:0,height:isMobile?"calc(100vh - 52px)":undefined,display:"flex",flexDirection:"column",background:"#eeede8"}}>
+    <div style={{position:isMobile?"relative":"fixed",top:isMobile?undefined:"var(--header-h)",left:isMobile?undefined:0,right:isMobile?undefined:0,bottom:isMobile?undefined:0,height:isMobile?"calc(100vh - var(--header-h))":undefined,display:"flex",flexDirection:"column",background:"#eeede8"}}>
       <div style={{display:"flex",background:"var(--bg)",borderBottom:"0.5px solid var(--border)",padding:"0 18px",flexWrap:"wrap"}}>
         {[["office","🏠 事務所設定"],["company","🏢 会社DB"],["fee","💴 料金マスタ"],["template","📋 書類テンプレート"],["minwage","📊 最低賃金"]].map(([id,label])=>(
           <button key={id} onClick={()=>setTab(id)}
@@ -6288,8 +6551,8 @@ function useMobile(){ return React.useContext(MobileContext); }
 const TABS = [
   {id:"clients",label:"クライアント",icon:"👤"},
   {id:"cases",label:"案件管理",icon:"📋"},
-  {id:"journal",label:"事件簿",icon:"📕"},
   {id:"payments",label:"報酬管理",icon:"💰"},
+  {id:"journal",label:"事件簿",icon:"📕"},
   {id:"master",label:"マスター登録",icon:"⚙️"},
 ];
 
@@ -6489,11 +6752,17 @@ function App(){
     e.target.value="";
   }
 
+  const stepperTab=["clients","cases","payments"].includes(activeTab);
+  const [stepperVisible,setStepperVisible]=useState(()=>localStorage.getItem("clavis-stepper")!=="hidden");
+  const showStepper=stepperTab&&stepperVisible;
+  function toggleStepper(){const nv=!stepperVisible;setStepperVisible(nv);localStorage.setItem("clavis-stepper",nv?"visible":"hidden");}
+
   return(
     <MobileContext.Provider value={isMobile}>
-    <div style={{minHeight:"100vh",background:"#eeede8",zoom:isMobile?"1":fs}}>
+    <div style={{minHeight:"100vh",background:"#eeede8",zoom:isMobile?"1":fs,"--header-h":showStepper?"86px":"52px"}}>
       {/* グローバルナビ */}
-      <div style={{background:"var(--bg)",borderBottom:"0.5px solid var(--border)",display:"flex",alignItems:"center",height:52,padding:"0 16px",position:"sticky",top:0,zIndex:100}}>
+      <div style={{background:"var(--bg)",borderBottom:"0.5px solid var(--border)",position:"sticky",top:0,zIndex:100}}>
+        <div style={{display:"flex",alignItems:"center",height:52,padding:"0 16px"}}>
         <div onClick={()=>setActiveTab("dashboard")} style={{fontSize:15,fontWeight:600,color:"var(--text)",marginRight:isMobile?8:24,letterSpacing:"-0.02em",flexShrink:0,cursor:"pointer"}}>
           <span style={{color:"var(--accent-text)"}}>Clavis</span> Note
         </div>
@@ -6521,6 +6790,7 @@ function App(){
         {isMobile&&<div style={{flex:1}}/>}
         {/* 右側コントロール */}
         <div style={{display:"flex",alignItems:"center",gap:8}}>
+          {stepperTab&&!stepperVisible&&<button onClick={toggleStepper} title="ワークフローガイドを表示" style={{fontSize:10,padding:"3px 8px",borderRadius:5,border:"0.5px solid var(--border)",background:"transparent",cursor:"pointer",color:"var(--text3)",opacity:0.7}}>① ② ③</button>}
           {/* フォントサイズ */}
           {!isMobile&&<div style={{display:"flex",gap:2,background:"#eeede8",borderRadius:6,padding:2}}>
             {FS_OPTIONS.map(o=>(
@@ -6641,6 +6911,33 @@ function App(){
           </div>
           {!isMobile&&<div style={{fontSize:11,color:"var(--text3)",marginLeft:4}}>{(data.office||{}).name||"Clavis Note"}</div>}
         </div>
+        </div>
+        {showStepper&&(
+          <div style={{borderTop:"0.5px solid var(--border)",padding:isMobile?"6px 12px":"6px 24px",position:"relative"}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"center",maxWidth:600,margin:"0 auto"}}>
+              {[["clients","クライアント登録","1"],["cases","案件登録","2"],["payments","報酬登録","3"]].map(([sid,slabel,snum],i)=>{
+                const cur=["clients","cases","payments"].indexOf(activeTab);
+                const isActive=activeTab===sid;
+                const isDone=i<cur;
+                return [
+                  i>0?<div key={"line"+i} style={{width:40,height:2,background:isDone||isActive?"var(--accent)":"var(--border)",borderRadius:1,margin:"0 6px",flexShrink:0}}/>:null,
+                  <div key={sid} onClick={()=>setActiveTab(sid)}
+                    style={{display:"flex",alignItems:"center",gap:isMobile?4:6,cursor:"pointer",padding:isMobile?"3px 6px":"3px 10px",borderRadius:6,flexShrink:0,
+                      background:isActive?"var(--accent-bg)":"transparent"}}>
+                    <div style={{width:isMobile?18:20,height:isMobile?18:20,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:isMobile?9:10,fontWeight:600,
+                      background:isDone||isActive?"var(--accent)":"var(--bg2)",
+                      color:isDone||isActive?"#fff":"var(--text3)",
+                      border:isDone||isActive?"none":"1.5px solid var(--border2)"}}>
+                      {isDone?"✓":snum}
+                    </div>
+                    {!isMobile&&<span style={{fontSize:11,fontWeight:isActive?500:400,color:isActive?"var(--accent-text)":isDone?"var(--text)":"var(--text3)",whiteSpace:"nowrap"}}>{slabel}</span>}
+                  </div>
+                ];
+              }).flat().filter(Boolean)}
+            </div>
+            <button onClick={toggleStepper} title="ガイドを非表示" style={{position:"absolute",right:isMobile?8:16,top:"50%",transform:"translateY(-50%)",border:"none",background:"transparent",cursor:"pointer",color:"var(--text3)",fontSize:12,opacity:0.4,padding:4}}>▲</button>
+          </div>
+        )}
       </div>
 
       {/* コンテンツ */}
