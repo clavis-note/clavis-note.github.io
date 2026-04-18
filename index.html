@@ -531,6 +531,12 @@ function getInitialData(){
     if(saved.office && saved.office.credential_expiry===undefined) saved.office.credential_expiry = "";
     // v11: templates マスター化
     if(!saved.templates) saved.templates = JSON.parse(JSON.stringify(DEFAULT_TEMPLATES));
+    // v12: 見込案件フラグ（クライアント・案件未紐付けの見積書）
+    if(saved.payments) saved.payments = saved.payments.map(p=>{
+      if(p.is_prospect===undefined) p.is_prospect = false;
+      if(p.prospect_archived===undefined) p.prospect_archived = false;
+      return p;
+    });
     return saved;
   }
   return {
@@ -1160,6 +1166,764 @@ function DashQuickLinks({links,setLinks}){
   );
 }
 
+// ===== 見込案件（クライアント・案件未紐付けの見積書） =====
+function DashProspects({payments,onClickItem,onNew}){
+  const [open,toggle]=useDashAccordion("prospects",true);
+  const [tab,setTab]=useState("active");
+  const activeProspects=payments.filter(p=>!p.prospect_archived);
+  const archivedProspects=payments.filter(p=>p.prospect_archived);
+  const shown=tab==="active"?activeProspects:archivedProspects;
+  const totalActive=activeProspects.reduce((s,p)=>s+calcGrandTotal(p.items,p.expenses,p.tax_mode||"tax_incl"),0);
+
+  return(
+    <div style={{background:"var(--bg)",border:"0.5px solid rgba(0,0,0,0.1)",borderRadius:10,overflow:"hidden"}}>
+      <div style={{padding:"10px 16px",borderBottom:open?"0.5px solid rgba(0,0,0,0.08)":"none",display:"flex",justifyContent:"space-between",alignItems:"center",userSelect:"none"}}>
+        <span onClick={toggle} style={{fontSize:12,fontWeight:500,color:"#666",cursor:"pointer",flex:1}}>📋 見込案件 <span style={{color:"#999",fontWeight:400}}>({activeProspects.length}件)</span></span>
+        <div style={{display:"flex",gap:6,alignItems:"center"}}>
+          <span onClick={toggle} style={{fontSize:12,fontWeight:500,color:"#854F0B",cursor:"pointer"}}>{fmt(totalActive)} <span style={{fontSize:10,color:"#999"}}>{open?"▲":"▼"}</span></span>
+          <button onClick={onNew} style={{fontSize:11,padding:"3px 10px",cursor:"pointer",borderRadius:5,border:"0.5px solid #854F0B",background:"#FEF8EE",color:"#854F0B",fontWeight:500,whiteSpace:"nowrap"}}>+ 見積書作成</button>
+        </div>
+      </div>
+      {open&&<>
+        <div style={{display:"flex",gap:0,padding:"0 16px",borderBottom:"0.5px solid rgba(0,0,0,0.05)"}}>
+          {[["active","進行中",activeProspects.length],["archived","アーカイブ",archivedProspects.length]].map(([key,label,cnt])=>(
+            <button key={key} onClick={()=>setTab(key)} style={{fontSize:11,padding:"6px 10px",cursor:"pointer",border:"none",borderBottom:tab===key?"2px solid #854F0B":"2px solid transparent",background:"transparent",color:tab===key?"#854F0B":"#999",fontWeight:tab===key?500:400}}>{label} ({cnt})</button>
+          ))}
+        </div>
+        {shown.length===0?(
+          <div style={{padding:20,textAlign:"center",color:"#bbb",fontSize:12}}>
+            {tab==="active"?"見込案件はありません":"アーカイブはありません"}
+          </div>
+        ):(
+          <div style={{padding:"4px 0",maxHeight:240,overflowY:"auto"}}>
+            {shown.map(p=>{
+              const total=calcGrandTotal(p.items,p.expenses,p.tax_mode||"tax_incl");
+              const name=(p.bill_to_name||"(宛先未入力)")+(p.honorific?" "+p.honorific:p.bill_type==="company"?" 御中":" 様");
+              return(
+                <div key={p.payment_id} onClick={()=>onClickItem(p)} style={{padding:"8px 16px",borderBottom:"0.5px solid rgba(0,0,0,0.04)",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:12,color:"#1a1a1a",fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{name}</div>
+                    {p.subject&&<div style={{fontSize:10,color:"#999",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.subject}</div>}
+                  </div>
+                  <div style={{fontSize:12,fontWeight:500,color:"#854F0B",whiteSpace:"nowrap"}}>{fmt(total)}</div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </>}
+    </div>
+  );
+}
+
+// 新規見込案件作成モーダル
+function NewProspectModal({onClose,onSave,feeMaster,clients}){
+  const [clientId,setClientId]=useState("");
+  const [billType,setBillType]=useState("individual");
+  const [billToName,setBillToName]=useState("");
+  const [honorific,setHonorific]=useState("様");
+  const [subject,setSubject]=useState("");
+  const [taxMode,setTaxMode]=useState("tax_incl");
+  const [feeCategory,setFeeCategory]=useState("general");
+  const [items,setItems]=useState([]);
+  const [expenses,setExpenses]=useState([]);
+  const [customName,setCustomName]=useState("");
+  const [customPrice,setCustomPrice]=useState("");
+  const [expName,setExpName]=useState("");
+  const [expAmount,setExpAmount]=useState("");
+  const [estimateDate,setEstimateDate]=useState(new Date().toISOString().slice(0,10));
+  const [estimateValid,setEstimateValid]=useState("");
+  const [note,setNote]=useState("");
+
+  const fm=feeMaster||FEE_MASTER;
+  const feeCategories=Object.entries(fm);
+  const feeItems=(fm[feeCategory]||{items:{}}).items;
+
+  function pickClient(id){
+    setClientId(id);
+    if(!id){return;}
+    const cl=(clients||[]).find(x=>x.client_id===id);
+    if(!cl) return;
+    const isCompany=cl.client_type==="general"||(cl.company_name&&!cl.name_roman);
+    setBillType(isCompany?"company":"individual");
+    setBillToName(isCompany?(cl.company_name||cl.name_roman||""):(cl.name_roman||cl.name_kana||""));
+    setHonorific(isCompany?"御中":"様");
+  }
+
+  function addFeeItem(key){
+    const f=feeItems[key];if(!f)return;
+    if(items.find(i=>i.name===f.name))return;
+    setItems(p=>[...p,{id:"i"+Date.now(),name:f.name,unit_price:f.price,quantity:1}]);
+  }
+  function addCustom(){
+    if(!customName||!customPrice)return;
+    setItems(p=>[...p,{id:"i"+Date.now(),name:customName,unit_price:parseInt(customPrice)||0,quantity:1}]);
+    setCustomName("");setCustomPrice("");
+  }
+  function removeItem(id){setItems(p=>p.filter(i=>i.id!==id));}
+  function updateItem(id,field,value){setItems(p=>p.map(i=>i.id===id?{...i,[field]:value}:i));}
+
+  function addExpense(){
+    if(!expName||!expAmount)return;
+    setExpenses(p=>[...p,{id:"e"+Date.now(),date:estimateDate,name:expName,amount:parseInt(expAmount)||0,billable:true}]);
+    setExpName("");setExpAmount("");
+  }
+  function removeExpense(id){setExpenses(p=>p.filter(e=>e.id!==id));}
+  function updateExpense(id,field,value){setExpenses(p=>p.map(e=>e.id===id?{...e,[field]:value}:e));}
+
+  function handleSave(){
+    if(!billToName||(items.length===0&&expenses.length===0)){alert("宛先と、品目または実費を入力してください");return;}
+    const estNumber="EST-"+new Date().getFullYear()+"-"+String(Date.now()).slice(-4);
+    onSave({
+      payment_id:"PROSP"+Date.now(),
+      is_prospect:true,
+      prospect_archived:false,
+      case_ids:[],client_ids:clientId?[clientId]:[],
+      bill_type:billType,
+      bill_to_name:billToName,
+      honorific,
+      subject,
+      tax_mode:taxMode,
+      invoice_number:"",invoice_date:"",due_date:"",
+      estimate_number:estNumber,
+      estimate_date:estimateDate,
+      estimate_valid:estimateValid,
+      estimate_note:note,
+      items:items.map(it=>({...it,original_date:estimateDate})),
+      expenses,
+      payments_history:[],
+      notes:""
+    });
+  }
+
+  const total=calcItemsTotal(items);
+  const taxed=calcTaxedTotal(total,taxMode);
+  const expBillable=calcExpBillable(expenses);
+  const grand=taxed+expBillable;
+
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",display:"flex",alignItems:"flex-start",justifyContent:"center",zIndex:9500,padding:"20px 16px",overflowY:"auto"}}>
+      <div style={{background:"var(--bg)",borderRadius:12,border:"0.5px solid rgba(0,0,0,0.15)",width:600,maxWidth:"100%",maxHeight:"calc(100vh - 40px)",display:"flex",flexDirection:"column"}}>
+        <div style={{padding:"12px 16px",borderBottom:"0.5px solid rgba(0,0,0,0.1)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <span style={{fontSize:14,fontWeight:500}}>📋 見込案件を新規作成</span>
+          <button onClick={onClose} style={{border:"none",background:"none",fontSize:18,cursor:"pointer",color:"#999"}}>×</button>
+        </div>
+
+        <div style={{padding:16,overflowY:"auto",flex:1}}>
+          {/* クライアント台帳から選択 */}
+          <div style={{marginBottom:12,padding:8,background:"#E6F1FB",borderRadius:6}}>
+            <div style={{fontSize:11,color:"#185FA5",marginBottom:4,fontWeight:500}}>📇 クライアント台帳から選ぶ（任意）</div>
+            <select value={clientId} onChange={e=>pickClient(e.target.value)} style={{width:"100%",fontSize:12,padding:"5px 8px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",cursor:"pointer"}}>
+              <option value="">選択しない（手入力）</option>
+              {(clients||[]).filter(c=>!c.archived).map(c=>{
+                const label=c.name_roman||c.company_name||c.name_kana||c.client_id;
+                const sub=c.company_name&&c.name_roman?" ／ "+c.company_name:"";
+                return <option key={c.client_id} value={c.client_id}>{label+sub}</option>;
+              })}
+            </select>
+          </div>
+
+          <div style={{marginBottom:12}}>
+            <div style={{fontSize:11,color:"#666",marginBottom:4}}>宛先タイプ</div>
+            <div style={{display:"flex",gap:6}}>
+              {[["individual","個人"],["company","法人"]].map(([k,l])=>(
+                <button key={k} onClick={()=>{setBillType(k);setHonorific(k==="company"?"御中":"様");}} style={{fontSize:12,padding:"5px 14px",cursor:"pointer",borderRadius:5,border:"0.5px solid "+(billType===k?"#854F0B":"rgba(0,0,0,0.15)"),background:billType===k?"#FEF8EE":"var(--bg2)",color:billType===k?"#854F0B":"#666",fontWeight:billType===k?500:400}}>{l}</button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{display:"grid",gridTemplateColumns:"1fr 80px",gap:8,marginBottom:12}}>
+            <div>
+              <div style={{fontSize:11,color:"#666",marginBottom:4}}>宛先名</div>
+              <input value={billToName} onChange={e=>setBillToName(e.target.value)} placeholder={billType==="company"?"株式会社〇〇":"山田 太郎"} style={{width:"100%",fontSize:13,padding:"6px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/>
+            </div>
+            <div>
+              <div style={{fontSize:11,color:"#666",marginBottom:4}}>敬称</div>
+              <select value={honorific} onChange={e=>setHonorific(e.target.value)} style={{width:"100%",fontSize:13,padding:"6px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",cursor:"pointer"}}>
+                <option value="様">様</option>
+                <option value="御中">御中</option>
+                <option value="">なし</option>
+              </select>
+            </div>
+          </div>
+
+          <div style={{marginBottom:12}}>
+            <div style={{fontSize:11,color:"#666",marginBottom:4}}>件名（見積書の件名欄に反映）</div>
+            <input value={subject} onChange={e=>setSubject(e.target.value)} placeholder="例: 合同会社清算手続き一式" style={{width:"100%",fontSize:13,padding:"6px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/>
+          </div>
+
+          <div style={{marginBottom:12}}>
+            <div style={{fontSize:11,color:"#666",marginBottom:4}}>税モード</div>
+            <div style={{display:"flex",gap:6}}>
+              {[["tax_incl","税込"],["tax_excl","税抜（税別記載）"]].map(([k,l])=>(
+                <button key={k} onClick={()=>setTaxMode(k)} style={{fontSize:12,padding:"5px 14px",cursor:"pointer",borderRadius:5,border:"0.5px solid "+(taxMode===k?"#854F0B":"rgba(0,0,0,0.15)"),background:taxMode===k?"#FEF8EE":"var(--bg2)",color:taxMode===k?"#854F0B":"#666",fontWeight:taxMode===k?500:400}}>{l}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* 報酬品目 */}
+          <div style={{marginBottom:12,padding:10,borderRadius:8,background:"var(--bg2)",border:"0.5px solid rgba(0,0,0,0.08)"}}>
+            <div style={{fontSize:11,color:"#666",marginBottom:6,fontWeight:500}}>📌 報酬品目を追加</div>
+            <div style={{marginBottom:8}}>
+              <div style={{fontSize:10,color:"#999",marginBottom:3}}>報酬マスターから選択</div>
+              <div style={{display:"flex",gap:4,marginBottom:4}}>
+                <select value={feeCategory} onChange={e=>setFeeCategory(e.target.value)} style={{fontSize:12,padding:"4px 6px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)",cursor:"pointer"}}>
+                  {feeCategories.map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+                </select>
+                <select onChange={e=>{if(e.target.value){addFeeItem(e.target.value);e.target.value="";}}} style={{flex:1,fontSize:12,padding:"4px 6px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)",cursor:"pointer"}}>
+                  <option value="">選択してください…</option>
+                  {Object.entries(feeItems).map(([k,f])=><option key={k} value={k}>{f.name} ({fmt(f.price)})</option>)}
+                </select>
+              </div>
+            </div>
+            <div>
+              <div style={{fontSize:10,color:"#999",marginBottom:3}}>または手入力</div>
+              <div style={{display:"flex",gap:4}}>
+                <input value={customName} onChange={e=>setCustomName(e.target.value)} placeholder="品目名" style={{flex:1,fontSize:12,padding:"4px 8px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)"}}/>
+                <input type="number" value={customPrice} onChange={e=>setCustomPrice(e.target.value)} placeholder="金額" style={{width:90,fontSize:12,padding:"4px 8px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)",textAlign:"right"}}/>
+                <button onClick={addCustom} style={{fontSize:11,padding:"4px 10px",cursor:"pointer",borderRadius:4,border:"0.5px solid #854F0B",background:"#FEF8EE",color:"#854F0B",fontWeight:500,whiteSpace:"nowrap"}}>追加</button>
+              </div>
+            </div>
+          </div>
+
+          {items.length>0&&(
+            <div style={{marginBottom:12}}>
+              <div style={{fontSize:11,color:"#666",marginBottom:4,fontWeight:500}}>登録品目</div>
+              <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                {items.map(i=>(
+                  <div key={i.id} style={{display:"grid",gridTemplateColumns:"1fr 70px 50px 90px 24px",gap:4,alignItems:"center",padding:"4px 6px",background:"var(--bg2)",borderRadius:4}}>
+                    <input value={i.name} onChange={e=>updateItem(i.id,"name",e.target.value)} style={{fontSize:12,padding:"3px 6px",borderRadius:3,border:"0.5px solid rgba(0,0,0,0.1)",background:"var(--bg)"}}/>
+                    <input type="number" value={i.unit_price} onChange={e=>updateItem(i.id,"unit_price",Number(e.target.value)||0)} style={{fontSize:12,padding:"3px 6px",borderRadius:3,border:"0.5px solid rgba(0,0,0,0.1)",background:"var(--bg)",textAlign:"right"}}/>
+                    <input type="number" value={i.quantity} onChange={e=>updateItem(i.id,"quantity",Number(e.target.value)||1)} style={{fontSize:12,padding:"3px 6px",borderRadius:3,border:"0.5px solid rgba(0,0,0,0.1)",background:"var(--bg)",textAlign:"right"}}/>
+                    <div style={{fontSize:12,textAlign:"right",color:"#854F0B",fontWeight:500}}>{fmt(i.unit_price*i.quantity)}</div>
+                    <button onClick={()=>removeItem(i.id)} style={{fontSize:11,padding:0,width:22,height:22,borderRadius:3,border:"0.5px solid #A32D2D",background:"transparent",color:"#A32D2D",cursor:"pointer"}}>×</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 実費 */}
+          <div style={{marginBottom:12,padding:10,borderRadius:8,background:"#F6F5F0",border:"0.5px solid rgba(0,0,0,0.06)"}}>
+            <div style={{fontSize:11,color:"#5F5E5A",marginBottom:6,fontWeight:500}}>💴 実費（登録免許税・印紙代など）</div>
+            {expenses.length>0&&(
+              <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:8}}>
+                {expenses.map(e=>(
+                  <div key={e.id} style={{display:"grid",gridTemplateColumns:"1fr 110px 60px 24px",gap:4,alignItems:"center"}}>
+                    <input value={e.name} onChange={ev=>updateExpense(e.id,"name",ev.target.value)} style={{fontSize:12,padding:"3px 6px",borderRadius:3,border:"0.5px solid rgba(0,0,0,0.1)",background:"var(--bg)"}}/>
+                    <input type="number" value={e.amount} onChange={ev=>updateExpense(e.id,"amount",Number(ev.target.value)||0)} style={{fontSize:12,padding:"3px 6px",borderRadius:3,border:"0.5px solid rgba(0,0,0,0.1)",background:"var(--bg)",textAlign:"right"}}/>
+                    <label style={{fontSize:10,color:"#666",display:"flex",alignItems:"center",gap:3,cursor:"pointer"}}><input type="checkbox" checked={e.billable!==false} onChange={ev=>updateExpense(e.id,"billable",ev.target.checked)}/>請求</label>
+                    <button onClick={()=>removeExpense(e.id)} style={{fontSize:11,padding:0,width:22,height:22,borderRadius:3,border:"0.5px solid #A32D2D",background:"transparent",color:"#A32D2D",cursor:"pointer"}}>×</button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div style={{display:"flex",gap:4}}>
+              <input value={expName} onChange={e=>setExpName(e.target.value)} placeholder="実費の名称（例: 登録免許税）" style={{flex:1,fontSize:12,padding:"4px 8px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)"}}/>
+              <input type="number" value={expAmount} onChange={e=>setExpAmount(e.target.value)} placeholder="金額" style={{width:100,fontSize:12,padding:"4px 8px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)",textAlign:"right"}}/>
+              <button onClick={addExpense} style={{fontSize:11,padding:"4px 10px",cursor:"pointer",borderRadius:4,border:"0.5px solid #5F5E5A",background:"var(--bg2)",color:"#5F5E5A",fontWeight:500,whiteSpace:"nowrap"}}>追加</button>
+            </div>
+            <div style={{fontSize:10,color:"#999",marginTop:4}}>※「請求」ON＝クライアント請求額に含める／OFF＝事務所側のコストのみ記録</div>
+          </div>
+
+          {/* 合計 */}
+          {(items.length>0||expBillable>0)&&(
+            <div style={{marginBottom:12,padding:"8px 10px",background:"#FEF8EE",borderRadius:6}}>
+              <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#854F0B",marginBottom:2}}>
+                <span>報酬合計（{taxMode==="tax_incl"?"税込":"税抜→税込"}）</span>
+                <span>{fmt(taxed)}</span>
+              </div>
+              {expBillable>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#854F0B",marginBottom:2}}>
+                <span>実費（請求分）</span>
+                <span>{fmt(expBillable)}</span>
+              </div>}
+              <div style={{display:"flex",justifyContent:"space-between",fontSize:14,color:"#854F0B",fontWeight:600,borderTop:"0.5px solid rgba(133,79,11,0.3)",paddingTop:4,marginTop:4}}>
+                <span>ご請求金額</span>
+                <span>{fmt(grand)}</span>
+              </div>
+            </div>
+          )}
+
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
+            <div>
+              <div style={{fontSize:11,color:"#666",marginBottom:4}}>見積日</div>
+              <input type="date" value={estimateDate} onChange={e=>setEstimateDate(e.target.value)} style={{width:"100%",fontSize:12,padding:"6px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/>
+            </div>
+            <div>
+              <div style={{fontSize:11,color:"#666",marginBottom:4}}>見積有効期限</div>
+              <input type="date" value={estimateValid} onChange={e=>setEstimateValid(e.target.value)} style={{width:"100%",fontSize:12,padding:"6px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/>
+            </div>
+          </div>
+
+          <div>
+            <div style={{fontSize:11,color:"#666",marginBottom:4}}>備考（見積書に表示） <span style={{color:"#999",fontSize:10}}>※翻訳は作成後に詳細画面から</span></div>
+            <textarea value={note} onChange={e=>setNote(e.target.value)} rows={2} placeholder="例: お見積り有効期限を過ぎた場合は再見積もりとなります" style={{width:"100%",fontSize:12,padding:"6px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",resize:"vertical",fontFamily:"inherit",lineHeight:1.5}}/>
+          </div>
+        </div>
+
+        <div style={{padding:"10px 16px",borderTop:"0.5px solid rgba(0,0,0,0.1)",display:"flex",justifyContent:"flex-end",gap:8}}>
+          <button onClick={onClose} style={{fontSize:12,padding:"6px 16px",cursor:"pointer",borderRadius:6,border:"0.5px solid rgba(0,0,0,0.15)",background:"transparent",color:"#666"}}>キャンセル</button>
+          <button onClick={handleSave} disabled={!billToName||(items.length===0&&expenses.length===0)} style={{fontSize:12,padding:"6px 16px",cursor:"pointer",borderRadius:6,border:"0.5px solid #854F0B",background:"#FEF8EE",color:"#854F0B",fontWeight:500,opacity:(!billToName||(items.length===0&&expenses.length===0))?0.4:1}}>作成</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 見込案件の詳細モーダル
+function ProspectDetailModal({prospect,clients,onUpdate,onDelete,onGenerate,onPromote,onClose,feeMaster,office}){
+  const p=prospect;
+  const [feeCategory,setFeeCategory]=useState("general");
+  const [customName,setCustomName]=useState("");
+  const [customPrice,setCustomPrice]=useState("");
+  const [expName,setExpName]=useState("");
+  const [expAmount,setExpAmount]=useState("");
+  const [translating,setTranslating]=useState(false);
+  const [transLang,setTransLang]=useState("en");
+  const fm=feeMaster||FEE_MASTER;
+  const feeCategories=Object.entries(fm);
+  const feeItems=(fm[feeCategory]||{items:{}}).items;
+
+  function up(field,value){onUpdate({...p,[field]:value});}
+  function upMulti(changes){onUpdate({...p,...changes});}
+  function addFeeItem(key){
+    const f=feeItems[key];if(!f)return;
+    if((p.items||[]).find(i=>i.name===f.name))return;
+    up("items",[...(p.items||[]),{id:"i"+Date.now(),name:f.name,unit_price:f.price,quantity:1,original_date:p.estimate_date||""}]);
+  }
+  function addCustom(){
+    if(!customName||!customPrice)return;
+    up("items",[...(p.items||[]),{id:"i"+Date.now(),name:customName,unit_price:parseInt(customPrice)||0,quantity:1,original_date:p.estimate_date||""}]);
+    setCustomName("");setCustomPrice("");
+  }
+  function removeItem(id){up("items",(p.items||[]).filter(i=>i.id!==id));}
+  function updateItem(id,field,value){up("items",(p.items||[]).map(i=>i.id===id?{...i,[field]:value}:i));}
+
+  function addExpense(){
+    if(!expName||!expAmount)return;
+    up("expenses",[...(p.expenses||[]),{id:"e"+Date.now(),date:p.estimate_date||new Date().toISOString().slice(0,10),name:expName,amount:parseInt(expAmount)||0,billable:true}]);
+    setExpName("");setExpAmount("");
+  }
+  function removeExpense(id){up("expenses",(p.expenses||[]).filter(e=>e.id!==id));}
+  function updateExpense(id,field,value){up("expenses",(p.expenses||[]).map(e=>e.id===id?{...e,[field]:value}:e));}
+
+  function pickClient(clientId){
+    if(!clientId){return;}
+    const cl=(clients||[]).find(x=>x.client_id===clientId);
+    if(!cl) return;
+    const isCompany=cl.client_type==="general"||(cl.company_name&&!cl.name_roman);
+    upMulti({
+      client_ids:[clientId],
+      bill_type:isCompany?"company":"individual",
+      bill_to_name:isCompany?(cl.company_name||cl.name_roman||""):(cl.name_roman||cl.name_kana||""),
+      honorific:isCompany?"御中":"様",
+    });
+  }
+
+  async function handleTranslate(){
+    const apiKey=(office||{}).api_key;
+    if(!apiKey){alert("APIキーが未設定です。\nマスター管理 → 🏠事務所設定 → 🤖AI設定 から設定してください。");return;}
+    const text=p.estimate_note;
+    if(!text||!text.trim()){alert("備考欄に翻訳する内容を入力してください。");return;}
+    const source=extractOriginalText(text);
+    setTranslating(true);
+    try{
+      const translated=await translateText(source,transLang,apiKey);
+      up("estimate_note",`${translated}\n（${source}）`);
+    }catch(e){
+      alert("翻訳に失敗しました：\n"+e.message);
+    }finally{
+      setTranslating(false);
+    }
+  }
+
+  const total=calcItemsTotal(p.items);
+  const taxed=calcTaxedTotal(total,p.tax_mode||"tax_incl");
+  const expBillable=calcExpBillable(p.expenses);
+  const grand=taxed+expBillable;
+
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",display:"flex",alignItems:"flex-start",justifyContent:"center",zIndex:9500,padding:"20px 16px",overflowY:"auto"}}>
+      <div style={{background:"var(--bg)",borderRadius:12,border:"0.5px solid rgba(0,0,0,0.15)",width:680,maxWidth:"100%",maxHeight:"calc(100vh - 40px)",display:"flex",flexDirection:"column"}}>
+        <div style={{padding:"12px 16px",borderBottom:"0.5px solid rgba(0,0,0,0.1)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div>
+            <div style={{fontSize:14,fontWeight:500}}>📋 見込案件の詳細</div>
+            <div style={{fontSize:10,color:"#999",marginTop:2}}>{p.estimate_number||""}{p.prospect_archived?" ・ アーカイブ済み":""}</div>
+          </div>
+          <button onClick={onClose} style={{border:"none",background:"none",fontSize:18,cursor:"pointer",color:"#999"}}>×</button>
+        </div>
+
+        <div style={{padding:16,overflowY:"auto",flex:1}}>
+          {/* クライアント台帳から選択 */}
+          <div style={{marginBottom:10,padding:8,background:"#E6F1FB",borderRadius:6}}>
+            <div style={{fontSize:10,color:"#185FA5",marginBottom:4,fontWeight:500}}>📇 クライアント台帳から選ぶ（任意）</div>
+            <select value={(p.client_ids||[])[0]||""} onChange={e=>pickClient(e.target.value)} style={{width:"100%",fontSize:12,padding:"5px 8px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",cursor:"pointer"}}>
+              <option value="">選択しない（手入力）</option>
+              {(clients||[]).filter(c=>!c.archived).map(c=>{
+                const label=c.name_roman||c.company_name||c.name_kana||c.client_id;
+                const sub=c.company_name&&c.name_roman?" ／ "+c.company_name:"";
+                return <option key={c.client_id} value={c.client_id}>{label+sub}</option>;
+              })}
+            </select>
+          </div>
+
+          {/* 宛先 */}
+          <div style={{display:"grid",gridTemplateColumns:"90px 1fr 80px",gap:8,marginBottom:10}}>
+            <div>
+              <div style={{fontSize:10,color:"#999",marginBottom:3}}>宛先タイプ</div>
+              <select value={p.bill_type||"individual"} onChange={e=>up("bill_type",e.target.value)} style={{width:"100%",fontSize:12,padding:"5px 6px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",cursor:"pointer"}}>
+                <option value="individual">個人</option>
+                <option value="company">法人</option>
+              </select>
+            </div>
+            <div>
+              <div style={{fontSize:10,color:"#999",marginBottom:3}}>宛先名</div>
+              <input value={p.bill_to_name||""} onChange={e=>up("bill_to_name",e.target.value)} style={{width:"100%",fontSize:13,padding:"5px 8px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/>
+            </div>
+            <div>
+              <div style={{fontSize:10,color:"#999",marginBottom:3}}>敬称</div>
+              <select value={p.honorific||""} onChange={e=>up("honorific",e.target.value)} style={{width:"100%",fontSize:12,padding:"5px 6px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",cursor:"pointer"}}>
+                <option value="様">様</option>
+                <option value="御中">御中</option>
+                <option value="">なし</option>
+              </select>
+            </div>
+          </div>
+
+          <div style={{marginBottom:10}}>
+            <div style={{fontSize:10,color:"#999",marginBottom:3}}>件名</div>
+            <input value={p.subject||""} onChange={e=>up("subject",e.target.value)} placeholder="例: 合同会社清算手続き一式" style={{width:"100%",fontSize:13,padding:"5px 8px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/>
+          </div>
+
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:10}}>
+            <div>
+              <div style={{fontSize:10,color:"#999",marginBottom:3}}>見積書番号</div>
+              <input value={p.estimate_number||""} onChange={e=>up("estimate_number",e.target.value)} style={{width:"100%",fontSize:12,padding:"5px 8px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/>
+            </div>
+            <div>
+              <div style={{fontSize:10,color:"#999",marginBottom:3}}>見積日</div>
+              <input type="date" value={p.estimate_date||""} onChange={e=>up("estimate_date",e.target.value)} style={{width:"100%",fontSize:12,padding:"5px 8px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/>
+            </div>
+            <div>
+              <div style={{fontSize:10,color:"#999",marginBottom:3}}>有効期限</div>
+              <input type="date" value={p.estimate_valid||""} onChange={e=>up("estimate_valid",e.target.value)} style={{width:"100%",fontSize:12,padding:"5px 8px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/>
+            </div>
+          </div>
+
+          {/* 税モード */}
+          <div style={{marginBottom:10}}>
+            <div style={{fontSize:10,color:"#999",marginBottom:3}}>税モード</div>
+            <div style={{display:"flex",gap:6}}>
+              {[["tax_incl","税込"],["tax_excl","税抜"]].map(([k,l])=>(
+                <button key={k} onClick={()=>up("tax_mode",k)} style={{fontSize:11,padding:"4px 12px",cursor:"pointer",borderRadius:4,border:"0.5px solid "+((p.tax_mode||"tax_incl")===k?"#854F0B":"rgba(0,0,0,0.15)"),background:(p.tax_mode||"tax_incl")===k?"#FEF8EE":"var(--bg2)",color:(p.tax_mode||"tax_incl")===k?"#854F0B":"#666",fontWeight:(p.tax_mode||"tax_incl")===k?500:400}}>{l}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* 品目（報酬） */}
+          <div style={{marginBottom:10,padding:10,borderRadius:6,background:"var(--bg2)",border:"0.5px solid rgba(0,0,0,0.06)"}}>
+            <div style={{fontSize:11,color:"#666",marginBottom:6,fontWeight:500}}>📌 報酬品目</div>
+            {(p.items||[]).length>0&&(
+              <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:8}}>
+                {(p.items||[]).map(i=>(
+                  <div key={i.id} style={{display:"grid",gridTemplateColumns:"1fr 80px 50px 100px 24px",gap:4,alignItems:"center"}}>
+                    <input value={i.name} onChange={e=>updateItem(i.id,"name",e.target.value)} style={{fontSize:12,padding:"3px 6px",borderRadius:3,border:"0.5px solid rgba(0,0,0,0.1)",background:"var(--bg)"}}/>
+                    <input type="number" value={i.unit_price} onChange={e=>updateItem(i.id,"unit_price",Number(e.target.value)||0)} style={{fontSize:12,padding:"3px 6px",borderRadius:3,border:"0.5px solid rgba(0,0,0,0.1)",background:"var(--bg)",textAlign:"right"}}/>
+                    <input type="number" value={i.quantity} onChange={e=>updateItem(i.id,"quantity",Number(e.target.value)||1)} style={{fontSize:12,padding:"3px 6px",borderRadius:3,border:"0.5px solid rgba(0,0,0,0.1)",background:"var(--bg)",textAlign:"right"}}/>
+                    <div style={{fontSize:12,textAlign:"right",color:"#854F0B",fontWeight:500}}>{fmt(i.unit_price*i.quantity)}</div>
+                    <button onClick={()=>removeItem(i.id)} style={{fontSize:11,padding:0,width:22,height:22,borderRadius:3,border:"0.5px solid #A32D2D",background:"transparent",color:"#A32D2D",cursor:"pointer"}}>×</button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={{display:"flex",gap:4,marginBottom:4}}>
+              <select value={feeCategory} onChange={e=>setFeeCategory(e.target.value)} style={{fontSize:11,padding:"3px 5px",borderRadius:3,border:"0.5px solid rgba(0,0,0,0.12)",background:"var(--bg)",cursor:"pointer"}}>
+                {feeCategories.map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+              </select>
+              <select onChange={e=>{if(e.target.value){addFeeItem(e.target.value);e.target.value="";}}} style={{flex:1,fontSize:11,padding:"3px 5px",borderRadius:3,border:"0.5px solid rgba(0,0,0,0.12)",background:"var(--bg)",cursor:"pointer"}}>
+                <option value="">報酬マスターから追加…</option>
+                {Object.entries(feeItems).map(([k,f])=><option key={k} value={k}>{f.name} ({fmt(f.price)})</option>)}
+              </select>
+            </div>
+            <div style={{display:"flex",gap:4}}>
+              <input value={customName} onChange={e=>setCustomName(e.target.value)} placeholder="手入力：品目名" style={{flex:1,fontSize:11,padding:"3px 6px",borderRadius:3,border:"0.5px solid rgba(0,0,0,0.12)",background:"var(--bg)"}}/>
+              <input type="number" value={customPrice} onChange={e=>setCustomPrice(e.target.value)} placeholder="金額" style={{width:80,fontSize:11,padding:"3px 6px",borderRadius:3,border:"0.5px solid rgba(0,0,0,0.12)",background:"var(--bg)",textAlign:"right"}}/>
+              <button onClick={addCustom} style={{fontSize:10,padding:"3px 8px",cursor:"pointer",borderRadius:3,border:"0.5px solid #854F0B",background:"#FEF8EE",color:"#854F0B",whiteSpace:"nowrap"}}>追加</button>
+            </div>
+          </div>
+
+          {/* 実費 */}
+          <div style={{marginBottom:10,padding:10,borderRadius:6,background:"#F6F5F0",border:"0.5px solid rgba(0,0,0,0.06)"}}>
+            <div style={{fontSize:11,color:"#5F5E5A",marginBottom:6,fontWeight:500}}>💴 実費（登録免許税・印紙代など）</div>
+            {(p.expenses||[]).length>0&&(
+              <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:8}}>
+                {(p.expenses||[]).map(e=>(
+                  <div key={e.id} style={{display:"grid",gridTemplateColumns:"1fr 110px 60px 24px",gap:4,alignItems:"center"}}>
+                    <input value={e.name} onChange={ev=>updateExpense(e.id,"name",ev.target.value)} style={{fontSize:12,padding:"3px 6px",borderRadius:3,border:"0.5px solid rgba(0,0,0,0.1)",background:"var(--bg)"}}/>
+                    <input type="number" value={e.amount} onChange={ev=>updateExpense(e.id,"amount",Number(ev.target.value)||0)} style={{fontSize:12,padding:"3px 6px",borderRadius:3,border:"0.5px solid rgba(0,0,0,0.1)",background:"var(--bg)",textAlign:"right"}}/>
+                    <label style={{fontSize:10,color:"#666",display:"flex",alignItems:"center",gap:3,cursor:"pointer"}}><input type="checkbox" checked={e.billable!==false} onChange={ev=>updateExpense(e.id,"billable",ev.target.checked)}/>請求</label>
+                    <button onClick={()=>removeExpense(e.id)} style={{fontSize:11,padding:0,width:22,height:22,borderRadius:3,border:"0.5px solid #A32D2D",background:"transparent",color:"#A32D2D",cursor:"pointer"}}>×</button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div style={{display:"flex",gap:4}}>
+              <input value={expName} onChange={e=>setExpName(e.target.value)} placeholder="実費の名称（例: 登録免許税）" style={{flex:1,fontSize:11,padding:"3px 6px",borderRadius:3,border:"0.5px solid rgba(0,0,0,0.12)",background:"var(--bg)"}}/>
+              <input type="number" value={expAmount} onChange={e=>setExpAmount(e.target.value)} placeholder="金額" style={{width:100,fontSize:11,padding:"3px 6px",borderRadius:3,border:"0.5px solid rgba(0,0,0,0.12)",background:"var(--bg)",textAlign:"right"}}/>
+              <button onClick={addExpense} style={{fontSize:10,padding:"3px 8px",cursor:"pointer",borderRadius:3,border:"0.5px solid #5F5E5A",background:"var(--bg2)",color:"#5F5E5A",whiteSpace:"nowrap"}}>追加</button>
+            </div>
+            <div style={{fontSize:10,color:"#999",marginTop:4}}>※「請求」ON＝クライアント請求額に含める／OFF＝事務所側のコストのみ記録</div>
+          </div>
+
+          {/* 合計 */}
+          <div style={{marginBottom:10,padding:"8px 10px",background:"#FEF8EE",borderRadius:6}}>
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#854F0B",marginBottom:2}}>
+              <span>報酬合計（{(p.tax_mode||"tax_incl")==="tax_incl"?"税込":"税抜→税込"}）</span>
+              <span>{fmt(taxed)}</span>
+            </div>
+            {expBillable>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#854F0B",marginBottom:2}}>
+              <span>実費（請求分）</span>
+              <span>{fmt(expBillable)}</span>
+            </div>}
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:14,color:"#854F0B",fontWeight:600,borderTop:"0.5px solid rgba(133,79,11,0.3)",paddingTop:4,marginTop:4}}>
+              <span>ご請求金額</span>
+              <span>{fmt(grand)}</span>
+            </div>
+          </div>
+
+          {/* 備考 + 翻訳 */}
+          <div>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:3,gap:6,flexWrap:"wrap"}}>
+              <div style={{fontSize:10,color:"#999"}}>備考（見積書に表示）</div>
+              <div style={{display:"flex",gap:4,alignItems:"center"}}>
+                <select value={transLang} onChange={e=>setTransLang(e.target.value)} style={{fontSize:11,padding:"2px 5px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",cursor:"pointer"}}>
+                  <option value="en">英語</option>
+                  <option value="zh">中国語</option>
+                  <option value="ne">ネパール語</option>
+                  <option value="my">ミャンマー語</option>
+                  <option value="vi">ベトナム語</option>
+                  <option value="th">タイ語</option>
+                </select>
+                <button onClick={handleTranslate} disabled={translating} style={{fontSize:10,padding:"3px 9px",cursor:translating?"wait":"pointer",borderRadius:4,border:"0.5px solid #854F0B",background:"#FEF8EE",color:"#854F0B",fontWeight:500,whiteSpace:"nowrap",opacity:translating?0.6:1}}>
+                  {translating?"翻訳中…":"🌐 翻訳して併記"}
+                </button>
+              </div>
+            </div>
+            <textarea value={p.estimate_note||""} onChange={e=>up("estimate_note",e.target.value)} rows={3} placeholder="例: お見積り有効期限を過ぎた場合は再見積もりとなります" style={{width:"100%",fontSize:12,padding:"5px 8px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",resize:"vertical",fontFamily:"inherit",lineHeight:1.5}}/>
+          </div>
+        </div>
+
+        <div style={{padding:"10px 16px",borderTop:"0.5px solid rgba(0,0,0,0.1)",display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+          <div style={{display:"flex",gap:6}}>
+            <button onClick={()=>{if(confirm("この見込案件を削除しますか?\n\n⚠️ 元に戻せません。"))onDelete();}} style={{fontSize:11,padding:"5px 10px",cursor:"pointer",borderRadius:5,border:"0.5px solid #A32D2D",background:"transparent",color:"#A32D2D"}}>🗑 削除</button>
+            <button onClick={()=>up("prospect_archived",!p.prospect_archived)} style={{fontSize:11,padding:"5px 10px",cursor:"pointer",borderRadius:5,border:"0.5px solid #999",background:"transparent",color:"#666"}}>{p.prospect_archived?"📤 アーカイブ解除":"📦 アーカイブ"}</button>
+          </div>
+          <div style={{display:"flex",gap:6}}>
+            <button onClick={onGenerate} style={{fontSize:11,padding:"5px 12px",cursor:"pointer",borderRadius:5,border:"0.5px solid #854F0B",background:"#FEF8EE",color:"#854F0B",fontWeight:500}}>📋 見積書を発行</button>
+            <button onClick={onPromote} style={{fontSize:11,padding:"5px 12px",cursor:"pointer",borderRadius:5,border:"0.5px solid #378ADD",background:"#E6F1FB",color:"#185FA5",fontWeight:500}}>🔗 案件化</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 昇格モーダル（クライアント・案件に紐付け、新規作成も可）
+function PromoteProspectModal({prospect,clients,cases,onPromote,onClose}){
+  const p=prospect;
+  const [clientMode,setClientMode]=useState("existing"); // "existing" or "new"
+  const [caseMode,setCaseMode]=useState("new");
+  const [selectedClientId,setSelectedClientId]=useState("");
+  const [selectedCaseId,setSelectedCaseId]=useState("");
+  // 新規クライアント用
+  const [newClient,setNewClient]=useState({
+    name_roman:p.bill_type==="individual"?p.bill_to_name:"",
+    name_kana:"",
+    company_name:p.bill_type==="company"?p.bill_to_name:"",
+    client_type:"immigration",
+    nationality:"",
+    residence_status:"",
+    phone:"",
+    email:"",
+  });
+  // 新規案件用
+  const [newCase,setNewCase]=useState({
+    case_type:"immigration",
+    case_title:p.subject||"",
+    applicant:"",
+    requester:p.bill_to_name||"",
+    status:"相談中",
+    accepted_date:new Date().toISOString().slice(0,10),
+  });
+
+  const availableClients=clients;
+  const caseSelectable=selectedClientId?cases.filter(c=>c.client_id===selectedClientId):[];
+
+  function handlePromote(){
+    // クライアント確定
+    let clientId=selectedClientId;
+    let newClientObj=null;
+    if(clientMode==="new"){
+      const nameOK=(newClient.client_type==="general"?newClient.company_name:newClient.name_roman);
+      if(!nameOK){alert(newClient.client_type==="general"?"会社名を入力してください":"お名前（ローマ字）を入力してください");return;}
+      clientId="C"+Date.now();
+      newClientObj={
+        client_id:clientId,
+        name_roman:newClient.name_roman||"",
+        name_kana:newClient.name_kana||"",
+        company_name:newClient.company_name||"",
+        client_type:newClient.client_type,
+        nationality:newClient.nationality||"",
+        residence_status:newClient.residence_status||"",
+        phone:newClient.phone||"",
+        email:newClient.email||"",
+        residence_card_number:"",residence_expiry:"",address:"",birth_date:"",gender:"",
+        archived:false,
+      };
+    } else {
+      if(!clientId){alert("クライアントを選択してください");return;}
+    }
+
+    // 案件確定
+    let caseId=selectedCaseId;
+    let newCaseObj=null;
+    if(caseMode==="new"){
+      if(!newCase.case_title){alert("案件名を入力してください");return;}
+      caseId=(newCase.case_type==="general"?"G":"")+"C"+Date.now();
+      newCaseObj={
+        case_id:caseId,
+        client_id:clientId,
+        case_type:newCase.case_type,
+        case_title:newCase.case_title,
+        applicant:newCase.applicant||(newClient.name_roman||""),
+        requester:newCase.requester||p.bill_to_name||"",
+        status:newCase.status,
+        accepted_date:newCase.accepted_date,
+        applied_date:"",result_date:"",
+        fee:0,paid:0,doc_count:"",official_req_no:"",
+        notes:"",contacts:[],comm_log:[],payment_logs:[],
+      };
+    } else {
+      if(!caseId){alert("案件を選択してください");return;}
+    }
+
+    onPromote({clientId,caseId,newClientObj,newCaseObj});
+  }
+
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",display:"flex",alignItems:"flex-start",justifyContent:"center",zIndex:9600,padding:"20px 16px",overflowY:"auto"}}>
+      <div style={{background:"var(--bg)",borderRadius:12,border:"0.5px solid rgba(0,0,0,0.15)",width:560,maxWidth:"100%",maxHeight:"calc(100vh - 40px)",display:"flex",flexDirection:"column"}}>
+        <div style={{padding:"12px 16px",borderBottom:"0.5px solid rgba(0,0,0,0.1)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <span style={{fontSize:14,fontWeight:500}}>🔗 見込案件を案件化</span>
+          <button onClick={onClose} style={{border:"none",background:"none",fontSize:18,cursor:"pointer",color:"#999"}}>×</button>
+        </div>
+
+        <div style={{padding:16,overflowY:"auto",flex:1}}>
+          <div style={{marginBottom:12,padding:8,background:"#FEF8EE",borderRadius:6,fontSize:12,color:"#854F0B"}}>
+            宛先: <b>{p.bill_to_name}</b> {p.honorific||""}{p.subject?" ／ 件名: "+p.subject:""}
+          </div>
+
+          {/* クライアント */}
+          <div style={{marginBottom:14,padding:10,borderRadius:8,border:"0.5px solid rgba(0,0,0,0.08)"}}>
+            <div style={{fontSize:12,color:"#185FA5",fontWeight:500,marginBottom:6}}>① クライアント</div>
+            <div style={{display:"flex",gap:6,marginBottom:8}}>
+              {[["existing","既存から選択"],["new","新規作成"]].map(([k,l])=>(
+                <button key={k} onClick={()=>setClientMode(k)} style={{fontSize:11,padding:"4px 10px",cursor:"pointer",borderRadius:4,border:"0.5px solid "+(clientMode===k?"#378ADD":"rgba(0,0,0,0.15)"),background:clientMode===k?"#E6F1FB":"var(--bg2)",color:clientMode===k?"#185FA5":"#666",fontWeight:clientMode===k?500:400}}>{l}</button>
+              ))}
+            </div>
+            {clientMode==="existing"?(
+              <select value={selectedClientId} onChange={e=>{setSelectedClientId(e.target.value);setSelectedCaseId("");}} style={{width:"100%",fontSize:12,padding:"5px 8px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",cursor:"pointer"}}>
+                <option value="">クライアントを選択…</option>
+                {availableClients.map(c=><option key={c.client_id} value={c.client_id}>{c.name_roman||c.company_name||c.name_kana||c.client_id} {c.company_name&&c.name_roman?"／"+c.company_name:""}</option>)}
+              </select>
+            ):(
+              <div>
+                <div style={{display:"flex",gap:6,marginBottom:6}}>
+                  {[["immigration","入管クライアント"],["general","一般クライアント"]].map(([k,l])=>(
+                    <button key={k} onClick={()=>setNewClient({...newClient,client_type:k})} style={{fontSize:11,padding:"3px 10px",cursor:"pointer",borderRadius:4,border:"0.5px solid "+(newClient.client_type===k?"#378ADD":"rgba(0,0,0,0.15)"),background:newClient.client_type===k?"#E6F1FB":"var(--bg2)",color:newClient.client_type===k?"#185FA5":"#666",fontWeight:newClient.client_type===k?500:400}}>{l}</button>
+                  ))}
+                </div>
+                {newClient.client_type==="general"?(
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+                    <input value={newClient.company_name} onChange={e=>setNewClient({...newClient,company_name:e.target.value})} placeholder="会社名*" style={{fontSize:12,padding:"5px 8px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/>
+                    <input value={newClient.phone} onChange={e=>setNewClient({...newClient,phone:e.target.value})} placeholder="電話" style={{fontSize:12,padding:"5px 8px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/>
+                    <input value={newClient.email} onChange={e=>setNewClient({...newClient,email:e.target.value})} placeholder="メール" style={{fontSize:12,padding:"5px 8px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",gridColumn:"1/-1"}}/>
+                  </div>
+                ):(
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+                    <input value={newClient.name_roman} onChange={e=>setNewClient({...newClient,name_roman:e.target.value})} placeholder="お名前（ローマ字）*" style={{fontSize:12,padding:"5px 8px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",gridColumn:"1/-1"}}/>
+                    <input value={newClient.name_kana} onChange={e=>setNewClient({...newClient,name_kana:e.target.value})} placeholder="カナ" style={{fontSize:12,padding:"5px 8px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/>
+                    <input value={newClient.nationality} onChange={e=>setNewClient({...newClient,nationality:e.target.value})} placeholder="国籍" style={{fontSize:12,padding:"5px 8px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/>
+                    <input value={newClient.residence_status} onChange={e=>setNewClient({...newClient,residence_status:e.target.value})} placeholder="在留資格" style={{fontSize:12,padding:"5px 8px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/>
+                    <input value={newClient.phone} onChange={e=>setNewClient({...newClient,phone:e.target.value})} placeholder="電話" style={{fontSize:12,padding:"5px 8px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/>
+                    <input value={newClient.email} onChange={e=>setNewClient({...newClient,email:e.target.value})} placeholder="メール" style={{fontSize:12,padding:"5px 8px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",gridColumn:"1/-1"}}/>
+                  </div>
+                )}
+                <div style={{fontSize:10,color:"#999",marginTop:4}}>※ 詳細はクライアント管理ページで後から追加編集できます</div>
+              </div>
+            )}
+          </div>
+
+          {/* 案件 */}
+          <div style={{marginBottom:10,padding:10,borderRadius:8,border:"0.5px solid rgba(0,0,0,0.08)"}}>
+            <div style={{fontSize:12,color:"#185FA5",fontWeight:500,marginBottom:6}}>② 案件</div>
+            <div style={{display:"flex",gap:6,marginBottom:8}}>
+              {[["existing","既存から選択"],["new","新規作成"]].map(([k,l])=>(
+                <button key={k} onClick={()=>setCaseMode(k)} style={{fontSize:11,padding:"4px 10px",cursor:"pointer",borderRadius:4,border:"0.5px solid "+(caseMode===k?"#378ADD":"rgba(0,0,0,0.15)"),background:caseMode===k?"#E6F1FB":"var(--bg2)",color:caseMode===k?"#185FA5":"#666",fontWeight:caseMode===k?500:400}}>{l}</button>
+              ))}
+            </div>
+            {caseMode==="existing"?(
+              clientMode==="existing"&&selectedClientId?(
+                caseSelectable.length>0?(
+                  <select value={selectedCaseId} onChange={e=>setSelectedCaseId(e.target.value)} style={{width:"100%",fontSize:12,padding:"5px 8px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",cursor:"pointer"}}>
+                    <option value="">案件を選択…</option>
+                    {caseSelectable.map(c=><option key={c.case_id} value={c.case_id}>{c.case_title} ({c.status})</option>)}
+                  </select>
+                ):(
+                  <div style={{fontSize:11,color:"#999",padding:"6px 0"}}>このクライアントには既存案件がありません。「新規作成」を選んでください。</div>
+                )
+              ):(
+                <div style={{fontSize:11,color:"#999",padding:"6px 0"}}>既存クライアントを先に選択してください。</div>
+              )
+            ):(
+              <div>
+                <div style={{display:"flex",gap:6,marginBottom:6}}>
+                  {[["immigration","入管案件"],["general","一般案件"]].map(([k,l])=>(
+                    <button key={k} onClick={()=>setNewCase({...newCase,case_type:k})} style={{fontSize:11,padding:"3px 10px",cursor:"pointer",borderRadius:4,border:"0.5px solid "+(newCase.case_type===k?"#378ADD":"rgba(0,0,0,0.15)"),background:newCase.case_type===k?"#E6F1FB":"var(--bg2)",color:newCase.case_type===k?"#185FA5":"#666",fontWeight:newCase.case_type===k?500:400}}>{l}</button>
+                  ))}
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+                  <input value={newCase.case_title} onChange={e=>setNewCase({...newCase,case_title:e.target.value})} placeholder="案件名*" style={{fontSize:12,padding:"5px 8px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",gridColumn:"1/-1"}}/>
+                  <input value={newCase.applicant} onChange={e=>setNewCase({...newCase,applicant:e.target.value})} placeholder="申請人/対象者" style={{fontSize:12,padding:"5px 8px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/>
+                  <input value={newCase.requester} onChange={e=>setNewCase({...newCase,requester:e.target.value})} placeholder="依頼者" style={{fontSize:12,padding:"5px 8px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/>
+                  <select value={newCase.status} onChange={e=>setNewCase({...newCase,status:e.target.value})} style={{fontSize:12,padding:"5px 8px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",cursor:"pointer"}}>
+                    <option>相談中</option>
+                    <option>受任</option>
+                    <option>書類作成中</option>
+                    <option>申請中</option>
+                  </select>
+                  <input type="date" value={newCase.accepted_date} onChange={e=>setNewCase({...newCase,accepted_date:e.target.value})} style={{fontSize:12,padding:"5px 8px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/>
+                </div>
+                <div style={{fontSize:10,color:"#999",marginTop:4}}>※ 詳細は案件管理ページで後から追加編集できます</div>
+              </div>
+            )}
+          </div>
+
+          <div style={{padding:8,background:"#E6F1FB",borderRadius:6,fontSize:11,color:"#185FA5"}}>
+            案件化すると、この見込案件は「報酬管理」に移動し、請求書発行できるようになります。
+          </div>
+        </div>
+
+        <div style={{padding:"10px 16px",borderTop:"0.5px solid rgba(0,0,0,0.1)",display:"flex",justifyContent:"flex-end",gap:8}}>
+          <button onClick={onClose} style={{fontSize:12,padding:"6px 16px",cursor:"pointer",borderRadius:6,border:"0.5px solid rgba(0,0,0,0.15)",background:"transparent",color:"#666"}}>キャンセル</button>
+          <button onClick={handlePromote} style={{fontSize:12,padding:"6px 16px",cursor:"pointer",borderRadius:6,border:"0.5px solid #378ADD",background:"#E6F1FB",color:"#185FA5",fontWeight:500}}>案件化する</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Dashboard({data,setData,onNavClient,onNavCase,onNavPayment}){
   const isMobile=useMobile();
   const {clients,cases,payments,links}=data;
@@ -1186,21 +1950,59 @@ function Dashboard({data,setData,onNavClient,onNavCase,onNavPayment}){
 
   const activeCaseCount=cases.filter(c=>!["許可","不許可","完了","完了（許可）","完了（不許可）","完了（結果待ち）","キャンセル","取下","取下げ","取下予定","済","保留"].includes(c.status)).length;
   const thisYear=new Date().getFullYear().toString();
+  // 見込案件（is_prospect）は売上・売掛計算から除外
+  const confirmedPayments=(payments||[]).filter(p=>!p.is_prospect);
   // 個別の元請求日ベースで今年の売上を計算
-  const yearFee=(payments||[]).reduce((s,p)=>{
+  const yearFee=confirmedPayments.reduce((s,p)=>{
     const taxRate=(p.tax_mode||"tax_incl")==="tax_excl"?1.1:1;
     const itemsTotal=(p.items||[]).filter(i=>(i.original_date||p.invoice_date||"").startsWith(thisYear)).reduce((a,i)=>a+(i.unit_price||0)*(i.quantity||1),0)*taxRate;
     const expTotal=(p.invoice_date||"").startsWith(thisYear)?(p.expenses||[]).filter(e=>e.billable).reduce((a,e)=>a+(e.amount||0),0):0;
     return s+itemsTotal+expTotal;
   },0);
-  const yearPaid=(payments||[]).reduce((s,p)=>s+(p.payments_history||[]).filter(h=>h.date&&h.date.startsWith(thisYear)).reduce((a,h)=>a+h.amount,0),0);
+  const yearPaid=confirmedPayments.reduce((s,p)=>s+(p.payments_history||[]).filter(h=>h.date&&h.date.startsWith(thisYear)).reduce((a,h)=>a+h.amount,0),0);
   // 売掛残高は全期間の累計
-  const allFee=(payments||[]).reduce((s,p)=>s+calcGrandTotal(p.items,p.expenses,p.tax_mode||"tax_incl"),0);
-  const allPaid=(payments||[]).reduce((s,p)=>s+(p.payments_history||[]).reduce((a,h)=>a+h.amount,0),0);
+  const allFee=confirmedPayments.reduce((s,p)=>s+calcGrandTotal(p.items,p.expenses,p.tax_mode||"tax_incl"),0);
+  const allPaid=confirmedPayments.reduce((s,p)=>s+(p.payments_history||[]).reduce((a,h)=>a+h.amount,0),0);
   const unpaidTotal=allFee-allPaid;
+
+  // 見込案件
+  const prospectPayments=(payments||[]).filter(p=>p.is_prospect);
 
   // モーダル
   const [modal,setModal]=useState(null);
+  const [showNewProspect,setShowNewProspect]=useState(false);
+  const [selectedProspect,setSelectedProspect]=useState(null);
+  const [promotingProspect,setPromotingProspect]=useState(null);
+
+  // 見込案件ハンドラー
+  const handleNewProspect=useCallback(np=>{
+    setData(prev=>({...prev,payments:[np,...(prev.payments||[])]}));
+    setShowNewProspect(false);
+  },[setData]);
+  const handleUpdateProspect=useCallback(p=>{
+    setData(prev=>({...prev,payments:(prev.payments||[]).map(x=>x.payment_id===p.payment_id?p:x)}));
+    setSelectedProspect(p);
+  },[setData]);
+  const handleDeleteProspect=useCallback(id=>{
+    setData(prev=>({...prev,payments:(prev.payments||[]).filter(x=>x.payment_id!==id)}));
+    setSelectedProspect(null);
+  },[setData]);
+  const handleGenerateEstimateForProspect=useCallback(p=>{
+    generateEstimate(p,cases,clients,data.office||{});
+  },[cases,clients,data.office]);
+  const handlePromoteProspect=useCallback(({clientId,caseId,newClientObj,newCaseObj})=>{
+    setData(prev=>{
+      const newClients=newClientObj?[...prev.clients,newClientObj]:prev.clients;
+      const newCases=newCaseObj?[...prev.cases,newCaseObj]:prev.cases;
+      const newPayments=(prev.payments||[]).map(x=>{
+        if(x.payment_id!==promotingProspect.payment_id) return x;
+        return {...x,is_prospect:false,prospect_archived:false,case_ids:[caseId],client_ids:[clientId]};
+      });
+      return {...prev,clients:newClients,cases:newCases,payments:newPayments};
+    });
+    setPromotingProspect(null);
+    setSelectedProspect(null);
+  },[setData,promotingProspect]);
 
   return(
     <div>
@@ -1227,7 +2029,8 @@ function Dashboard({data,setData,onNavClient,onNavCase,onNavPayment}){
           <DashActiveCases cases={cases} onClickItem={c=>setModal({type:"case",data:c})}/>
         </div>
         <div style={{display:"flex",flexDirection:"column",gap:14}}>
-          <DashUnpaidList payments={payments||[]} cases={cases} onUpdatePayment={p=>setData(prev=>({...prev,payments:(prev.payments||[]).map(x=>x.payment_id===p.payment_id?p:x)}))} onClickItem={p=>setModal({type:"payment",data:p,cases})}/>
+          <DashUnpaidList payments={confirmedPayments} cases={cases} onUpdatePayment={p=>setData(prev=>({...prev,payments:(prev.payments||[]).map(x=>x.payment_id===p.payment_id?p:x)}))} onClickItem={p=>setModal({type:"payment",data:p,cases})}/>
+          <DashProspects payments={prospectPayments} onClickItem={p=>setSelectedProspect(p)} onNew={()=>setShowNewProspect(true)}/>
           <DashQuickLinks links={links} setLinks={setLinks}/>
         </div>
       </div>
@@ -1361,6 +2164,11 @@ function Dashboard({data,setData,onNavClient,onNavCase,onNavPayment}){
           })()}
         </div>
       </div>}
+
+      {/* 見込案件モーダル群 */}
+      {showNewProspect&&<NewProspectModal onClose={()=>setShowNewProspect(false)} onSave={handleNewProspect} feeMaster={data.fee_master} clients={clients}/>}
+      {selectedProspect&&!promotingProspect&&<ProspectDetailModal prospect={selectedProspect} clients={clients} office={data.office} onUpdate={handleUpdateProspect} onDelete={()=>handleDeleteProspect(selectedProspect.payment_id)} onGenerate={()=>handleGenerateEstimateForProspect(selectedProspect)} onPromote={()=>setPromotingProspect(selectedProspect)} onClose={()=>setSelectedProspect(null)} feeMaster={data.fee_master}/>}
+      {promotingProspect&&<PromoteProspectModal prospect={promotingProspect} clients={clients} cases={cases} onPromote={handlePromoteProspect} onClose={()=>setPromotingProspect(null)}/>}
     </div>
   );
 }
@@ -3477,7 +4285,7 @@ function GeneralCaseDetail({c,onUpdate,onDelete,clients,payments}){
           <div><div style={{fontSize:10,color:"#999",marginBottom:3}}>書類の枚数</div>
             <input value={c.doc_count||""} onChange={e=>updateField("doc_count",e.target.value)} placeholder="例: 5" style={{fontSize:12,padding:"4px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",width:"100%"}}/></div>
           <div><div style={{fontSize:10,color:"#999",marginBottom:3}}>職務上請求書No</div>
-            <input value={c.official_req_no||""} onChange={e=>updateField("official_req_no",e.target.value)} style={{fontSize:12,padding:"4px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",width:"100%"}}/></div>
+            <textarea value={c.official_req_no||""} onChange={e=>updateField("official_req_no",e.target.value)} rows={1} placeholder="複数はカンマまたは改行区切り" style={{fontSize:12,padding:"4px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",width:"100%",resize:"vertical",fontFamily:"inherit",lineHeight:1.5}}/></div>
         </div>
         <div style={{marginTop:10}}><div style={{fontSize:10,color:"#999",marginBottom:3}}>📁 Googleドライブ</div>
           <div style={{display:"flex",gap:4}}>
@@ -3743,7 +4551,7 @@ function JournalModal({entry,onClose,onSave,nextNo,clients,companies}){
           </div>}
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
             <div><div style={{fontSize:10,color:"#999",marginBottom:3}}>報酬額（税込）</div><input type="number" value={form.fee} onChange={e=>up("fee",e.target.value)} style={{width:"100%",fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",textAlign:"right"}}/></div>
-            <div><div style={{fontSize:10,color:"#999",marginBottom:3}}>職務上請求番号</div><input value={form.official_req_no||""} onChange={e=>up("official_req_no",e.target.value)} style={{width:"100%",fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/></div>
+            <div><div style={{fontSize:10,color:"#999",marginBottom:3}}>職務上請求番号</div><textarea value={form.official_req_no||""} onChange={e=>up("official_req_no",e.target.value)} rows={1} placeholder="複数はカンマまたは改行区切り" style={{width:"100%",fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",resize:"vertical",fontFamily:"inherit",lineHeight:1.5}}/></div>
             <div><div style={{fontSize:10,color:"#999",marginBottom:3}}>備考</div><input value={form.notes||""} onChange={e=>up("notes",e.target.value)} style={{width:"100%",fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/></div>
           </div>
         </div>
@@ -4464,7 +5272,7 @@ body { font-family: "Yu Mincho", "游明朝", "Hiragino Mincho ProN", "MS Mincho
   <table class="items-table">
     <thead>
       <tr>
-        <th class="left" style="width:60%">品番・品名</th>
+        <th class="left" style="width:60%">品名</th>
         <th style="width:8%">数量</th>
         <th style="width:14%">単価</th>
         <th style="width:18%">金額</th>
@@ -4498,6 +5306,11 @@ body { font-family: "Yu Mincho", "游明朝", "Hiragino Mincho ProN", "MS Mincho
 }
 
 function generateInvoice(p, cases, clients, office) {
+  // 見込案件からの請求書発行はブロック（案件化してから発行する）
+  if (p.is_prospect || !p.case_ids || p.case_ids.length === 0) {
+    alert("請求書の発行には、クライアント・案件への紐付けが必要です。\n見込案件モーダルから「案件化」を実行してください。");
+    return;
+  }
   const ofc = office || {};
   const cs = p.case_ids.map(id => cases.find(x => x.case_id === id)).filter(Boolean);
   const itemsTotal = calcItemsTotal(p.items);
@@ -4687,7 +5500,7 @@ body { font-family: "Yu Mincho", "游明朝", "Hiragino Mincho ProN", "MS Mincho
   <table class="items-table">
     <thead>
       <tr>
-        <th class="left" style="width:${hasOrigDate?"48%":"60%"}">品番・品名</th>
+        <th class="left" style="width:${hasOrigDate?"48%":"60%"}">品名</th>
         ${hasOrigDate ? '<th style="width:12%">元請求日</th>' : ""}
         <th style="width:8%">数量</th>
         <th style="width:14%">単価</th>
@@ -5475,7 +6288,8 @@ function PaymentManagement({data,setData,navigatePaymentId,clearNavigate}){
     setMergeMode(false);setMergeIds([]);setMergeConfirm(null);
   }
 
-  const allPayments=payments||[];
+  // 見込案件は報酬管理ページから除外（ダッシュボードの見込案件カードで管理）
+  const allPayments=(payments||[]).filter(p=>!p.is_prospect);
   const yearOptions=useMemo(()=>{const years=new Set(allPayments.filter(p=>p.invoice_date).map(p=>p.invoice_date.slice(0,4)));return["全て",...[...years].sort().reverse()];},[allPayments]);
   const unpaidTotal=allPayments.filter(p=>paymentStatus(p)!=="入金済").reduce((s,p)=>{
     const total=calcGrandTotal(p.items,p.expenses,p.tax_mode||"tax_incl");
