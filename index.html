@@ -678,6 +678,52 @@ async function readDocument(fileBase64, mediaType, apiKey){
   return JSON.parse(jsonMatch[0]);
 }
 
+// 請求書・見積書の備考欄などで使う翻訳関数。
+// 入力された日本語テキストを指定の言語に翻訳して返す。
+// targetLang: "en" / "ne" / "my" / "vi"
+const TRANSLATE_LANG_MAP = {
+  en: "English",
+  zh: "Simplified Chinese",
+  ne: "Nepali",
+  my: "Burmese (Myanmar)",
+  vi: "Vietnamese",
+  th: "Thai"
+};
+async function translateText(text, targetLang, apiKey){
+  const langName = TRANSLATE_LANG_MAP[targetLang];
+  if(!langName) throw new Error("未対応の言語です: " + targetLang);
+  const prompt = `以下の日本語テキストを${langName}に翻訳してください。請求書・見積書の備考欄で使われるビジネス文書です。丁寧で自然な表現にしてください。翻訳結果のみを返し、前置き・説明・引用符は付けないでください。
+
+【原文】
+${text}`;
+  const resp = await fetch("https://api.anthropic.com/v1/messages",{
+    method:"POST",
+    headers:{"Content-Type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+    body:JSON.stringify({
+      model:"claude-sonnet-4-20250514",
+      max_tokens:1024,
+      messages:[{role:"user",content:prompt}]
+    })
+  });
+  if(!resp.ok){const e=await resp.text();throw new Error(`API Error ${resp.status}: ${e}`);}
+  const data = await resp.json();
+  return data.content.map(b=>b.text||"").join("").trim();
+}
+
+// 「翻訳文\n（原文テキスト）」形式から原文部分だけを抽出。
+// 再翻訳時に、すでに併記済みの翻訳を再度翻訳してしまうのを防ぐ。
+// 旧形式「翻訳文\n\n（原文）\n原文テキスト」も後方互換でサポート。
+function extractOriginalText(text){
+  // 新形式：末尾が「\n（...）」で囲まれている
+  const m = text.match(/\n（([\s\S]*)）\s*$/);
+  if(m) return m[1];
+  // 旧形式
+  const oldMarker = "\n\n（原文）\n";
+  const oldIdx = text.indexOf(oldMarker);
+  if(oldIdx >= 0) return text.slice(oldIdx + oldMarker.length);
+  return text;
+}
+
 // 税計算ユーティリティ
 const TAX_RATE = 0.10;
 function calcTax(amount, mode){
@@ -2031,8 +2077,8 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
   const [search,setSearch]=useState("");
   const [filterStatus,setFilterStatus]=useState("全て");
   const [showArchived,setShowArchived]=useState(false);
-  const [editMode,setEditMode]=useState(false);
-  const [editData,setEditData]=useState(null);
+  // editMode/editData 概念は廃止。選択中クライアントは常に「最新状態」で表示され、
+  // 入力のたびに setClients で自動反映（自動保存）される。
   const [tab,setTab]=useState("基本情報");
   const [poiReading,setPoiReading]=useState(false);
   const [poiError,setPoiError]=useState(null);
@@ -2044,15 +2090,14 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
     if(!files||files.length===0)return;
     const apiKey=(data.office||{}).api_key;
     if(!apiKey){alert("APIキーが設定されていません。\nマスター管理 → 🏠事務所設定 → 🤖AI設定 から設定してください。");return;}
-    if(!editMode){alert("編集モードにしてからお使いください。");return;}
       setPoiReading(true);setPoiError(null);setPoiResult(null);
       let totalFilled=[];
       let lastResult=null;
       let processedCount=0;
       const t=document.getElementById("toast");
-      // 先勝ち管理：editDataはReact stateで非同期更新のため、ローカルで追跡
+      // 先勝ち管理：現在選択中クライアントの既存値をチェック
       const alreadyFilled={};
-      const ed0=editData||{};
+      const ed0=(clients.find(c=>c.client_id===selected?.client_id))||{};
       let localWorkHistory=Array.isArray(ed0.work_history)?[...ed0.work_history]:[];
       const MERGE_FIELDS=["name_roman","name_kana","nationality","dob","gender","phone","email","postal_code","address","residence_status","residence_expiry","residence_card","passport_number","passport_expiry","company_name","store","work_start_date"];
       MERGE_FIELDS.forEach(f=>{if(ed0[f]) alreadyFilled[f]=true;});
@@ -2140,11 +2185,10 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
   };
 
   // ポイポイ式：ドラッグ&ドロップ
-  const handlePoiDragOver=(e)=>{e.preventDefault();e.stopPropagation();if(editMode&&!poiReading)setPoiDragOver(true);};
+  const handlePoiDragOver=(e)=>{e.preventDefault();e.stopPropagation();if(!poiReading)setPoiDragOver(true);};
   const handlePoiDragLeave=(e)=>{e.preventDefault();e.stopPropagation();setPoiDragOver(false);};
   const handlePoiDrop=async(e)=>{
     e.preventDefault();e.stopPropagation();setPoiDragOver(false);
-    if(!editMode){alert("編集モードにしてからお使いください。");return;}
     const files=Array.from(e.dataTransfer.files||[]);
     await processPoipoiFiles(files);
   };
@@ -2152,7 +2196,7 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
   useEffect(()=>{
     if(navigateClientId){
       const t=clients.find(c=>c.client_id===navigateClientId);
-      if(t){setSelected(t);setEditMode(false);setEditData(null);setTab("基本情報");setSearch("");setFilterStatus("全て");}
+      if(t){setSelected(t);setTab("基本情報");setSearch("");setFilterStatus("全て");}
       if(clearNavigate)clearNavigate();
     }
   },[navigateClientId]);
@@ -2172,62 +2216,51 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
     const d=getEffectiveDays(c,data.cases); return d!==null&&d<=90;
   }).sort((a,b)=>getEffectiveDays(a,data.cases)-getEffectiveDays(b,data.cases));
 
-  function startEdit(){setEditData(JSON.parse(JSON.stringify(selected)));setEditMode(true);}
-  function cancelEdit(){
-    // 名前未入力の新規クライアントはキャンセル時に削除
-    if(editData && !editData.name_roman){
-      setClients(prev=>prev.filter(c=>c.client_id!==editData.client_id));
-      setSelected(clients.find(c=>c.client_id!==editData.client_id)||null);
-    }
-    setEditMode(false);setEditData(null);
+  // 編集は常時インライン（自動保存）。入力のたびに clients ステートを直接更新する。
+  // 日付フィールドは完全な YYYY-MM-DD 形式になった時点で sanitize。
+  // company_name / work_start_date 変更時は work_history を自動同期。
+  const DATE_FIELDS=["dob","entry_date","residence_expiry","passport_expiry","work_start_date"];
+  function update(f,v){
+    const sid=selected?.client_id;
+    if(!sid) return;
+    setClients(prev=>prev.map(c=>{
+      if(c.client_id!==sid) return c;
+      let val=v;
+      if(DATE_FIELDS.includes(f) && typeof v==="string" && /^\d{4}-\d{2}-\d{2}$/.test(v)){
+        val=sanitizeDate(v);
+      }
+      let updated={...c,[f]:val};
+      // company_name / work_start_date 変更時、work_history を自動同期
+      if((f==="company_name"||f==="work_start_date") && updated.company_name && updated.work_start_date && updated.work_start_date!=="未定"){
+        const wh=updated.work_history||[];
+        const currentWork=wh.find(w=>w.company_name===updated.company_name && !w.end_date);
+        if(currentWork){
+          updated.work_history=wh.map(w=>w.id===currentWork.id?{...w,start_date:updated.work_start_date,company_name:updated.company_name,country:w.country||"日本",job_title:w.job_title||"調理師"}:w);
+        }else{
+          updated.work_history=[...wh,{id:"W"+Date.now(),company_name:updated.company_name,country:"日本",start_date:updated.work_start_date,end_date:null,job_title:"調理師"}];
+        }
+      }
+      return updated;
+    }));
   }
-  function saveEdit(){
-    const d={...editData};
-    // 全日付フィールドをsanitize
-    ["dob","entry_date","residence_expiry","passport_expiry","work_start_date"].forEach(f=>{
-      if(d[f]&&d[f]!=="未定") d[f]=sanitizeDate(d[f]);
-    });
-    (d.work_history||[]).forEach(w=>{
-      if(w.start_date) w.start_date=sanitizeDate(w.start_date);
-      if(w.end_date) w.end_date=sanitizeDate(w.end_date);
-    });
-    (d.salary_history||[]).forEach(s=>{
-      if(s.effective_date) s.effective_date=sanitizeDate(s.effective_date);
-    });
-    // 基本情報 → work_history 自動同期
-    if(d.company_name && d.work_start_date && d.work_start_date!=="未定"){
-      const wh=d.work_history||[];
-      const currentWork=wh.find(w=>w.company_name===d.company_name && !w.end_date);
-      if(currentWork){
-        // 既存の現在勤務 → start_dateを同期
-        d.work_history=wh.map(w=>w.id===currentWork.id?{...w,start_date:d.work_start_date,company_name:d.company_name,country:w.country||"日本",job_title:w.job_title||"調理師"}:w);
-      }else{
-        // 現在勤務が無い → 自動生成
-        d.work_history=[...wh,{id:"W"+Date.now(),company_name:d.company_name,country:"日本",start_date:d.work_start_date,end_date:null,job_title:"調理師"}];
+  function archiveClient(){setClients(prev=>prev.map(c=>c.client_id===selected.client_id?{...c,archived:!c.archived}:c));}
+  // 名前未入力のまま放置された「新規作成」クライアントを、他に移るタイミングで削除するヘルパー
+  function discardEmptyIfNew(){
+    if(selected && !selected.name_roman && selected.client_id && selected.client_id.startsWith("C")){
+      // 「C」プレフィックス＋当該クライアントの履歴・案件が無ければ空の新規と判定して削除
+      const hasCases=data.cases.some(c=>c.client_id===selected.client_id);
+      if(!hasCases){
+        setClients(prev=>prev.filter(x=>x.client_id!==selected.client_id));
       }
     }
-    setClients(prev=>prev.map(c=>c.client_id===d.client_id?d:c));setSelected(d);setEditMode(false);setEditData(null);
   }
-  function update(f,v){setEditData(p=>({...p,[f]:v}));}
-  function archiveClient(){setClients(prev=>prev.map(c=>c.client_id===selected.client_id?{...c,archived:!c.archived}:c));setEditMode(false);}
   function handleSelectClient(c){
-    if(editMode&&editData){
-      if(!confirm("編集中の内容が保存されていません。破棄しますか？"))return;
-      // 名前未入力の新規クライアントは破棄時に削除
-      if(!editData.name_roman){
-        setClients(prev=>prev.filter(x=>x.client_id!==editData.client_id));
-      }
-    }
-    setSelected(c);setEditMode(false);setEditData(null);setTab("基本情報");
+    discardEmptyIfNew();
+    setSelected(c);setTab("基本情報");
     if(isMobile) setShowDetail(true);
   }
   function handleAddClient(){
-    if(editMode&&editData){
-      if(!confirm("編集中の内容が保存されていません。破棄しますか？"))return;
-      if(!editData.name_roman){
-        setClients(prev=>prev.filter(x=>x.client_id!==editData.client_id));
-      }
-    }
+    discardEmptyIfNew();
     const newId="C"+Date.now();
     const newClient={
       client_id:newId, client_type:"immigration", name_roman:"", name_kana:"", nationality:"ネパール", dob:"", gender:"男",
@@ -2240,8 +2273,6 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
     };
     setClients(prev=>[newClient,...prev]);
     setSelected(newClient);
-    setEditData(newClient);
-    setEditMode(true);
     setTab("基本情報");
     if(isMobile) setShowDetail(true);
   }
@@ -2255,11 +2286,10 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
     if(!confirm(msg)) return;
     setClients(prev=>prev.filter(c=>c.client_id!==selected.client_id));
     setSelected(clients.find(c=>c.client_id!==selected.client_id)||null);
-    setEditMode(false);setEditData(null);
   }
 
   // Keep selected in sync with clients
-  const cur=editMode?editData:(clients.find(c=>c.client_id===selected?.client_id)||null);
+  const cur=clients.find(c=>c.client_id===selected?.client_id)||null;
   const depsForAlert=(c)=>clients.filter(x=>x.dependent_of===c.client_id&&!x.archived);
 
   function getTabs(c){
@@ -2291,7 +2321,7 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
               const deps=depsForAlert(c);
               const tk=getTokureiInfo(c,data.cases);
               return(
-                <div key={c.client_id} onClick={()=>{setSelected(c);setEditMode(false);setTab("在留・パスポート");}} style={{fontSize:11,color:tk.isTokurei?"#5B2D8E":"#791F1F",cursor:"pointer",padding:"2px 0",display:"flex",alignItems:"center",gap:5}}>
+                <div key={c.client_id} onClick={()=>{setSelected(c);setTab("在留・パスポート");}} style={{fontSize:11,color:tk.isTokurei?"#5B2D8E":"#791F1F",cursor:"pointer",padding:"2px 0",display:"flex",alignItems:"center",gap:5}}>
                   <span>{c.name_roman.split(" ")[0]} — {tk.isTokurei?`特例〜${tk.tokureiExpiry}`:c.residence_expiry}</span>
                   {deps.length>0&&<span style={{fontSize:10,padding:"1px 5px",borderRadius:3,background:"#F7C1C1",color:"#791F1F"}}>家族{deps.length}名</span>}
                 </div>
@@ -2367,9 +2397,9 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
 
       {/* Main */}
       <div style={{flex:1,display:isMobile&&!showDetail?"none":"flex",flexDirection:"column",overflow:"hidden",position:"relative"}}
-        onDragOver={cur&&editMode&&cur.client_type!=="general"?handlePoiDragOver:undefined}
-        onDragLeave={cur&&editMode?handlePoiDragLeave:undefined}
-        onDrop={cur&&editMode&&cur.client_type!=="general"?handlePoiDrop:undefined}
+        onDragOver={cur&&cur.client_type!=="general"?handlePoiDragOver:undefined}
+        onDragLeave={cur?handlePoiDragLeave:undefined}
+        onDrop={cur&&cur.client_type!=="general"?handlePoiDrop:undefined}
       >
         {isMobile&&showDetail&&<button onClick={()=>setShowDetail(false)} style={{display:"flex",alignItems:"center",gap:4,padding:"8px 14px",border:"none",background:"var(--bg)",borderBottom:"0.5px solid var(--border)",cursor:"pointer",color:"var(--accent-text)",fontSize:13,fontWeight:500,width:"100%"}}>← 一覧に戻る</button>}
         {/* ドラッグ中オーバーレイ */}
@@ -2410,28 +2440,21 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
               </div>
               <div style={{display:"flex",gap:6,alignItems:"center"}}>
                 {(()=>{const tk=getTokureiInfo(cur,data.cases);return <AlertBadge days={getDays(cur.residence_expiry)} tokurei={tk}/>;})()}
-                {!editMode?(
-                  <>
-                    <button onClick={handleDeleteClient} style={{fontSize:12,padding:"4px 10px",cursor:"pointer",borderRadius:6,border:"0.5px solid #A32D2D",background:"transparent",color:"#A32D2D"}}>削除</button>
-                    <button onClick={archiveClient} style={{fontSize:12,padding:"4px 10px",cursor:"pointer",borderRadius:6,border:"0.5px solid var(--border)",background:"transparent",color:"var(--text3)"}}>{cur.archived?"復元":"アーカイブ"}</button>
-                    <button onClick={startEdit} style={{fontSize:12,padding:"4px 12px",cursor:"pointer",borderRadius:6,border:"0.5px solid var(--border2)",background:"transparent",color:"var(--text)"}}>編集</button>
-                  </>
-                ):(
-                  <>
-                    {cur.client_type!=="general"&&<><button onClick={handlePoipoi} disabled={poiReading} style={{fontSize:11,padding:"4px 12px",cursor:poiReading?"wait":"pointer",borderRadius:6,border:"none",background:poiReading?"#ccc":"linear-gradient(135deg,#378ADD,#2563EB)",color:"#fff",fontWeight:600,display:"flex",alignItems:"center",gap:4,boxShadow:"0 1px 4px rgba(55,138,221,0.3)"}}>
-                      {poiReading?<><span style={{display:"inline-block",width:12,height:12,border:"2px solid #fff",borderTopColor:"transparent",borderRadius:"50%",animation:"spin 0.8s linear infinite"}}></span> 読取中</>:"📷 ポイポイ式"}
-                    </button><span style={{fontSize:10,color:"var(--text3)"}}>D&Dも可</span></>}
-                    <button onClick={cancelEdit} style={{fontSize:12,padding:"4px 10px",cursor:"pointer",borderRadius:6,border:"0.5px solid var(--border)",background:"transparent",color:"var(--text2)"}}>キャンセル</button>
-                    <button onClick={saveEdit} style={{fontSize:12,padding:"4px 12px",cursor:"pointer",borderRadius:6,border:"0.5px solid #378ADD",background:"#E6F1FB",color:"#185FA5",fontWeight:500}}>保存</button>
-                  </>
-                )}
+                <button onClick={handleDeleteClient} style={{fontSize:12,padding:"4px 10px",cursor:"pointer",borderRadius:6,border:"0.5px solid #A32D2D",background:"transparent",color:"#A32D2D"}}>削除</button>
+                <button onClick={archiveClient} style={{fontSize:12,padding:"4px 10px",cursor:"pointer",borderRadius:6,border:"0.5px solid var(--border)",background:"transparent",color:"var(--text3)"}}>{cur.archived?"復元":"アーカイブ"}</button>
+                {cur.client_type!=="general"&&<>
+                  <button onClick={handlePoipoi} disabled={poiReading} style={{fontSize:11,padding:"4px 12px",cursor:poiReading?"wait":"pointer",borderRadius:6,border:"none",background:poiReading?"#ccc":"linear-gradient(135deg,#378ADD,#2563EB)",color:"#fff",fontWeight:600,display:"flex",alignItems:"center",gap:4,boxShadow:"0 1px 4px rgba(55,138,221,0.3)"}}>
+                    {poiReading?<><span style={{display:"inline-block",width:12,height:12,border:"2px solid #fff",borderTopColor:"transparent",borderRadius:"50%",animation:"spin 0.8s linear infinite"}}></span> 読取中</>:"📷 ポイポイ式"}
+                  </button>
+                  <span style={{fontSize:10,color:"var(--text3)"}}>D&Dも可</span>
+                </>}
               </div>
             </div>
             {poiError&&<div style={{padding:"6px 18px",background:"#FCEBEB",fontSize:11,color:"#A32D2D"}}>⚠️ {poiError}</div>}
             {poiResult&&<div style={{padding:"6px 18px",background:"#EAF3DE",fontSize:11,color:"#3B6D11"}}>
               ✅ {poiResult.filled.length}項目を読み取りました{poiResult.result.work_history&&`（職歴${poiResult.result.work_history.length}件含む）`} — 各タブで確認してください
             </div>}
-            {editMode&&cur.client_type!=="general"&&<div style={{padding:"5px 18px",background:"#F8F6F3",fontSize:10,color:"var(--text3)",borderBottom:"0.5px solid var(--border)"}}>
+            {cur.client_type!=="general"&&<div style={{padding:"5px 18px",background:"#F8F6F3",fontSize:10,color:"var(--text3)",borderBottom:"0.5px solid var(--border)"}}>
               💡 ポイポイ式：在留カード・パスポート情報は常に最新で上書き ／ 住所・氏名等は先勝ち（本国住所で上書きされません）
             </div>}
             <div style={{display:"flex",background:"var(--bg)",borderBottom:"0.5px solid var(--border)",padding:"0 18px"}}>
@@ -2440,12 +2463,12 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
               ))}
             </div>
             <div style={{flex:1,overflowY:"auto",padding:18}}>
-              {tab==="基本情報"&&<TabBasic c={cur} editMode={editMode} update={update}/>}
-              {tab==="在留・パスポート"&&<TabResidence c={cur} editMode={editMode} update={update} office={data.office}/>}
+              {tab==="基本情報"&&<TabBasic c={cur} editMode={true} update={update}/>}
+              {tab==="在留・パスポート"&&<TabResidence c={cur} editMode={true} update={update} office={data.office}/>}
               {tab==="扶養者"&&<TabSponsor c={cur} allClients={clients} onSelectClient={handleSelectClient}/>}
               {tab==="扶養家族"&&<TabDependents c={cur} allClients={clients} onSelectClient={handleSelectClient}/>}
               {tab==="案件履歴"&&<TabCaseHistory c={cur} cases={data.cases} onNavigateCase={onNavigateToCase}/>}
-              {tab==="職歴・給与"&&<TabWorkHistory c={cur} editMode={editMode} update={update} companies={data.companies}/>}
+              {tab==="職歴・給与"&&<TabWorkHistory c={cur} editMode={true} update={update} companies={data.companies}/>}
             </div>
           </>
         )}
@@ -3892,7 +3915,6 @@ function CaseJournal({data,setData}){
           <span style={{fontSize:15,fontWeight:500}}>事件簿</span>
           <div style={{display:"flex",gap:6}}>
             <button onClick={exportJournalExcel} style={{fontSize:11,padding:"5px 12px",cursor:"pointer",borderRadius:6,border:"0.5px solid #2E7D32",background:"#E8F5E9",color:"#2E7D32",fontWeight:500}}>📥 Excel出力</button>
-            <button onClick={()=>setShowNew(true)} style={{fontSize:12,padding:"5px 14px",cursor:"pointer",borderRadius:6,border:"0.5px solid #378ADD",background:"#E6F1FB",color:"#185FA5",fontWeight:500}}>+ 新規登録</button>
           </div>
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}} onClick={e=>e.stopPropagation()}>
@@ -4284,6 +4306,25 @@ function NewPaymentModal({onClose,onSave,cases,clients,payments,feeMaster}){
 var LOGO_B64 = "";
 var STAMP_B64 = "";
 
+// 宛名＋敬称を組み立てるヘルパー。
+// p.honorific が "様" / "御中" / "" のいずれかで保存されていれば優先。
+// 未設定の既存データは bill_type から自動判定（company→御中、それ以外→様）。
+// bill_to_name の末尾にすでに「様」「御中」が含まれていた場合は重複除去。
+function resolveHonorific(p) {
+  if (typeof p.honorific === "string") return p.honorific;
+  return p.bill_type === "company" ? "御中" : "様";
+}
+function resolveBillName(p) {
+  const h = resolveHonorific(p);
+  const clean = (p.bill_to_name || "").replace(/\s*(様|御中)\s*$/, "");
+  return h ? clean + " " + h : clean;
+}
+// テンプレートに挿入するユーザー入力テキストをHTMLエスケープ。
+// 改行は CSS の white-space: pre-wrap で保持する前提。
+function escapeHtml(s) {
+  return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
 function generateEstimate(p, cases, clients, office) {
   const ofc = office || {};
   const cs = p.case_ids.map(id => cases.find(x => x.case_id === id)).filter(Boolean);
@@ -4293,7 +4334,7 @@ function generateEstimate(p, cases, clients, office) {
   const expBillable = calcExpBillable(p.expenses);
   const grandTotal = taxedItemsTotal + expBillable;
 
-  const billCompany = (p.bill_to_name || "") + " 御中";
+  const billCompany = resolveBillName(p);
   const estDate = p.estimate_date ? new Date(p.estimate_date).toLocaleDateString("ja-JP", {year:"numeric",month:"long",day:"numeric"}) : "";
   const estNumber = p.estimate_number || "";
   const estValid = p.estimate_valid ? new Date(p.estimate_valid).toLocaleDateString("ja-JP", {year:"numeric",month:"long",day:"numeric"}) : "";
@@ -4309,7 +4350,7 @@ function generateEstimate(p, cases, clients, office) {
   }
 
   const items = (p.items || []).map(item => ({
-    name: item.applicant ? item.applicant + " ／ " + item.name : item.name,
+    name: (item.applicant && !item.name.includes(item.applicant)) ? item.applicant + " ／ " + item.name : item.name,
     qty: item.quantity || 1,
     price: item.unit_price * (item.quantity || 1)
   }));
@@ -4349,7 +4390,7 @@ body { font-family: "Yu Mincho", "游明朝", "Hiragino Mincho ProN", "MS Mincho
 .bill-to .subject-row { font-size: 10pt; margin-bottom: 1.5mm; }
 .bill-to .note { font-size: 9.5pt; margin-bottom: 3mm; }
 .bill-to .amount-row { display: inline-flex; align-items: baseline; gap: 10mm; margin-top: 3mm; border-bottom: 2px solid #000; padding-bottom: 1.5mm; }
-.bill-to .amount-label { font-size: 12pt; font-weight: bold; text-decoration: underline; }
+.bill-to .amount-label { font-size: 12pt; font-weight: bold; }
 .bill-to .amount-value { font-size: 17pt; font-weight: bold; }
 .issuer { width: 70mm; font-size: 9.5pt; line-height: 1.7; }
 .issuer .office-name { font-size: 12pt; font-weight: bold; margin-bottom: 3mm; display: flex; align-items: center; gap: 6px; }
@@ -4369,6 +4410,7 @@ body { font-family: "Yu Mincho", "游明朝", "Hiragino Mincho ProN", "MS Mincho
 .tfoot-total .tlabel { text-align: right; font-size: 10pt; padding: 6px 8px; }
 .tfoot-total .tvalue { text-align: right; font-size: 11pt; padding: 6px 8px; }
 .footer-note { font-size: 9.5pt; line-height: 1.8; margin-top: 3mm; }
+.memo-section { margin-top: 5mm; padding: 3mm 4mm; background: #fdfaf4; border-left: 3px solid #854F0B; border-radius: 2px; font-size: 9.5pt; line-height: 1.7; white-space: pre-wrap; color: #333; }
 @media print {
   body { background: white; }
   .page-wrap { padding: 0; }
@@ -4436,6 +4478,7 @@ body { font-family: "Yu Mincho", "游明朝", "Hiragino Mincho ProN", "MS Mincho
       </tr>
     </tfoot>
   </table>
+  ${p.estimate_note ? `<div class="memo-section">${escapeHtml(p.estimate_note)}</div>` : ""}
   <div class="footer-note">
     ※ 本見積書の有効期限は発行日より${estValid ? "上記記載日まで" : "1ヶ月間"}です。<br>
     ※ 正式なご依頼後、別途請求書を発行いたします。
@@ -4466,7 +4509,7 @@ function generateInvoice(p, cases, clients, office) {
   const remainingTotal = grandTotal - paidTotal;
   const hasPaid = paidTotal > 0;
 
-  const billCompany = (p.bill_to_name || "") + " 御中";
+  const billCompany = resolveBillName(p);
   const invDate = p.invoice_date
     ? new Date(p.invoice_date).toLocaleDateString("ja-JP", {year:"numeric",month:"long",day:"numeric"})
     : new Date().toLocaleDateString("ja-JP", {year:"numeric",month:"long",day:"numeric"});
@@ -4489,7 +4532,7 @@ function generateInvoice(p, cases, clients, office) {
 
   // Build items array
   const items = (p.items || []).map(item => ({
-    name: item.applicant ? item.applicant + " ／ " + item.name : item.name,
+    name: (item.applicant && !item.name.includes(item.applicant)) ? item.applicant + " ／ " + item.name : item.name,
     qty: item.quantity || 1,
     price: item.unit_price * (item.quantity || 1),
     origDate: item.original_date || ""
@@ -4545,7 +4588,7 @@ body { font-family: "Yu Mincho", "游明朝", "Hiragino Mincho ProN", "MS Mincho
 .bill-to .subject-row { font-size: 10pt; margin-bottom: 1.5mm; }
 .bill-to .note { font-size: 9.5pt; margin-bottom: 3mm; }
 .bill-to .amount-row { display: inline-flex; align-items: baseline; gap: 10mm; margin-top: 3mm; border-bottom: 2px solid #000; padding-bottom: 1.5mm; }
-.bill-to .amount-label { font-size: 12pt; font-weight: bold; text-decoration: underline; }
+.bill-to .amount-label { font-size: 12pt; font-weight: bold; }
 .bill-to .amount-value { font-size: 17pt; font-weight: bold; }
 .bill-to .amount-row-multi { display: inline-block; margin-top: 3mm; min-width: 65mm; }
 .bill-to .amount-line { display: flex; justify-content: space-between; align-items: baseline; gap: 8mm; padding: 1mm 2mm; font-size: 10pt; }
@@ -4579,6 +4622,7 @@ body { font-family: "Yu Mincho", "游明朝", "Hiragino Mincho ProN", "MS Mincho
 .footer { font-size: 9.5pt; }
 .footer .transfer-note { font-weight: bold; margin-bottom: 2mm; }
 .bank-info { border: 1px solid #ccc; padding: 3.5mm 6mm; border-radius: 3px; line-height: 1.85; background: #fafafa; }
+.memo-section { margin-top: 5mm; margin-bottom: 5mm; padding: 3mm 4mm; background: #f4f9fd; border-left: 3px solid #378ADD; border-radius: 2px; font-size: 9.5pt; line-height: 1.7; white-space: pre-wrap; color: #333; }
 @media print {
   body { background: white; }
   .page-wrap { padding: 0; }
@@ -4636,6 +4680,7 @@ body { font-family: "Yu Mincho", "游明朝", "Hiragino Mincho ProN", "MS Mincho
         ${ofc.address2?`${ofc.address2}<br>`:""}
         ${ofc.phone?`TEL: ${ofc.phone}<br>`:""}
         ${ofc.email||""}
+        ${ofc.invoice_registration_number?`<br>登録番号: ${ofc.invoice_registration_number}`:""}
       </div>
     </div>
   </div>
@@ -4657,6 +4702,7 @@ body { font-family: "Yu Mincho", "游明朝", "Hiragino Mincho ProN", "MS Mincho
       </tr>
     </tfoot>
   </table>
+  ${p.invoice_note ? `<div class="memo-section">${escapeHtml(p.invoice_note)}</div>` : ""}
   <div class="footer">
     <div class="transfer-note">恐縮ですが振込手数料のご負担をお願い申し上げます。</div>
     <br>
@@ -4700,7 +4746,7 @@ function generateReceipt(p, cases, clients, office, paymentLogId) {
   }
   const paid = receiptAmount;
 
-  const recipientName = (p.bill_to_name || "") + " 様";
+  const recipientName = resolveBillName(p);
   let subject;
   if (p.subject && p.subject.trim()) {
     subject = p.subject.trim();
@@ -4834,8 +4880,33 @@ function PaymentDetail({p,cases,clients,office,onUpdate,onDelete,onSplit,onItemS
   const [newItemName,setNewItemName]=useState("");
   const [newItemPrice,setNewItemPrice]=useState("");
   const [expSuffix,setExpSuffix]=useState("");
+  const [estimateLang,setEstimateLang]=useState("en");
+  const [invoiceLang,setInvoiceLang]=useState("en");
+  const [translating,setTranslating]=useState(null); // null | "estimate_note" | "invoice_note"
 
   function update(field,val){onUpdate({...p,[field]:val});}
+  async function handleTranslateMemo(field,targetLang){
+    const apiKey=(office||{}).api_key;
+    if(!apiKey){
+      alert("APIキーが設定されていません。\nマスター管理 → 🏠事務所設定 → 🤖AI設定 から設定してください。");
+      return;
+    }
+    const text=p[field];
+    if(!text||!text.trim()){
+      alert("備考欄に翻訳する内容を入力してください。");
+      return;
+    }
+    const source=extractOriginalText(text);
+    setTranslating(field);
+    try{
+      const translated=await translateText(source,targetLang,apiKey);
+      update(field,`${translated}\n（${source}）`);
+    }catch(e){
+      alert("翻訳に失敗しました：\n"+e.message);
+    }finally{
+      setTranslating(null);
+    }
+  }
   function addPayment(){
     if(!newPayAmt)return;
     const amt=parseInt(newPayAmt)||0;
@@ -4861,7 +4932,19 @@ function PaymentDetail({p,cases,clients,office,onUpdate,onDelete,onSplit,onItemS
       <div style={{background:"var(--bg)",border:"0.5px solid rgba(0,0,0,0.1)",borderRadius:10,padding:"14px 16px"}}>
         <div style={{display:"flex",flexDirection:isMobile?"column":"row",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10,gap:isMobile?8:0}}>
           <div style={{flex:1}}>
-            <div style={{fontSize:15,fontWeight:500,marginBottom:3}}>{p.bill_to_name} 宛</div>
+            <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3,flexWrap:"wrap"}}>
+              <input type="text" value={p.bill_to_name||""} onChange={e=>update("bill_to_name",e.target.value)} placeholder="宛先名"
+                style={{fontSize:15,fontWeight:500,border:"0.5px solid rgba(0,0,0,0.1)",background:"var(--bg2)",padding:"3px 8px",borderRadius:5,flex:"1 1 180px",minWidth:0,maxWidth:260}}/>
+              <select value={typeof p.honorific==="string"?p.honorific:(p.bill_type==="company"?"御中":"様")}
+                onChange={e=>update("honorific",e.target.value)}
+                title="敬称を選択"
+                style={{fontSize:14,fontWeight:600,border:"0.5px solid rgba(0,0,0,0.25)",background:"#fff",padding:"3px 6px",borderRadius:5,cursor:"pointer",color:"#854F0B"}}>
+                <option value="様">様</option>
+                <option value="御中">御中</option>
+                <option value="">なし</option>
+              </select>
+              <span style={{fontSize:13,color:"var(--text2)",whiteSpace:"nowrap"}}>宛</span>
+            </div>
             <div style={{display:"flex",gap:5,flexWrap:"wrap",marginTop:4}}>
               <span style={{fontSize:10,padding:"2px 7px",borderRadius:10,background:scBadge.bg,color:scBadge.color,fontWeight:500}}>{paymentStatus(p)}</span>
               {p.bill_type==="company"&&<span style={{fontSize:10,padding:"1px 5px",borderRadius:3,background:"#FAEEDA",color:"#854F0B"}}>会社請求</span>}
@@ -4901,6 +4984,29 @@ function PaymentDetail({p,cases,clients,office,onUpdate,onDelete,onSplit,onItemS
             </div>
           ))}
         </div>
+        <div style={{marginBottom:8}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:3,gap:6,flexWrap:"wrap"}}>
+            <div style={{fontSize:11,color:"#854F0B",fontWeight:600}}>備考（見積書のみに表示）</div>
+            <div style={{display:"flex",gap:4,alignItems:"center"}}>
+              <select value={estimateLang} onChange={e=>setEstimateLang(e.target.value)}
+                style={{fontSize:11,padding:"2px 5px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",cursor:"pointer"}}>
+                <option value="en">英語</option>
+                <option value="zh">中国語</option>
+                <option value="ne">ネパール語</option>
+                <option value="my">ミャンマー語</option>
+                <option value="vi">ベトナム語</option>
+                <option value="th">タイ語</option>
+              </select>
+              <button onClick={()=>handleTranslateMemo("estimate_note",estimateLang)} disabled={translating==="estimate_note"}
+                style={{fontSize:10,padding:"3px 9px",cursor:translating==="estimate_note"?"wait":"pointer",borderRadius:4,border:"0.5px solid #854F0B",background:"#FEF8EE",color:"#854F0B",fontWeight:500,whiteSpace:"nowrap",opacity:translating==="estimate_note"?0.6:1}}>
+                {translating==="estimate_note"?"翻訳中…":"🌐 翻訳して併記"}
+              </button>
+            </div>
+          </div>
+          <textarea value={p.estimate_note||""} onChange={e=>update("estimate_note",e.target.value)}
+            rows={3} placeholder="例: お見積り有効期限を過ぎた場合は再見積もりとなります"
+            style={{width:"100%",fontSize:12,padding:"4px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",resize:"vertical",fontFamily:"inherit",lineHeight:1.5}}/>
+        </div>
         <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(3,1fr)",gap:8}}>
           {[["請求書番号","invoice_number","text"],["請求日","invoice_date","date"],["支払期限","due_date","date"]].map(([label,field,type])=>(
             <div key={field}>
@@ -4909,6 +5015,29 @@ function PaymentDetail({p,cases,clients,office,onUpdate,onDelete,onSplit,onItemS
                 style={{width:"100%",fontSize:12,padding:"4px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/>
             </div>
           ))}
+        </div>
+        <div style={{marginTop:8}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:3,gap:6,flexWrap:"wrap"}}>
+            <div style={{fontSize:11,color:"#378ADD",fontWeight:600}}>備考（請求書のみに表示）</div>
+            <div style={{display:"flex",gap:4,alignItems:"center"}}>
+              <select value={invoiceLang} onChange={e=>setInvoiceLang(e.target.value)}
+                style={{fontSize:11,padding:"2px 5px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",cursor:"pointer"}}>
+                <option value="en">英語</option>
+                <option value="zh">中国語</option>
+                <option value="ne">ネパール語</option>
+                <option value="my">ミャンマー語</option>
+                <option value="vi">ベトナム語</option>
+                <option value="th">タイ語</option>
+              </select>
+              <button onClick={()=>handleTranslateMemo("invoice_note",invoiceLang)} disabled={translating==="invoice_note"}
+                style={{fontSize:10,padding:"3px 9px",cursor:translating==="invoice_note"?"wait":"pointer",borderRadius:4,border:"0.5px solid #378ADD",background:"#EBF4FF",color:"#378ADD",fontWeight:500,whiteSpace:"nowrap",opacity:translating==="invoice_note"?0.6:1}}>
+                {translating==="invoice_note"?"翻訳中…":"🌐 翻訳して併記"}
+              </button>
+            </div>
+          </div>
+          <textarea value={p.invoice_note||""} onChange={e=>update("invoice_note",e.target.value)}
+            rows={3} placeholder="例: 振込手数料はご負担ください"
+            style={{width:"100%",fontSize:12,padding:"4px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",resize:"vertical",fontFamily:"inherit",lineHeight:1.5}}/>
         </div>
         <div style={{marginTop:8}}>
           <div style={{fontSize:10,color:"var(--text3)",marginBottom:3}}>件名（空欄なら自動生成：1〜2名は連名、3名以上は「○○ 他N名」）</div>
@@ -4952,7 +5081,8 @@ function PaymentDetail({p,cases,clients,office,onUpdate,onDelete,onSplit,onItemS
                   {p.case_ids.length>1&&<input value={item.applicant||""} onChange={e=>updateItem(item.id,"applicant",e.target.value)}
                     placeholder="対象者" style={{fontSize:10,color:"var(--accent-text)",background:"transparent",border:"none",borderBottom:"0.5px dashed rgba(0,0,0,0.15)",
                     padding:"0 0 1px",width:"100%",marginBottom:2,outline:"none"}}/>}
-                  <div style={{fontSize:12,lineHeight:"1.3"}}>{item.name}</div>
+                  <input value={item.name||""} onChange={e=>updateItem(item.id,"name",e.target.value)} placeholder="項目名"
+                    style={{fontSize:12,lineHeight:"1.3",padding:"2px 6px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.12)",background:"var(--bg2)",width:"100%",boxSizing:"border-box"}}/>
                 </div>
                 {hasOrigDate&&<input type="date" value={item.original_date||""} onChange={e=>updateItem(item.id,"original_date",e.target.value)}
                   style={{fontSize:10,padding:"1px 2px",borderRadius:3,border:"0.5px solid rgba(0,0,0,0.12)",background:"var(--bg2)",color:"var(--text3)",width:82}}/>}
@@ -5518,6 +5648,11 @@ function MasterOffice({office,setOffice}){
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
             <div><div style={labelS}>電話番号</div><input value={o.phone||""} onChange={e=>up("phone",e.target.value)} style={inputS} placeholder="03-0000-0000"/></div>
             <div><div style={labelS}>メールアドレス</div><input value={o.email||""} onChange={e=>up("email",e.target.value)} style={inputS} placeholder="example@example.com"/></div>
+          </div>
+          <div style={{marginTop:12}}>
+            <div style={labelS}>適格請求書発行事業者登録番号（インボイス番号・任意）</div>
+            <input value={o.invoice_registration_number||""} onChange={e=>up("invoice_registration_number",e.target.value)} style={{...inputS,width:"100%",fontFamily:"monospace"}} placeholder="T1234567890123"/>
+            <div style={{fontSize:10,color:"var(--text3)",marginTop:3,lineHeight:1.5}}>登録済みの場合、請求書の発行者情報欄に自動で表示されます。</div>
           </div>
         </div>
         <div style={{background:"var(--bg)",border:"0.5px solid var(--border)",borderRadius:12,padding:20,marginBottom:16}}>
@@ -6548,6 +6683,36 @@ const TABS = [
 const FS_KEY = "clavis-note-zoom";
 const FS_OPTIONS = [{label:"小",val:"0.85"},{label:"中",val:"1"},{label:"大",val:"1.15"},{label:"特大",val:"1.3"}];
 
+// データ変更を検知して「自動保存済」をフィードバック表示するインジケーター。
+// data が変わった瞬間に「保存中…」→「自動保存済」→フェードアウト、の流れで出す。
+// 実際の保存処理自体は App 側の useEffect(() => saveData(data), [data]) で走るので、
+// このコンポーネントは純粋に視覚フィードバックのみを担う。
+function AutoSaveIndicator({data}){
+  const [status,setStatus]=useState("idle");
+  const firstRef=useRef(true);
+  useEffect(()=>{
+    if(firstRef.current){firstRef.current=false;return;}
+    setStatus("saving");
+    const t1=setTimeout(()=>setStatus("saved"),250);
+    const t2=setTimeout(()=>setStatus("idle"),2200);
+    return()=>{clearTimeout(t1);clearTimeout(t2);};
+  },[data]);
+  return(
+    <div style={{
+      position:"fixed",bottom:16,right:16,
+      padding:"5px 12px",borderRadius:20,fontSize:11,fontWeight:500,
+      background:status==="saving"?"rgba(70,70,70,0.88)":"rgba(59,109,17,0.9)",
+      color:"#fff",zIndex:9998,
+      display:"flex",alignItems:"center",gap:5,pointerEvents:"none",
+      opacity:status==="idle"?0:1,
+      transition:"opacity 0.4s, background 0.3s",
+      boxShadow:"0 2px 10px rgba(0,0,0,0.12)"
+    }}>
+      {status==="saving"?<>⏳ 保存中…</>:<>✓ 自動保存済</>}
+    </div>
+  );
+}
+
 function App(){
   const [data,setData]=useState(getInitialData);
   const [isMobile,setIsMobile]=useState(()=>window.innerWidth<768||/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent));
@@ -6944,6 +7109,8 @@ function App(){
       </div>
       {/* トースト通知 */}
       <div id="toast" style={{position:"fixed",bottom:24,left:"50%",transform:"translateX(-50%)",background:"#1a1a1a",color:"#fff",padding:"8px 20px",borderRadius:8,fontSize:13,fontWeight:500,opacity:0,transition:"opacity 0.3s",pointerEvents:"none",zIndex:9999}}/>
+      {/* 自動保存インジケーター */}
+      <AutoSaveIndicator data={data}/>
     </div>
     </MobileContext.Provider>
   );
