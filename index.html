@@ -537,6 +537,11 @@ function getInitialData(){
       if(p.prospect_archived===undefined) p.prospect_archived = false;
       return p;
     });
+    // v13: 会社ステータス（active / changing / inactive）
+    if(saved.companies) saved.companies = saved.companies.map(co=>{
+      if(!co.status) co.status = "active";
+      return co;
+    });
     return saved;
   }
   return {
@@ -2879,7 +2884,7 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
 
   const [selected,setSelected]=useState(()=>{
     if(navigateClientId){const t=data.clients.find(c=>c.client_id===navigateClientId);if(t)return t;}
-    return clients[0]||null;
+    return null;
   });
   const [showDetail,setShowDetail]=useState(()=>!!navigateClientId);
   const [search,setSearch]=useState("");
@@ -3263,7 +3268,7 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
               ✅ {poiResult.filled.length}項目を読み取りました{poiResult.result.work_history&&`（職歴${poiResult.result.work_history.length}件含む）`} — 各タブで確認してください
             </div>}
             {cur.client_type!=="general"&&<div style={{padding:"5px 18px",background:"#F8F6F3",fontSize:10,color:"var(--text3)",borderBottom:"0.5px solid var(--border)"}}>
-              💡 ポイポイ式：在留カード・パスポート情報は常に最新で上書き ／ 住所・氏名等は先勝ち（本国住所で上書きされません）
+              💡 ポイポイ式：在留カード・パスポート情報は常に最新で上書き ／ 住所・氏名等は既存の情報を維持（本国住所で上書きされません）
             </div>}
             <div style={{display:"flex",background:"var(--bg)",borderBottom:"0.5px solid var(--border)",padding:"0 18px"}}>
               {tabs.map(t=>(
@@ -4531,7 +4536,7 @@ function JournalModal({entry,onClose,onSave,nextNo,clients,companies}){
           <div style={{background:"#F8F7F5",border:"0.5px solid rgba(0,0,0,0.08)",borderRadius:8,padding:12}}>
             <div style={{fontSize:11,color:"#999",fontWeight:500,marginBottom:8}}>依頼主・申請人</div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-              <div><div style={{fontSize:10,color:"#999",marginBottom:3}}>依頼主（会社・個人）</div><div style={{display:"flex",gap:4}}><select value={form.requester_id||""} onChange={e=>{if(e.target.value)selectRequester(e.target.value);else{up("requester","");up("requester_id","");}}} style={{width:120,fontSize:11,padding:"4px 6px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)"}}><option value="">会社を選択</option>{(companies||COMPANY_DB).map(co=><option key={co.company_id} value={co.company_id}>{co.name}</option>)}</select><input value={form.requester} onChange={e=>{up("requester",e.target.value);up("requester_id","");}} placeholder="直接入力も可" style={{flex:1,fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)"}}/></div></div>
+              <div><div style={{fontSize:10,color:"#999",marginBottom:3}}>依頼主（会社・個人）</div><div style={{display:"flex",gap:4}}><select value={form.requester_id||""} onChange={e=>{if(e.target.value)selectRequester(e.target.value);else{up("requester","");up("requester_id","");}}} style={{width:120,fontSize:11,padding:"4px 6px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)"}}><option value="">会社を選択</option>{(companies||COMPANY_DB).filter(co=>co.status!=="inactive").map(co=><option key={co.company_id} value={co.company_id}>{co.name}{co.status==="changing"?" 🔄":""}</option>)}</select><input value={form.requester} onChange={e=>{up("requester",e.target.value);up("requester_id","");}} placeholder="直接入力も可" style={{flex:1,fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)"}}/></div></div>
               <div><div style={{fontSize:10,color:"#999",marginBottom:3}}>申請人（個人名）</div><div style={{display:"flex",gap:4}}><select value={form.applicant_id||""} onChange={e=>{if(e.target.value)selectApplicant(e.target.value);else{up("applicant","");up("applicant_id","");}}} style={{width:120,fontSize:11,padding:"4px 6px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)"}}><option value="">台帳から選択</option>{clients.map(c=><option key={c.client_id} value={c.client_id}>{c.name_roman}</option>)}</select><input value={form.applicant} onChange={e=>{up("applicant",e.target.value);up("applicant_id","");}} placeholder="直接入力も可" style={{flex:1,fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)"}}/></div></div>
             </div>
           </div>
@@ -6120,7 +6125,7 @@ function PaymentManagement({data,setData,navigatePaymentId,clearNavigate}){
   const {cases,clients,payments}=data;
   const [selectedId,setSelectedId]=useState(()=>{
     if(navigatePaymentId)return navigatePaymentId;
-    return (payments||[])[0]?.payment_id||null;
+    return (payments||[]).filter(p=>!p.is_prospect)[0]?.payment_id||null;
   });
   const [showDetail,setShowDetail]=useState(()=>!!navigatePaymentId);
   const [showNew,setShowNew]=useState(false);
@@ -6137,7 +6142,7 @@ function PaymentManagement({data,setData,navigatePaymentId,clearNavigate}){
     }
   },[navigatePaymentId]);
 
-  const selected=(payments||[]).find(p=>p.payment_id===selectedId)||null;
+  const selected=(payments||[]).find(p=>p.payment_id===selectedId&&!p.is_prospect)||null;
 
   function handleUpdate(updated){
     setData(prev=>({...prev,payments:(prev.payments||[]).map(p=>p.payment_id===updated.payment_id?updated:p)}));
@@ -6619,7 +6624,7 @@ function MasterOffice({office,setOffice}){
 // 11. マスター登録
 // ============================================================
 function CompanyRoster({coName,clients,onNavigateToClient}){
-  const [showRetired,setShowRetired]=useState(false);
+  const [activeOnly,setActiveOnly]=useState(true);
   const roster=(clients||[]).filter(cl=>{
     if(cl.archived)return false;
     if(cl.company_name===coName) return true;
@@ -6644,13 +6649,41 @@ function CompanyRoster({coName,clients,onNavigateToClient}){
     const w=getLatestWork(cl);
     return (w&&w.end_date)?true:(cl.client_status==="resigned"||cl.client_status==="returned");
   };
-  const filtered=showRetired?roster:roster.filter(cl=>!isRetired(cl));
+  const isCOEApplying=(cl)=>!cl.residence_card||!String(cl.residence_card).trim();
+  // 在職者のみ = 退職者でなく、COE申請中でもない
+  const filtered=activeOnly?roster.filter(cl=>!isRetired(cl)&&!isCOEApplying(cl)):roster;
+  const [sortKey,setSortKey]=useState("store");
+  function getSortValue(cl,key){
+    if(key==="start_date") return getLatestWork(cl)?.start_date||cl.work_start_date||"";
+    if(key==="salary") return getLatestSalary(cl)?.monthly_salary||0;
+    if(key==="residence_expiry") return cl.residence_expiry||"";
+    return "";
+  }
   const sorted=[...filtered].sort((a,b)=>{
     const aR=isRetired(a)?1:0, bR=isRetired(b)?1:0;
     if(aR!==bR)return aR-bR;
-    return (a.store||"").localeCompare(b.store||"");
+    if(sortKey==="store"){
+      const s=(a.store||"").localeCompare(b.store||"");
+      if(s!==0) return s;
+      // 店舗内は入社日順
+      return (getSortValue(a,"start_date")||"").localeCompare(getSortValue(b,"start_date")||"");
+    }
+    if(sortKey==="salary"){
+      return (getSortValue(b,"salary")||0)-(getSortValue(a,"salary")||0); // 月給は降順
+    }
+    if(sortKey==="residence_expiry"){
+      const av=getSortValue(a,"residence_expiry")||"9999-12-31";
+      const bv=getSortValue(b,"residence_expiry")||"9999-12-31";
+      return av.localeCompare(bv); // 期限近い順
+    }
+    // start_date
+    const av=getSortValue(a,"start_date")||"";
+    const bv=getSortValue(b,"start_date")||"";
+    return bv.localeCompare(av); // 入社日は降順（新しい人が上）
   });
-
+  // 店舗ごとのカウント
+  const storeCounts={};
+  filtered.forEach(cl=>{const s=cl.store||"(未設定)";storeCounts[s]=(storeCounts[s]||0)+1;});
   function exportExcel(){
     if(!window.XLSX){alert("SheetJS読み込みエラー");return;}
     const wb=XLSX.utils.book_new();
@@ -6687,11 +6720,17 @@ function CompanyRoster({coName,clients,onNavigateToClient}){
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
           <span style={{fontSize:13,fontWeight:500}}>📋 従業員名簿</span>
-          <span style={{fontSize:11,color:"var(--text3)"}}>{filtered.length}名{showRetired?` (うち退職${roster.filter(cl=>isRetired(cl)).length}名)`:""}</span>
+          <span style={{fontSize:11,color:"var(--text3)"}}>{filtered.length}名{!activeOnly?` / ${roster.length}名中`:""}</span>
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center"}}>
+          <select value={sortKey} onChange={e=>setSortKey(e.target.value)} style={{fontSize:11,padding:"3px 6px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",cursor:"pointer"}}>
+            <option value="store">店舗順（店舗ごとにグループ表示）</option>
+            <option value="start_date">入社日順（新しい順）</option>
+            <option value="salary">月給順（高い順）</option>
+            <option value="residence_expiry">在留カード期限順（近い順）</option>
+          </select>
           <label style={{fontSize:11,color:"var(--text2)",display:"flex",alignItems:"center",gap:4,cursor:"pointer"}}>
-            <input type="checkbox" checked={showRetired} onChange={e=>setShowRetired(e.target.checked)}/> 退職者を含む
+            <input type="checkbox" checked={activeOnly} onChange={e=>setActiveOnly(e.target.checked)}/> 在職者のみ
           </label>
           <button onClick={exportExcel} style={{fontSize:11,padding:"4px 12px",borderRadius:5,cursor:"pointer",border:"0.5px solid var(--accent)",background:"var(--accent-bg)",color:"var(--accent-text)",fontWeight:500}}>📥 Excel出力</button>
         </div>
@@ -6704,27 +6743,49 @@ function CompanyRoster({coName,clients,onNavigateToClient}){
             <thead><tr>
               {["店舗","氏名","入社日","月給","住所","在留カード番号","有効期限","生年月日","国籍","備考","退職日"].map(h=><th key={h} style={thS}>{h}</th>)}
             </tr></thead>
-            <tbody>{sorted.map(cl=>{
-              const w=getLatestWork(cl);
-              const sal=getLatestSalary(cl);
-              const retired=isRetired(cl);
-              const rowStyle={...tdS,...(retired?{color:"var(--text3)",background:"rgba(0,0,0,0.02)"}:{})};
-              return(
-                <tr key={cl.client_id}>
-                  <td style={rowStyle}>{cl.store||"—"}</td>
-                  <td style={rowStyle}>{onNavigateToClient?<span onClick={()=>onNavigateToClient(cl.client_id)} style={{color:"var(--accent-text)",cursor:"pointer",textDecoration:"underline",textUnderlineOffset:2}}>{cl.name_roman||"—"}</span>:(cl.name_roman||"—")}</td>
-                  <td style={rowStyle}>{w?.start_date||cl.work_start_date||"—"}</td>
-                  <td style={{...rowStyle,textAlign:"right"}}>{sal?.monthly_salary?sal.monthly_salary.toLocaleString():"—"}</td>
-                  <td style={{...rowStyle,maxWidth:240,overflow:"hidden",textOverflow:"ellipsis"}}>{cl.address||"—"}</td>
-                  <td style={rowStyle}>{cl.residence_card||"—"}</td>
-                  <td style={rowStyle}>{cl.residence_expiry||"—"}</td>
-                  <td style={rowStyle}>{cl.dob||"—"}</td>
-                  <td style={rowStyle}>{cl.nationality||"—"}</td>
-                  <td style={{...rowStyle,maxWidth:180,overflow:"hidden",textOverflow:"ellipsis"}}>{cl.notes||""}</td>
-                  <td style={rowStyle}>{w?.end_date||""}</td>
-                </tr>
-              );
-            })}</tbody>
+            <tbody>{(()=>{
+              const rows=[];
+              let prevStore=null;
+              let storeIdx=0;
+              sorted.forEach(cl=>{
+                const w=getLatestWork(cl);
+                const sal=getLatestSalary(cl);
+                const retired=isRetired(cl);
+                const rowStyle={...tdS,...(retired?{color:"var(--text3)",background:"rgba(0,0,0,0.02)"}:{})};
+                const curStore=cl.store||"(未設定)";
+                if(sortKey==="store"&&curStore!==prevStore){
+                  rows.push(
+                    <tr key={"g-"+curStore}>
+                      <td colSpan={11} style={{fontSize:11,padding:"8px 10px 4px",color:"#854F0B",fontWeight:600,background:"#FEF8EE",borderTop:"1px solid rgba(133,79,11,0.15)",borderBottom:"0.5px solid rgba(133,79,11,0.1)"}}>
+                        ▼ {curStore}（{storeCounts[curStore]}名）
+                      </td>
+                    </tr>
+                  );
+                  prevStore=curStore;
+                  storeIdx=0;
+                }
+                storeIdx++;
+                const storeCell=sortKey==="store"
+                  ?<span style={{color:"#999",fontSize:11}}>#{storeIdx}</span>
+                  :(cl.store||"—");
+                rows.push(
+                  <tr key={cl.client_id}>
+                    <td style={rowStyle}>{storeCell}</td>
+                    <td style={rowStyle}>{onNavigateToClient?<span onClick={()=>onNavigateToClient(cl.client_id)} style={{color:"var(--accent-text)",cursor:"pointer",textDecoration:"underline",textUnderlineOffset:2}}>{cl.name_roman||"—"}</span>:(cl.name_roman||"—")}</td>
+                    <td style={rowStyle}>{w?.start_date||cl.work_start_date||"—"}</td>
+                    <td style={{...rowStyle,textAlign:"right"}}>{sal?.monthly_salary?sal.monthly_salary.toLocaleString():"—"}</td>
+                    <td style={{...rowStyle,maxWidth:240,overflow:"hidden",textOverflow:"ellipsis"}}>{cl.address||"—"}</td>
+                    <td style={rowStyle}>{cl.residence_card||"—"}</td>
+                    <td style={rowStyle}>{cl.residence_expiry||"—"}</td>
+                    <td style={rowStyle}>{cl.dob||"—"}</td>
+                    <td style={rowStyle}>{cl.nationality||"—"}</td>
+                    <td style={{...rowStyle,maxWidth:180,overflow:"hidden",textOverflow:"ellipsis"}}>{cl.notes||""}</td>
+                    <td style={rowStyle}>{w?.end_date||""}</td>
+                  </tr>
+                );
+              });
+              return rows;
+            })()}</tbody>
           </table>
         </div>
       )}
@@ -6743,12 +6804,28 @@ function MasterCompany({companies,setCompanies,clients,onNavigateToClient}){
   const [dragCoIdx,setDragCoIdx]=useState(null);
   function moveCompany(from,to){if(from===to)return;setCompanies(prev=>{const arr=[...prev];const [item]=arr.splice(from,1);arr.splice(to,0,item);return arr;});}
 
+  // ステータス表示設定
+  const STATUS_CONF={
+    active:{label:"活動中",badge:null,color:"var(--text)",bg:"transparent",opacity:1},
+    changing:{label:"変更中",badge:"🔄 変更中",color:"#854F0B",bg:"#FEF8EE",opacity:0.85},
+    inactive:{label:"非活動",badge:"⚪ 非活動",color:"#999",bg:"rgba(0,0,0,0.02)",opacity:0.55},
+  };
+  function coStatus(co){return STATUS_CONF[co.status||"active"]||STATUS_CONF.active;}
+  function changeStatus(newStatus){
+    if(!sel) return;
+    if(editMode){
+      setDraft(p=>({...p,status:newStatus}));
+    } else {
+      setCompanies(prev=>prev.map(c=>c.company_id===sel.company_id?{...c,status:newStatus}:c));
+    }
+  }
+
   function startEdit(){setDraft(JSON.parse(JSON.stringify(sel)));setEditMode(true);}
   function cancelEdit(){setEditMode(false);setDraft(null);}
   function saveEdit(){setCompanies(prev=>prev.map(c=>c.company_id===draft.company_id?draft:c));setEditMode(false);setDraft(null);}
   function up(f,v){setDraft(p=>({...p,[f]:v}));}
   function handleAdd(){
-    const newCo={company_id:"CO"+Date.now(),name:"",kana:"",address:"",phone:"",representative:"",contact:"",drive_url:"",pref:"東京都",corp_number:"",hoken_number:""};
+    const newCo={company_id:"CO"+Date.now(),name:"",kana:"",address:"",phone:"",representative:"",contact:"",drive_url:"",pref:"東京都",corp_number:"",hoken_number:"",status:"active"};
     setCompanies(prev=>[...prev,newCo]);
     setSelId(newCo.company_id);
     setDraft(newCo);setEditMode(true);
@@ -6772,24 +6849,35 @@ function MasterCompany({companies,setCompanies,clients,onNavigateToClient}){
           <button onClick={handleAdd} style={{width:24,height:24,cursor:"pointer",borderRadius:5,background:"var(--bg2)",border:"0.5px solid var(--border2)",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
         </div>
         <div style={{flex:1,overflowY:"auto"}}>
-          {companies.map((co,idx)=>(
+          {[...companies].sort((a,b)=>{
+            const order={active:0,changing:1,inactive:2};
+            return (order[a.status||"active"]??0)-(order[b.status||"active"]??0);
+          }).map((co)=>{
+            const idx=companies.indexOf(co);
+            const st=coStatus(co);
+            return(
             <div key={co.company_id} onDragOver={e=>{e.preventDefault();e.dataTransfer.dropEffect="move";}} onDrop={()=>{moveCompany(dragCoIdx,idx);setDragCoIdx(null);}}
               onClick={()=>{setSelId(co.company_id);setEditMode(false);setDraft(null);if(isMobile)setShowDetail(true);}}
               style={{padding:"10px 12px",cursor:"pointer",borderBottom:"0.5px solid rgba(0,0,0,0.06)",display:"flex",alignItems:"center",gap:8,
-                background:selId===co.company_id?"var(--bg2)":"transparent",
+                background:selId===co.company_id?"var(--bg2)":st.bg,
                 borderLeft:selId===co.company_id?"2px solid var(--accent)":"2px solid transparent",
                 borderTop:dragCoIdx!==null&&dragCoIdx!==idx?"3px solid transparent":"none",
+                opacity:st.opacity,
                 ...(dragCoIdx!==null&&dragCoIdx!==idx?{position:"relative"}:{})}}>
               {dragCoIdx!==null&&dragCoIdx!==idx&&<div onDragOver={e=>{e.preventDefault();e.currentTarget.style.opacity="1";}} onDragLeave={e=>{e.currentTarget.style.opacity="0";}} onDrop={e=>{e.stopPropagation();moveCompany(dragCoIdx,idx);setDragCoIdx(null);}}
                 style={{position:"absolute",top:-2,left:0,right:0,height:12,zIndex:2,borderTop:"2.5px solid var(--accent)",opacity:0,transition:"opacity 0.1s"}}/>}
               <span draggable onDragStart={e=>{e.stopPropagation();setDragCoIdx(idx);}} onDragEnd={()=>setDragCoIdx(null)}
                 style={{cursor:"grab",color:"var(--text3)",fontSize:18,userSelect:"none",flexShrink:0,padding:"4px 2px",lineHeight:1,opacity:0.5}}>≡</span>
               <div style={{flex:1,minWidth:0,opacity:dragCoIdx===idx?0.4:1}}>
-                <div style={{fontSize:12,fontWeight:500}}>{co.name||"新規会社"}</div>
+                <div style={{fontSize:12,fontWeight:500,color:st.color,display:"flex",alignItems:"center",gap:6}}>
+                  <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{co.name||"新規会社"}</span>
+                  {st.badge&&<span style={{fontSize:9,padding:"1px 5px",borderRadius:3,background:co.status==="changing"?"#FEF8EE":"rgba(0,0,0,0.06)",color:co.status==="changing"?"#854F0B":"#999",fontWeight:500,whiteSpace:"nowrap",flexShrink:0}}>{st.badge}</span>}
+                </div>
                 <div style={{fontSize:10,color:"var(--text3)"}}>{co.pref} {co.representative&&`· ${co.representative}`}</div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
         <div style={{padding:"6px 12px",borderTop:"0.5px solid var(--border)",fontSize:10,color:"var(--text3)"}}>{companies.length}社</div>
       </div>
@@ -6797,8 +6885,16 @@ function MasterCompany({companies,setCompanies,clients,onNavigateToClient}){
         {isMobile&&showDetail&&<button onClick={()=>setShowDetail(false)} style={{display:"flex",alignItems:"center",gap:4,marginBottom:12,padding:"6px 12px",border:"none",background:"var(--bg2)",borderRadius:6,cursor:"pointer",color:"var(--accent-text)",fontSize:13,fontWeight:500}}>← 一覧に戻る</button>}
         {!cur?<div style={{padding:40,textAlign:"center",color:"var(--text3)"}}>会社を選択してください</div>:(
           <>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-              <div style={{fontSize:15,fontWeight:500}}>{cur.name||"新規会社"}</div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,gap:10,flexWrap:"wrap"}}>
+              <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                <div style={{fontSize:15,fontWeight:500}}>{cur.name||"新規会社"}</div>
+                <div style={{display:"flex",gap:4,alignItems:"center"}}>
+                  {[["active","🟢 活動中"],["changing","🔄 変更中"],["inactive","⚪ 非活動"]].map(([k,l])=>{
+                    const isCurrent=(cur.status||"active")===k;
+                    return <button key={k} onClick={()=>changeStatus(k)} style={{fontSize:10,padding:"3px 8px",cursor:"pointer",borderRadius:4,border:"0.5px solid "+(isCurrent?(k==="changing"?"#854F0B":k==="inactive"?"#999":"#3B6D11"):"rgba(0,0,0,0.15)"),background:isCurrent?(k==="changing"?"#FEF8EE":k==="inactive"?"rgba(0,0,0,0.04)":"#EAF3DE"):"var(--bg2)",color:isCurrent?(k==="changing"?"#854F0B":k==="inactive"?"#666":"#3B6D11"):"var(--text3)",fontWeight:isCurrent?500:400,whiteSpace:"nowrap"}}>{l}</button>;
+                  })}
+                </div>
+              </div>
               <div style={{display:"flex",gap:6}}>
                 {!editMode?(<>
                   <button onClick={handleDelete} style={{fontSize:11,padding:"4px 10px",cursor:"pointer",borderRadius:5,border:"0.5px solid #A32D2D",background:"transparent",color:"#A32D2D"}}>削除</button>
