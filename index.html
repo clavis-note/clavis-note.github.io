@@ -5312,8 +5312,8 @@ body { font-family: "Yu Mincho", "游明朝", "Hiragino Mincho ProN", "MS Mincho
 
 function generateInvoice(p, cases, clients, office) {
   // 見込案件からの請求書発行はブロック（案件化してから発行する）
-  if (p.is_prospect || !p.case_ids || p.case_ids.length === 0) {
-    alert("請求書の発行には、クライアント・案件への紐付けが必要です。\n見込案件モーダルから「案件化」を実行してください。");
+  if (p.is_prospect) {
+    alert("見込案件からは請求書を発行できません。\n見込案件モーダルから「案件化」を実行してください。");
     return;
   }
   const ofc = office || {};
@@ -6219,14 +6219,23 @@ function PaymentManagement({data,setData,navigatePaymentId,clearNavigate}){
   function handleItemSplit(payment, itemId){
     const item=payment.items.find(i=>i.id===itemId);
     if(!item) return;
-    // 項目名の括弧内から個人名を抽出（例:「在留期間更新（DIPAK）」→DIPAK）
+    // 明細のapplicantを最優先、次に項目名の括弧内（例:「在留期間更新（DIPAK）」→DIPAK）
     const nameMatch=item.name.match(/[（(]([^）)]+)[）)]/);
-    const billName=nameMatch?nameMatch[1]:(item.source_bill||payment.bill_to_name||"");
+    const billName=item.applicant||(nameMatch?nameMatch[1]:(item.source_bill||payment.bill_to_name||""));
     if(!confirm(`「${item.name}」を「${billName} 宛」の個別請求に切り出しますか？`)) return;
+    // 元請求のcase_idsから、個人名一致で該当caseを特定（見つからなければ単一caseの時だけ継承）
+    const matchedCaseIds=(payment.case_ids||[]).filter(cid=>{
+      const c=cases.find(x=>x.case_id===cid);
+      return c && (c.applicant===billName || c.case_title===billName);
+    });
+    const newCaseIds=matchedCaseIds.length>0
+      ? matchedCaseIds
+      : (payment.case_ids.length===1 ? [...payment.case_ids] : []);
+    const newClientIds=[...new Set(newCaseIds.map(id=>cases.find(x=>x.case_id===id)?.client_id).filter(Boolean))];
     const newPayment={
       payment_id:"PM_ISPLIT_"+Date.now(),
-      case_ids:payment.case_ids.length===1?[...payment.case_ids]:[],
-      client_ids:[],
+      case_ids:newCaseIds,
+      client_ids:newClientIds,
       bill_type:"individual",
       bill_to_name:billName,
       tax_mode:payment.tax_mode||"tax_incl",
