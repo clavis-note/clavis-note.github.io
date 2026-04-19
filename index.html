@@ -442,107 +442,112 @@ function restoreAutoBackup(gen){
   }catch(e){console.error("restore error:",e);return null;}
 }
 
+function migrateData(saved){
+  if(!saved) return saved;
+  // v2→v3: journal+cases統合マイグレーション
+  if(saved.journal && saved.journal.length > 0){
+    // 旧journalデータをcases形式に変換して統合
+    const migrated = saved.journal.map(j=>({
+      case_id:j.id?"J"+j.id:"J"+Date.now(),no:j.no,category:j.category||"国際",client_id:"",template_id:null,
+      case_title:j.title,status:j.status,accepted_date:j.date,applied_date:j.apply_date||null,result_date:j.result_date||null,
+      receipt_number:"",result:j.result||"",new_card:j.new_card||"",period:j.period||"",next_renewal:j.next_renewal||"",
+      fee:j.fee||0,paid:j.paid||0,applicant:j.applicant||"",applicant_id:j.applicant_id||"",
+      requester:j.requester||"",requester_id:j.requester_id||"",notes:j.notes||"",official_req_no:j.official_req_no||"",
+      docs:null,hearing_items:null,additional_requests:null
+    }));
+    saved.cases = [...(saved.cases||[]), ...migrated];
+    delete saved.journal;
+  }
+  // v1→v2: cases にdocs/hearing追加対応
+  if(saved.cases) saved.cases = saved.cases.map(c=>{
+    if(!c.docs && c.template_id && DEFAULT_TEMPLATES[c.template_id]){
+      c.docs=DEFAULT_TEMPLATES[c.template_id].docs.map(d=>({...d,status:"未取得"}));
+      c.hearing_items=DEFAULT_TEMPLATES[c.template_id].hearing.map(h=>({...h,answer:"",year:"",month:""}));
+      c.additional_requests=c.additional_requests||[];
+    }
+    // 統合フィールド追加
+    if(c.no===undefined) c.no = 0;
+    if(!c.category) c.category = "国際";
+    if(c.result===undefined) c.result = "";
+    if(c.fee===undefined) c.fee = 0;
+    if(c.paid===undefined) c.paid = 0;
+    // v4: invoice fields
+    if(c.invoice_no===undefined) c.invoice_no = "";
+    if(c.invoice_date===undefined) c.invoice_date = "";
+    if(c.due_date===undefined) c.due_date = "";
+    if(c.bill_to===undefined) c.bill_to = "";
+    // v5: payment_logs（既存のpaid値をlogsに変換）
+    if(!c.payment_logs){
+      c.payment_logs = c.paid>0 ? [{id:"PL0",date:c.paid_date||c.result_date||c.accepted_date||"",amount:c.paid,method:"振込",type:"一般",note:"（移行データ）"}] : [];
+    }
+    return c;
+  });
+  // v6: payments[]独立配列（cases.payment_logsからの移行）
+  if(!saved.payments || !Array.isArray(saved.payments) || (saved.payments.length===0 && saved.cases)){
+    const migrated = [];
+    (saved.cases||[]).forEach(c=>{
+      if(c.fee>0 || (c.payment_logs&&c.payment_logs.length>0)){
+        migrated.push({
+          payment_id:"PM"+c.case_id,
+          case_ids:[c.case_id],
+          client_ids:c.client_id?[c.client_id]:[],
+          bill_type:"individual",
+          bill_to_name:c.bill_to||c.requester||c.applicant||"",
+          tax_mode:"tax_incl",
+          invoice_number:c.invoice_no||"",
+          invoice_date:c.invoice_date||"",
+          due_date:c.due_date||"",
+          items:c.fee>0?[{id:"i1",name:c.case_title||"報酬",unit_price:c.fee,quantity:1}]:[],
+          expenses:[],
+          payments_history:(c.payment_logs||[]).map(l=>({id:l.id,date:l.date,amount:l.amount,note:l.note||""})),
+          notes:""
+        });
+      }
+    });
+    saved.payments = migrated;
+  }
+  // v7: companies / fee_master をdata内に永続化
+  if(!saved.companies) saved.companies = COMPANY_DB.map(c=>({...c}));
+  if(!saved.fee_master) saved.fee_master = JSON.parse(JSON.stringify(FEE_MASTER));
+  // v8b: fee_master に general_biz がなければ追加
+  if(saved.fee_master && !saved.fee_master.general_biz) saved.fee_master.general_biz = JSON.parse(JSON.stringify(FEE_MASTER.general_biz));
+  // v8: contacts + comm_log + doc_count + client_type
+  if(saved.cases) saved.cases = saved.cases.map(c=>{
+    if(!c.contacts) c.contacts = [];
+    if(!c.comm_log) c.comm_log = [];
+    if(c.doc_count===undefined) c.doc_count = "";
+    return c;
+  });
+  if(saved.clients) saved.clients = saved.clients.map(c=>{
+    if(!c.client_type) c.client_type = "immigration";
+    return c;
+  });
+  // v9: office settings
+  if(!saved.office) saved.office = { name:"", representative:"", phone:"", email:"", logo:LOGO_B64, stamp:STAMP_B64, bank_lines:[] };
+  if(saved.office && saved.office.postal===undefined) { saved.office.postal=""; saved.office.address1=""; saved.office.address2=""; }
+  if(saved.office && !saved.office.bank_lines) saved.office.bank_lines = [];
+  // v10: credential management
+  if(saved.office && saved.office.credential_expiry===undefined) saved.office.credential_expiry = "";
+  // v11: templates マスター化
+  if(!saved.templates) saved.templates = JSON.parse(JSON.stringify(DEFAULT_TEMPLATES));
+  // v12: 見込案件フラグ（クライアント・案件未紐付けの見積書）
+  if(saved.payments) saved.payments = saved.payments.map(p=>{
+    if(p.is_prospect===undefined) p.is_prospect = false;
+    if(p.prospect_archived===undefined) p.prospect_archived = false;
+    return p;
+  });
+  // v13: 会社ステータス（active / changing / inactive）
+  if(saved.companies) saved.companies = saved.companies.map(co=>{
+    if(!co.status) co.status = "active";
+    return co;
+  });
+  return saved;
+}
+
 function getInitialData(){
   const saved = loadData();
   if(saved){
-    // v2→v3: journal+cases統合マイグレーション
-    if(saved.journal && saved.journal.length > 0){
-      // 旧journalデータをcases形式に変換して統合
-      const migrated = saved.journal.map(j=>({
-        case_id:j.id?"J"+j.id:"J"+Date.now(),no:j.no,category:j.category||"国際",client_id:"",template_id:null,
-        case_title:j.title,status:j.status,accepted_date:j.date,applied_date:j.apply_date||null,result_date:j.result_date||null,
-        receipt_number:"",result:j.result||"",new_card:j.new_card||"",period:j.period||"",next_renewal:j.next_renewal||"",
-        fee:j.fee||0,paid:j.paid||0,applicant:j.applicant||"",applicant_id:j.applicant_id||"",
-        requester:j.requester||"",requester_id:j.requester_id||"",notes:j.notes||"",official_req_no:j.official_req_no||"",
-        docs:null,hearing_items:null,additional_requests:null
-      }));
-      saved.cases = [...(saved.cases||[]), ...migrated];
-      delete saved.journal;
-    }
-    // v1→v2: cases にdocs/hearing追加対応
-    if(saved.cases) saved.cases = saved.cases.map(c=>{
-      if(!c.docs && c.template_id && DEFAULT_TEMPLATES[c.template_id]){
-        c.docs=DEFAULT_TEMPLATES[c.template_id].docs.map(d=>({...d,status:"未取得"}));
-        c.hearing_items=DEFAULT_TEMPLATES[c.template_id].hearing.map(h=>({...h,answer:"",year:"",month:""}));
-        c.additional_requests=c.additional_requests||[];
-      }
-      // 統合フィールド追加
-      if(c.no===undefined) c.no = 0;
-      if(!c.category) c.category = "国際";
-      if(c.result===undefined) c.result = "";
-      if(c.fee===undefined) c.fee = 0;
-      if(c.paid===undefined) c.paid = 0;
-      // v4: invoice fields
-      if(c.invoice_no===undefined) c.invoice_no = "";
-      if(c.invoice_date===undefined) c.invoice_date = "";
-      if(c.due_date===undefined) c.due_date = "";
-      if(c.bill_to===undefined) c.bill_to = "";
-      // v5: payment_logs（既存のpaid値をlogsに変換）
-      if(!c.payment_logs){
-        c.payment_logs = c.paid>0 ? [{id:"PL0",date:c.paid_date||c.result_date||c.accepted_date||"",amount:c.paid,method:"振込",type:"一般",note:"（移行データ）"}] : [];
-      }
-      return c;
-    });
-    // v6: payments[]独立配列（cases.payment_logsからの移行）
-    if(!saved.payments || !Array.isArray(saved.payments) || (saved.payments.length===0 && saved.cases)){
-      const migrated = [];
-      (saved.cases||[]).forEach(c=>{
-        if(c.fee>0 || (c.payment_logs&&c.payment_logs.length>0)){
-          migrated.push({
-            payment_id:"PM"+c.case_id,
-            case_ids:[c.case_id],
-            client_ids:c.client_id?[c.client_id]:[],
-            bill_type:"individual",
-            bill_to_name:c.bill_to||c.requester||c.applicant||"",
-            tax_mode:"tax_incl",
-            invoice_number:c.invoice_no||"",
-            invoice_date:c.invoice_date||"",
-            due_date:c.due_date||"",
-            items:c.fee>0?[{id:"i1",name:c.case_title||"報酬",unit_price:c.fee,quantity:1}]:[],
-            expenses:[],
-            payments_history:(c.payment_logs||[]).map(l=>({id:l.id,date:l.date,amount:l.amount,note:l.note||""})),
-            notes:""
-          });
-        }
-      });
-      saved.payments = migrated;
-    }
-    // v7: companies / fee_master をdata内に永続化
-    if(!saved.companies) saved.companies = COMPANY_DB.map(c=>({...c}));
-    if(!saved.fee_master) saved.fee_master = JSON.parse(JSON.stringify(FEE_MASTER));
-    // v8b: fee_master に general_biz がなければ追加
-    if(saved.fee_master && !saved.fee_master.general_biz) saved.fee_master.general_biz = JSON.parse(JSON.stringify(FEE_MASTER.general_biz));
-    // v8: contacts + comm_log + doc_count + client_type
-    if(saved.cases) saved.cases = saved.cases.map(c=>{
-      if(!c.contacts) c.contacts = [];
-      if(!c.comm_log) c.comm_log = [];
-      if(c.doc_count===undefined) c.doc_count = "";
-      return c;
-    });
-    if(saved.clients) saved.clients = saved.clients.map(c=>{
-      if(!c.client_type) c.client_type = "immigration";
-      return c;
-    });
-    // v9: office settings
-    if(!saved.office) saved.office = { name:"", representative:"", phone:"", email:"", logo:LOGO_B64, stamp:STAMP_B64, bank_lines:[] };
-    if(saved.office && saved.office.postal===undefined) { saved.office.postal=""; saved.office.address1=""; saved.office.address2=""; }
-    if(saved.office && !saved.office.bank_lines) saved.office.bank_lines = [];
-    // v10: credential management
-    if(saved.office && saved.office.credential_expiry===undefined) saved.office.credential_expiry = "";
-    // v11: templates マスター化
-    if(!saved.templates) saved.templates = JSON.parse(JSON.stringify(DEFAULT_TEMPLATES));
-    // v12: 見込案件フラグ（クライアント・案件未紐付けの見積書）
-    if(saved.payments) saved.payments = saved.payments.map(p=>{
-      if(p.is_prospect===undefined) p.is_prospect = false;
-      if(p.prospect_archived===undefined) p.prospect_archived = false;
-      return p;
-    });
-    // v13: 会社ステータス（active / changing / inactive）
-    if(saved.companies) saved.companies = saved.companies.map(co=>{
-      if(!co.status) co.status = "active";
-      return co;
-    });
-    return saved;
+    return migrateData(saved);
   }
   return {
     clients: SAMPLE_CLIENTS,
@@ -2897,6 +2902,7 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
   const [poiError,setPoiError]=useState(null);
   const [poiResult,setPoiResult]=useState(null);
   const [poiDragOver,setPoiDragOver]=useState(false);
+  const [showClientMenu,setShowClientMenu]=useState(false);
 
   // ポイポイ式：ファイル処理の共通関数（ボタン・D&D両方から呼ばれる）
   const processPoipoiFiles=async(files)=>{
@@ -3253,14 +3259,26 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
               </div>
               <div style={{display:"flex",gap:6,alignItems:"center"}}>
                 {(()=>{const tk=getTokureiInfo(cur,data.cases);return <AlertBadge days={getDays(cur.residence_expiry)} tokurei={tk}/>;})()}
-                <button onClick={handleDeleteClient} style={{fontSize:12,padding:"4px 10px",cursor:"pointer",borderRadius:6,border:"0.5px solid #A32D2D",background:"transparent",color:"#A32D2D"}}>削除</button>
-                <button onClick={archiveClient} style={{fontSize:12,padding:"4px 10px",cursor:"pointer",borderRadius:6,border:"0.5px solid var(--border)",background:"transparent",color:"var(--text3)"}}>{cur.archived?"復元":"アーカイブ"}</button>
+                {!isMobile&&<>
+                  <button onClick={handleDeleteClient} style={{fontSize:12,padding:"4px 10px",cursor:"pointer",borderRadius:6,border:"0.5px solid #A32D2D",background:"transparent",color:"#A32D2D"}}>削除</button>
+                  <button onClick={archiveClient} style={{fontSize:12,padding:"4px 10px",cursor:"pointer",borderRadius:6,border:"0.5px solid var(--border)",background:"transparent",color:"var(--text3)"}}>{cur.archived?"復元":"アーカイブ"}</button>
+                </>}
                 {cur.client_type!=="general"&&<>
                   <button onClick={handlePoipoi} disabled={poiReading} style={{fontSize:11,padding:"4px 12px",cursor:poiReading?"wait":"pointer",borderRadius:6,border:"none",background:poiReading?"#ccc":"linear-gradient(135deg,#378ADD,#2563EB)",color:"#fff",fontWeight:600,display:"flex",alignItems:"center",gap:4,boxShadow:"0 1px 4px rgba(55,138,221,0.3)"}}>
                     {poiReading?<><span style={{display:"inline-block",width:12,height:12,border:"2px solid #fff",borderTopColor:"transparent",borderRadius:"50%",animation:"spin 0.8s linear infinite"}}></span> 読取中</>:"📷 ポイポイ式"}
                   </button>
-                  <span style={{fontSize:10,color:"var(--text3)"}}>D&Dも可</span>
+                  {!isMobile&&<span style={{fontSize:10,color:"var(--text3)"}}>D&Dも可</span>}
                 </>}
+                {isMobile&&<div style={{position:"relative"}}>
+                  <button onClick={()=>setShowClientMenu(v=>!v)} style={{fontSize:16,padding:"4px 10px",cursor:"pointer",borderRadius:6,border:"0.5px solid var(--border)",background:"transparent",color:"var(--text2)",lineHeight:1}}>⋯</button>
+                  {showClientMenu&&<>
+                    <div style={{position:"fixed",inset:0,zIndex:199}} onClick={()=>setShowClientMenu(false)}/>
+                    <div style={{position:"absolute",right:0,top:"calc(100% + 6px)",background:"var(--bg)",border:"0.5px solid rgba(0,0,0,0.15)",borderRadius:8,boxShadow:"0 4px 20px rgba(0,0,0,0.12)",padding:4,minWidth:140,zIndex:200}}>
+                      <button onClick={()=>{setShowClientMenu(false);archiveClient();}} style={{width:"100%",fontSize:13,padding:"10px 12px",cursor:"pointer",border:"none",background:"transparent",color:"var(--text)",textAlign:"left",borderRadius:6}}>{cur.archived?"📤 復元":"📦 アーカイブ"}</button>
+                      <button onClick={()=>{setShowClientMenu(false);handleDeleteClient();}} style={{width:"100%",fontSize:13,padding:"10px 12px",cursor:"pointer",border:"none",background:"transparent",color:"#A32D2D",textAlign:"left",borderRadius:6}}>🗑️ 削除</button>
+                    </div>
+                  </>}
+                </div>}
               </div>
             </div>
             {poiError&&<div style={{padding:"6px 18px",background:"#FCEBEB",fontSize:11,color:"#A32D2D"}}>⚠️ {poiError}</div>}
@@ -7744,7 +7762,7 @@ function App(){
       if(!result){alert("Driveにデータがありません");setGdriveSyncing(false);return;}
       if(!result.data.cases||!result.data.clients){alert("不正なデータ形式です");setGdriveSyncing(false);return;}
       if(confirm(`Driveからデータを読み込みます。\n（最終更新: ${new Date(result.modifiedTime).toLocaleString()}）\n現在のデータは上書きされます。よろしいですか？`)){
-        setData(result.data);
+        setData(migrateData(result.data));
         const now = new Date().toISOString();
         setGdriveLastSync(now);
         localStorage.setItem("clavis-gdrive-last-sync",now);
@@ -7815,7 +7833,7 @@ function App(){
         const imported=JSON.parse(ev.target.result);
         if(!imported.cases||!imported.clients) throw new Error("不正なフォーマット");
         if(confirm(`バックアップを読み込みます。\n現在のデータは上書きされます。\nよろしいですか？`)){
-          setData(imported);
+          setData(migrateData(imported));
           setShowBackup(false);
           alert("読み込み完了！");
         }
@@ -7863,7 +7881,7 @@ function App(){
         {isMobile&&<div style={{flex:1}}/>}
         {/* 右側コントロール */}
         <div style={{display:"flex",alignItems:"center",gap:8}}>
-          {stepperTab&&!stepperVisible&&<button onClick={toggleStepper} title="ワークフローガイドを表示" style={{fontSize:10,padding:"3px 8px",borderRadius:5,border:"0.5px solid var(--border)",background:"transparent",cursor:"pointer",color:"var(--text3)",opacity:0.7}}>① ② ③</button>}
+          {stepperTab&&!stepperVisible&&!isMobile&&<button onClick={toggleStepper} title="ワークフローガイドを表示" style={{fontSize:10,padding:"3px 8px",borderRadius:5,border:"0.5px solid var(--border)",background:"transparent",cursor:"pointer",color:"var(--text3)",opacity:0.7}}>① ② ③</button>}
           {/* フォントサイズ */}
           {!isMobile&&<div style={{display:"flex",gap:2,background:"#eeede8",borderRadius:6,padding:2}}>
             {FS_OPTIONS.map(o=>(
@@ -7880,7 +7898,7 @@ function App(){
           <div style={{position:"relative"}}>
             <button onClick={()=>setShowBackup(p=>!p)}
               style={{fontSize:11,padding:"4px 10px",borderRadius:6,border:"0.5px solid var(--border)",background:"transparent",cursor:"pointer",color:"var(--text2)",display:"flex",alignItems:"center",gap:4}}>
-              💾 <span>バックアップ</span>
+              💾 {!isMobile&&<span>バックアップ</span>}
             </button>
             {showBackup&&(
               <>
@@ -7959,7 +7977,7 @@ function App(){
                           <button onClick={()=>{
                             if(confirm(`${label}のバックアップに復元しますか？\n現在のデータは上書きされます。`)){
                               const restored=restoreAutoBackup(bk.gen);
-                              if(restored){setData(restored);setShowBackup(false);
+                              if(restored){setData(migrateData(restored));setShowBackup(false);
                                 const t=document.getElementById("toast");if(t){t.textContent="✅ バックアップから復元しました";t.style.opacity=1;setTimeout(()=>t.style.opacity=0,2500);}
                               }else{alert("復元に失敗しました");}
                             }
