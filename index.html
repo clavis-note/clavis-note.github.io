@@ -8403,10 +8403,8 @@ function App(){
     const handlePopState=(e)=>{
       if(e.state&&e.state.tab){
         setActiveTab(e.state.tab);
-        // detail:false の履歴に戻った = 詳細画面を閉じる
-        if(!e.state.detail){
-          window.dispatchEvent(new CustomEvent('clavis-close-detail'));
-        }
+        // detail:true/false に関わらず必ず close を dispatch（履歴の不整合を防ぐため）
+        window.dispatchEvent(new CustomEvent('clavis-close-detail'));
       }
       else{
         try{
