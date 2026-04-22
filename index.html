@@ -270,6 +270,81 @@ const COMPANY_DB = [];
 // payments[]は廃止。報酬情報はcases[]のfee/paid/invoice_*フィールドで管理。
 
 // ============================================================
+// 2.7. 書類種別マスタ プリセット（Clavis Docs）
+// ============================================================
+// 企業書庫で管理する書類の種別と、命名規則・紐付け属性・AI解析プロンプトを定義。
+// ポイポイ式Docs（Phase 2）で書類を自動分類・リネームするために使う。
+// attr（紐付け属性）の種類:
+//   expiry: 有効期限ベース（期限バッジ対象）
+//   term:   期ベース（第◯期）
+//   fiscal: 年度ベース（和暦◯年）
+//   store:  店舗紐付け（複数店舗を持つ企業）
+//   person: 個人紐付け（クライアント台帳と双方向リンク）
+//   none:   その他
+const DEFAULT_DOC_TYPES = [
+  {
+    doc_type_id:"DT01",
+    name:"履歴事項全部証明書",
+    icon:"🏛️",
+    category:"履歴事項全部証明書",
+    naming_rule:"{会社略称}_R{有効期限}まで有効_履歴事項全部証明書.pdf",
+    attr:"expiry",
+    has_expiry:true,
+    ai_prompt:"この書類は履歴事項全部証明書です。交付年月日（発行日）から3ヶ月後を有効期限として和暦で抽出してください。",
+  },
+  {
+    doc_type_id:"DT02",
+    name:"決算書",
+    icon:"💰",
+    category:"★決算資料",
+    naming_rule:"{会社略称}_第{期}期決算報告書.pdf",
+    attr:"term",
+    has_expiry:false,
+    ai_prompt:"この書類は決算書です。何期の決算書かを抽出してください（例: 第10期）。",
+  },
+  {
+    doc_type_id:"DT03",
+    name:"法定調書合計表",
+    icon:"📊",
+    category:"法定調書合計表",
+    naming_rule:"{会社略称}_{和暦年度}分法定調書合計表.pdf",
+    attr:"fiscal",
+    has_expiry:false,
+    ai_prompt:"この書類は法定調書合計表です。対象年度を和暦で抽出してください（例: 令和7年分）。",
+  },
+  {
+    doc_type_id:"DT04",
+    name:"営業許可証",
+    icon:"📜",
+    category:"営業許可証",
+    naming_rule:"{会社略称}_{店舗名}営業許可証.pdf",
+    attr:"store",
+    has_expiry:true,
+    ai_prompt:"この書類は飲食店営業許可証です。店舗名と有効期限を抽出してください。",
+  },
+  {
+    doc_type_id:"DT05",
+    name:"雇用契約書",
+    icon:"📝",
+    category:"雇用契約書等",
+    naming_rule:"{会社略称}_雇用契約書-{個人名ROMAN}.pdf",
+    attr:"person",
+    has_expiry:false,
+    ai_prompt:"この書類は雇用契約書です。雇用される個人の氏名をローマ字（大文字）で抽出してください。",
+  },
+  {
+    doc_type_id:"DT06",
+    name:"労働保険関係",
+    icon:"🛡️",
+    category:"労働保険関係",
+    naming_rule:"{会社略称}_労働保険{種別}（事業主控）.pdf",
+    attr:"fiscal",
+    has_expiry:false,
+    ai_prompt:"この書類は労働保険関係書類です。種別（概算確定保険料申告書・関係成立届・納付書領収証書 など）を抽出してください。",
+  },
+];
+
+// ============================================================
 // 2.5. Google Drive同期
 // ============================================================
 const GOOGLE_CLIENT_ID = "531890884615-pv6jvdhqegkera9nbqm3ppskisg1ar2a.apps.googleusercontent.com";
@@ -539,8 +614,11 @@ function migrateData(saved){
   // v13: 会社ステータス（active / changing / inactive）
   if(saved.companies) saved.companies = saved.companies.map(co=>{
     if(!co.status) co.status = "active";
+    if(co.short_name===undefined) co.short_name = "";
     return co;
   });
+  // v14: 書類種別マスタ（Clavis Docs）
+  if(!saved.docTypes) saved.docTypes = JSON.parse(JSON.stringify(DEFAULT_DOC_TYPES));
   return saved;
 }
 
@@ -556,6 +634,7 @@ function getInitialData(){
     companies: COMPANY_DB.map(c=>({...c})),
     fee_master: JSON.parse(JSON.stringify(FEE_MASTER)),
     templates: JSON.parse(JSON.stringify(DEFAULT_TEMPLATES)),
+    docTypes: JSON.parse(JSON.stringify(DEFAULT_DOC_TYPES)),
     links: DEFAULT_LINKS,
     office: { name:"", representative:"", phone:"", email:"", logo:LOGO_B64, stamp:STAMP_B64, bank_lines:[], postal:"", address1:"", address2:"" },
     version: 7,
@@ -2904,6 +2983,21 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
   const [poiDragOver,setPoiDragOver]=useState(false);
   const [showClientMenu,setShowClientMenu]=useState(false);
 
+  // ブラウザバック対応: 詳細画面が開いた瞬間にpushState、戻るで閉じる
+  const prevShowDetailRef=useRef(null);
+  const isDetailOpen=isMobile?showDetail:!!selected;
+  useEffect(()=>{
+    if(prevShowDetailRef.current===false&&isDetailOpen){
+      try{window.history.pushState({tab:'clients',detail:true},'','#clients/detail');}catch(e){}
+    }
+    prevShowDetailRef.current=isDetailOpen;
+  },[isDetailOpen]);
+  useEffect(()=>{
+    const handleClose=()=>{setShowDetail(false);setSelected(null);};
+    window.addEventListener('clavis-close-detail',handleClose);
+    return()=>window.removeEventListener('clavis-close-detail',handleClose);
+  },[]);
+
   // ポイポイ式：ファイル処理の共通関数（ボタン・D&D両方から呼ばれる）
   const processPoipoiFiles=async(files)=>{
     if(!files||files.length===0)return;
@@ -3359,7 +3453,12 @@ function NewCaseModal({onClose,onSave,clients,nextNo,templates}){
   const [title,setTitle]=useState("");
   const [preview,setPreview]=useState(false);
   const selClient=clients.find(x=>x.client_id===clientId);
-  const availableTemplates=Object.entries(templates).filter(([,t])=>!selClient?false:selClient.residence_status==="家族滞在"?t.label.startsWith("家族滞在"):!t.label.startsWith("家族滞在"));
+  const availableTemplates=Object.entries(templates).filter(([tid,t])=>{
+    if(tid==="_order")return false;
+    if(!selClient)return false;
+    if(!t||typeof t.label!=="string")return false;
+    return selClient.residence_status==="家族滞在"?t.label.startsWith("家族滞在"):!t.label.startsWith("家族滞在");
+  });
   function handleSave(){
     if(!clientId||!templateId||!title)return;
     const tmpl=templates[templateId];
@@ -4442,6 +4541,21 @@ function CaseManagement({data,setData,navigateCaseId,clearNavigate}){
       if(clearNavigate)clearNavigate();
     }
   },[navigateCaseId]);
+
+  // ブラウザバック対応: 詳細画面が開いた瞬間にpushState、戻るで閉じる
+  const prevShowDetailRef=useRef(null);
+  const isDetailOpen=isMobile?showDetail:!!selected;
+  useEffect(()=>{
+    if(prevShowDetailRef.current===false&&isDetailOpen){
+      try{window.history.pushState({tab:'cases',detail:true},'','#cases/detail');}catch(e){}
+    }
+    prevShowDetailRef.current=isDetailOpen;
+  },[isDetailOpen]);
+  useEffect(()=>{
+    const handleClose=()=>{setShowDetail(false);setSelected(null);};
+    window.addEventListener('clavis-close-detail',handleClose);
+    return()=>window.removeEventListener('clavis-close-detail',handleClose);
+  },[]);
 
   const immigrationCases=cases.filter(c=>c.template_id);
   const generalCases=cases.filter(c=>c.case_type==="general");
@@ -6143,7 +6257,7 @@ function PaymentManagement({data,setData,navigatePaymentId,clearNavigate}){
   const {cases,clients,payments}=data;
   const [selectedId,setSelectedId]=useState(()=>{
     if(navigatePaymentId)return navigatePaymentId;
-    return (payments||[]).filter(p=>!p.is_prospect)[0]?.payment_id||null;
+    return null;
   });
   const [showDetail,setShowDetail]=useState(()=>!!navigatePaymentId);
   const [showNew,setShowNew]=useState(false);
@@ -6159,6 +6273,21 @@ function PaymentManagement({data,setData,navigatePaymentId,clearNavigate}){
       if(clearNavigate)clearNavigate();
     }
   },[navigatePaymentId]);
+
+  // ブラウザバック対応: 詳細画面が開いた瞬間にpushState、戻るで閉じる
+  const prevShowDetailRef=useRef(null);
+  const isDetailOpen=isMobile?showDetail:!!selectedId;
+  useEffect(()=>{
+    if(prevShowDetailRef.current===false&&isDetailOpen){
+      try{window.history.pushState({tab:'payments',detail:true},'','#payments/detail');}catch(e){}
+    }
+    prevShowDetailRef.current=isDetailOpen;
+  },[isDetailOpen]);
+  useEffect(()=>{
+    const handleClose=()=>{setShowDetail(false);setSelectedId(null);};
+    window.addEventListener('clavis-close-detail',handleClose);
+    return()=>window.removeEventListener('clavis-close-detail',handleClose);
+  },[]);
 
   const selected=(payments||[]).find(p=>p.payment_id===selectedId&&!p.is_prospect)||null;
 
@@ -6831,6 +6960,20 @@ function MasterCompany({companies,setCompanies,clients,onNavigateToClient}){
   const [dragCoIdx,setDragCoIdx]=useState(null);
   function moveCompany(from,to){if(from===to)return;setCompanies(prev=>{const arr=[...prev];const [item]=arr.splice(from,1);arr.splice(to,0,item);return arr;});}
 
+  // ブラウザバック対応: 詳細画面が開いた瞬間にpushState、戻るで閉じる(モバイルのみ)
+  const prevShowDetailRef=useRef(null);
+  useEffect(()=>{
+    if(prevShowDetailRef.current===false&&showDetail){
+      try{window.history.pushState({tab:'master',detail:true},'','#master/detail');}catch(e){}
+    }
+    prevShowDetailRef.current=showDetail;
+  },[showDetail]);
+  useEffect(()=>{
+    const handleClose=()=>{setShowDetail(false);};
+    window.addEventListener('clavis-close-detail',handleClose);
+    return()=>window.removeEventListener('clavis-close-detail',handleClose);
+  },[]);
+
   // ステータス表示設定
   const STATUS_CONF={
     active:{label:"活動中",badge:null,color:"var(--text)",bg:"transparent",opacity:1},
@@ -6852,7 +6995,7 @@ function MasterCompany({companies,setCompanies,clients,onNavigateToClient}){
   function saveEdit(){setCompanies(prev=>prev.map(c=>c.company_id===draft.company_id?draft:c));setEditMode(false);setDraft(null);}
   function up(f,v){setDraft(p=>({...p,[f]:v}));}
   function handleAdd(){
-    const newCo={company_id:"CO"+Date.now(),name:"",kana:"",address:"",phone:"",representative:"",contact:"",drive_url:"",pref:"東京都",corp_number:"",hoken_number:"",status:"active"};
+    const newCo={company_id:"CO"+Date.now(),name:"",kana:"",short_name:"",address:"",phone:"",representative:"",contact:"",drive_url:"",pref:"東京都",corp_number:"",hoken_number:"",status:"active"};
     setCompanies(prev=>[...prev,newCo]);
     setSelId(newCo.company_id);
     setDraft(newCo);setEditMode(true);
@@ -6934,7 +7077,7 @@ function MasterCompany({companies,setCompanies,clients,onNavigateToClient}){
             </div>
             <div style={{background:"var(--bg)",border:"0.5px solid var(--border)",borderRadius:10,padding:"16px 18px"}}>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
-                {[["会社名","name"],["フリガナ","kana"],["代表者","representative"],["担当者","contact"],["電話番号","phone"],["会社ID","company_id"],["法人番号","corp_number"],["雇用保険適用事業者番号","hoken_number"]].map(([label,field])=>(
+                {[["会社名","name"],["フリガナ","kana"],["略称（書庫の命名で使用）","short_name"],["代表者","representative"],["担当者","contact"],["電話番号","phone"],["会社ID","company_id"],["法人番号","corp_number"],["雇用保険適用事業者番号","hoken_number"]].map(([label,field])=>(
                   <div key={field}>
                     <div style={labelS}>{label}</div>
                     {editMode&&field!=="company_id"?<IMEInput value={cur[field]||""} onChange={v=>up(field,v)} style={inputS}/>
@@ -6961,6 +7104,187 @@ function MasterCompany({companies,setCompanies,clients,onNavigateToClient}){
               </div>
             </div>
             <CompanyRoster coName={sel?.name||""} clients={clients} onNavigateToClient={onNavigateToClient}/>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+// ============================================================
+// 11.2. 書類種別マスタ（Clavis Docs）
+// ============================================================
+// Day1 B: CRUD（追加・編集・削除・並び替え）とプリセット登録まで。
+// Phase 2で AI解析プロンプトを用いた書類自動分類・リネーム（ポイポイ式Docs）を実装予定。
+function MasterDocTypes({docTypes,setDocTypes}){
+  const isMobile=useMobile();
+  const [selId,setSelId]=useState(docTypes[0]?.doc_type_id||null);
+  const [showDetail,setShowDetail]=useState(false);
+  const [editMode,setEditMode]=useState(false);
+  const [draft,setDraft]=useState(null);
+  const [dragIdx,setDragIdx]=useState(null);
+  
+  const sel=docTypes.find(d=>d.doc_type_id===selId)||null;
+  const cur=editMode?draft:sel;
+  
+  function move(from,to){
+    if(from===to)return;
+    setDocTypes(prev=>{const arr=[...prev];const [item]=arr.splice(from,1);arr.splice(to,0,item);return arr;});
+  }
+  function startEdit(){setDraft(JSON.parse(JSON.stringify(sel)));setEditMode(true);}
+  function cancelEdit(){setEditMode(false);setDraft(null);}
+  function saveEdit(){setDocTypes(prev=>prev.map(d=>d.doc_type_id===draft.doc_type_id?draft:d));setEditMode(false);setDraft(null);}
+  function up(f,v){setDraft(p=>({...p,[f]:v}));}
+  function handleAdd(){
+    const newDt={doc_type_id:"DT"+Date.now(),name:"",icon:"📄",category:"",naming_rule:"{会社略称}_{書類名}.pdf",attr:"none",has_expiry:false,ai_prompt:""};
+    setDocTypes(prev=>[...prev,newDt]);
+    setSelId(newDt.doc_type_id);
+    setDraft(newDt);setEditMode(true);
+    if(isMobile)setShowDetail(true);
+  }
+  function handleDelete(){
+    if(!sel)return;
+    if(!confirm(`「${sel.name||"新規種別"}」を削除しますか？`))return;
+    setDocTypes(prev=>prev.filter(d=>d.doc_type_id!==sel.doc_type_id));
+    setSelId(docTypes.find(d=>d.doc_type_id!==sel.doc_type_id)?.doc_type_id||null);
+    setEditMode(false);setDraft(null);
+  }
+  
+  const inputS={fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)",width:"100%"};
+  const labelS={fontSize:10,color:"var(--text3)",fontWeight:500,marginBottom:3,letterSpacing:"0.05em"};
+  
+  const ATTR_OPTIONS=[
+    {value:"expiry",label:"📅 期限ベース（有効期限バッジ対象）"},
+    {value:"term",label:"🔢 期ベース（第◯期）"},
+    {value:"fiscal",label:"📆 年度ベース（和暦◯年）"},
+    {value:"store",label:"🏪 店舗紐付け"},
+    {value:"person",label:"👤 個人紐付け（クライアント連動）"},
+    {value:"none",label:"— その他"},
+  ];
+  const VAR_HINTS=["{会社略称}","{期}","{和暦年度}","{有効期限}","{店舗名}","{個人名ROMAN}","{書類名}"];
+  
+  return(
+    <div style={{display:"flex",height:"100%"}}>
+      {/* 左サイドバー: 種別一覧 */}
+      <div style={{width:isMobile?undefined:240,flex:isMobile?"1":undefined,display:isMobile&&showDetail?"none":"flex",flexDirection:"column",borderRight:isMobile?"none":"0.5px solid var(--border)",background:"var(--bg)"}}>
+        <div style={{padding:"10px 12px",borderBottom:"0.5px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <span style={{fontSize:13,fontWeight:500}}>書類種別</span>
+          <button onClick={handleAdd} style={{width:24,height:24,cursor:"pointer",borderRadius:5,background:"var(--bg2)",border:"0.5px solid var(--border2)",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+        </div>
+        <div style={{flex:1,overflowY:"auto"}}>
+          {docTypes.map((dt,idx)=>(
+            <div key={dt.doc_type_id} onDragOver={e=>{e.preventDefault();e.dataTransfer.dropEffect="move";}} onDrop={()=>{move(dragIdx,idx);setDragIdx(null);}}
+              onClick={()=>{setSelId(dt.doc_type_id);setEditMode(false);setDraft(null);if(isMobile)setShowDetail(true);}}
+              style={{padding:"10px 12px",cursor:"pointer",borderBottom:"0.5px solid rgba(0,0,0,0.06)",display:"flex",alignItems:"center",gap:8,
+                background:selId===dt.doc_type_id?"var(--bg2)":"transparent",
+                borderLeft:selId===dt.doc_type_id?"2px solid var(--accent)":"2px solid transparent",
+                opacity:dragIdx===idx?0.4:1}}>
+              <span draggable onDragStart={e=>{e.stopPropagation();setDragIdx(idx);}} onDragEnd={()=>setDragIdx(null)}
+                style={{cursor:"grab",color:"var(--text3)",fontSize:18,userSelect:"none",flexShrink:0,padding:"4px 2px",lineHeight:1,opacity:0.5}}>≡</span>
+              <span style={{fontSize:14,flexShrink:0}}>{dt.icon||"📄"}</span>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:12,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{dt.name||"新規種別"}</div>
+                <div style={{fontSize:10,color:"var(--text3)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{dt.category||"—"}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{padding:"6px 12px",borderTop:"0.5px solid var(--border)",fontSize:10,color:"var(--text3)"}}>{docTypes.length}種別</div>
+      </div>
+      
+      {/* 右メイン: 詳細編集 */}
+      <div style={{flex:1,overflowY:"auto",padding:18,display:isMobile&&!showDetail?"none":undefined}}>
+        {isMobile&&showDetail&&<button onClick={()=>setShowDetail(false)} style={{display:"flex",alignItems:"center",gap:4,marginBottom:12,padding:"6px 12px",border:"none",background:"var(--bg2)",borderRadius:6,cursor:"pointer",color:"var(--accent-text)",fontSize:13,fontWeight:500}}>← 一覧に戻る</button>}
+        {!cur?<div style={{padding:40,textAlign:"center",color:"var(--text3)"}}>書類種別を選択してください</div>:(
+          <>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,gap:10,flexWrap:"wrap"}}>
+              <div style={{display:"flex",alignItems:"center",gap:10}}>
+                <span style={{fontSize:22}}>{cur.icon||"📄"}</span>
+                <div style={{fontSize:15,fontWeight:500}}>{cur.name||"新規種別"}</div>
+              </div>
+              <div style={{display:"flex",gap:6}}>
+                {!editMode?(<>
+                  <button onClick={handleDelete} style={{fontSize:11,padding:"4px 10px",cursor:"pointer",borderRadius:5,border:"0.5px solid #A32D2D",background:"transparent",color:"#A32D2D"}}>削除</button>
+                  <button onClick={startEdit} style={{fontSize:11,padding:"4px 10px",cursor:"pointer",borderRadius:5,border:"0.5px solid var(--border2)",background:"transparent",color:"var(--text)"}}>編集</button>
+                </>):(<>
+                  <button onClick={cancelEdit} style={{fontSize:11,padding:"4px 10px",cursor:"pointer",borderRadius:5,border:"0.5px solid var(--border)",background:"transparent",color:"var(--text2)"}}>キャンセル</button>
+                  <button onClick={saveEdit} style={{fontSize:11,padding:"4px 10px",cursor:"pointer",borderRadius:5,border:"0.5px solid var(--accent)",background:"var(--accent-bg)",color:"var(--accent-text)",fontWeight:500}}>保存</button>
+                </>)}
+              </div>
+            </div>
+            
+            {/* 基本情報 */}
+            <div style={{background:"var(--bg)",border:"0.5px solid var(--border)",borderRadius:10,padding:"16px 18px",marginBottom:14}}>
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"auto 1fr":"auto 1fr 1fr",gap:14,alignItems:"end"}}>
+                <div>
+                  <div style={labelS}>アイコン</div>
+                  {editMode?<input value={cur.icon||""} onChange={e=>up("icon",e.target.value)} style={{...inputS,width:60,textAlign:"center",fontSize:18,padding:"6px 8px"}}/>
+                    :<div style={{fontSize:22}}>{cur.icon||"—"}</div>}
+                </div>
+                <div>
+                  <div style={labelS}>名称</div>
+                  {editMode?<IMEInput value={cur.name||""} onChange={v=>up("name",v)} style={inputS}/>
+                    :<span style={{fontSize:13}}>{cur.name||"—"}</span>}
+                </div>
+                <div style={{gridColumn:isMobile?"1 / span 2":undefined}}>
+                  <div style={labelS}>対応カテゴリ（Driveフォルダ名）</div>
+                  {editMode?<IMEInput value={cur.category||""} onChange={v=>up("category",v)} style={inputS}/>
+                    :<span style={{fontSize:13}}>{cur.category||"—"}</span>}
+                </div>
+              </div>
+              
+              <div style={{marginTop:14}}>
+                <div style={labelS}>紐付け属性</div>
+                {editMode?<select value={cur.attr||"none"} onChange={e=>up("attr",e.target.value)} style={inputS}>
+                  {ATTR_OPTIONS.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+                :<span style={{fontSize:13}}>{(ATTR_OPTIONS.find(o=>o.value===cur.attr)||ATTR_OPTIONS[5]).label}</span>}
+              </div>
+              
+              <div style={{marginTop:14,display:"flex",alignItems:"center",gap:10}}>
+                <input type="checkbox" id={"exp_"+cur.doc_type_id} checked={!!cur.has_expiry} disabled={!editMode}
+                  onChange={e=>up("has_expiry",e.target.checked)}
+                  style={{cursor:editMode?"pointer":"default",width:16,height:16}}/>
+                <label htmlFor={"exp_"+cur.doc_type_id} style={{fontSize:13,cursor:editMode?"pointer":"default",color:editMode?"var(--text)":"var(--text2)"}}>
+                  有効期限を管理する（企業書庫で期限バッジを表示）
+                </label>
+              </div>
+            </div>
+            
+            {/* 命名規則 */}
+            <div style={{background:"var(--bg)",border:"0.5px solid var(--border)",borderRadius:10,padding:"16px 18px",marginBottom:14}}>
+              <div style={labelS}>命名規則</div>
+              {editMode?<IMEInput value={cur.naming_rule||""} onChange={v=>up("naming_rule",v)} style={{...inputS,fontFamily:"monospace"}}/>
+                :<span style={{fontSize:13,fontFamily:"monospace",color:cur.naming_rule?"var(--text)":"var(--text3)",wordBreak:"break-all"}}>{cur.naming_rule||"—"}</span>}
+              
+              {editMode&&<div style={{marginTop:8}}>
+                <div style={{fontSize:10,color:"var(--text3)",marginBottom:4}}>挿入できる変数（タップで末尾に追加）</div>
+                <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+                  {VAR_HINTS.map(v=>(
+                    <button key={v} onClick={()=>up("naming_rule",(cur.naming_rule||"")+v)}
+                      style={{fontSize:10,padding:"3px 7px",cursor:"pointer",borderRadius:4,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text2)",fontFamily:"monospace"}}>
+                      {v}
+                    </button>
+                  ))}
+                </div>
+              </div>}
+              
+              <div style={{marginTop:10,padding:"8px 10px",background:"var(--bg2)",borderRadius:5,fontSize:11,color:"var(--text3)",lineHeight:1.5}}>
+                💡 Phase 2のポイポイ式Docsで、書類をAIが解析してこの規則に従ってリネームします。
+              </div>
+            </div>
+            
+            {/* AI解析プロンプト */}
+            <div style={{background:"var(--bg)",border:"0.5px solid var(--border)",borderRadius:10,padding:"16px 18px"}}>
+              <div style={labelS}>AI解析プロンプト（Phase 2で使用）</div>
+              {editMode?<textarea value={cur.ai_prompt||""} onChange={e=>up("ai_prompt",e.target.value)}
+                style={{...inputS,minHeight:80,resize:"vertical",fontFamily:"inherit",lineHeight:1.5}}/>
+                :<div style={{fontSize:12,color:cur.ai_prompt?"var(--text)":"var(--text3)",whiteSpace:"pre-wrap",lineHeight:1.5}}>{cur.ai_prompt||"—"}</div>}
+              <div style={{marginTop:10,padding:"8px 10px",background:"var(--bg2)",borderRadius:5,fontSize:11,color:"var(--text3)",lineHeight:1.5}}>
+                💡 書類をClaude AIに解析させる時の指示文。命名規則の変数を埋めるのに必要な情報を抽出させます。
+              </div>
+            </div>
           </>
         )}
       </div>
@@ -7501,7 +7825,7 @@ function MasterTemplate({templates,setTemplates,data,setData}){
                 <button onClick={addDoc} style={{fontSize:10,padding:"3px 8px",borderRadius:4,border:"0.5px solid var(--accent)",background:"var(--accent-bg)",color:"var(--accent-text)",cursor:"pointer"}}>＋追加</button>
               </div>
               {/* 既存グループ名を収集 */}
-              {(()=>{const groups=[...new Set(Object.values(templates).flatMap(t=>t.docs.map(d=>d.group)).filter(Boolean))];return(
+              {(()=>{const groups=[...new Set(Object.entries(templates).filter(([k,t])=>k!=="_order"&&t&&Array.isArray(t.docs)).flatMap(([,t])=>t.docs.map(d=>d.group)).filter(Boolean))];return(
                 <datalist id="group-suggestions">{groups.map(g=><option key={g} value={g}/>)}</datalist>
               );})()}
               {editDocs.map((d,i)=>(
@@ -7566,7 +7890,20 @@ function MasterTemplate({templates,setTemplates,data,setData}){
 
 function MasterRegistration({data,setData,onNavigateToClient}){
   const isMobile=useMobile();
-  const [tab,setTab]=useState("company");
+  const [tab,setTab]=useState(()=>{
+    try{
+      const parts=location.hash.replace('#','').split('/');
+      if(parts[0]==='master'&&parts[1]){
+        const validSubTabs=['office','company',...(SHOW_DOCS?['doctype']:[]),'fee','template','minwage'];
+        if(validSubTabs.includes(parts[1]))return parts[1];
+      }
+    }catch(e){}
+    return "company";
+  });
+  // サブタブ変更時にURL hashを更新(履歴は汚さない)
+  useEffect(()=>{
+    try{window.history.replaceState({tab:'master',detail:false},'','#master/'+tab);}catch(e){}
+  },[tab]);
   const companies=data.companies||COMPANY_DB;
   const setCompanies=useCallback(fn=>{
     setData(prev=>({...prev,companies:typeof fn==="function"?fn(prev.companies||COMPANY_DB):fn}));
@@ -7580,11 +7917,14 @@ function MasterRegistration({data,setData,onNavigateToClient}){
   const setTemplates=useCallback(fn=>{
     setData(prev=>({...prev,templates:typeof fn==="function"?fn(prev.templates||DEFAULT_TEMPLATES):fn}));
   },[setData]);
+  const setDocTypes=useCallback(fn=>{
+    setData(prev=>({...prev,docTypes:typeof fn==="function"?fn(prev.docTypes||DEFAULT_DOC_TYPES):fn}));
+  },[setData]);
 
   return(
     <div style={{position:isMobile?"relative":"fixed",top:isMobile?undefined:"var(--header-h)",left:isMobile?undefined:0,right:isMobile?undefined:0,bottom:isMobile?undefined:0,height:isMobile?"calc(100vh - var(--header-h))":undefined,display:"flex",flexDirection:"column",background:"#eeede8"}}>
       <div style={{display:"flex",background:"var(--bg)",borderBottom:"0.5px solid var(--border)",padding:"0 18px",flexWrap:"wrap"}}>
-        {[["office","🏠 事務所設定"],["company","🏢 会社DB"],["fee","💴 料金マスタ"],["template","📋 書類テンプレート"],["minwage","📊 最低賃金"]].map(([id,label])=>(
+        {[["office","🏠 事務所設定"],["company","🏢 会社DB"],...(SHOW_DOCS?[["doctype","📁 書類種別"]]:[]),["fee","💴 料金マスタ"],["template","📋 書類テンプレート"],["minwage","📊 最低賃金"]].map(([id,label])=>(
           <button key={id} onClick={()=>setTab(id)}
             style={{fontSize:12,padding:"9px 16px",border:"none",borderBottom:tab===id?"2px solid var(--accent)":"2px solid transparent",
               background:"transparent",cursor:"pointer",color:tab===id?"var(--accent-text)":"var(--text2)",fontWeight:tab===id?500:400}}>{label}</button>
@@ -7593,10 +7933,382 @@ function MasterRegistration({data,setData,onNavigateToClient}){
       <div style={{flex:1,overflow:"hidden"}}>
         {tab==="office"&&<MasterOffice office={data.office} setOffice={setOffice}/>}
         {tab==="company"&&<MasterCompany companies={companies} setCompanies={setCompanies} clients={data.clients||[]} onNavigateToClient={onNavigateToClient}/>}
+        {SHOW_DOCS&&tab==="doctype"&&<MasterDocTypes docTypes={data.docTypes||DEFAULT_DOC_TYPES} setDocTypes={setDocTypes}/>}
         {tab==="fee"&&<MasterFee feeMaster={data.fee_master} setFeeMaster={setFeeMaster}/>}
         {tab==="template"&&<MasterTemplate templates={data.templates||DEFAULT_TEMPLATES} setTemplates={setTemplates} data={data} setData={setData}/>}
         {tab==="minwage"&&<MasterMinWage data={data} setData={setData}/>}
       </div>
+    </div>
+  );
+}
+
+
+// ============================================================
+// 11.5. 企業書庫（Clavis Docs）
+// ============================================================
+// Day1: 骨組みのみ。左に企業一覧、右にカテゴリ別の書類リスト。
+// 書類データは現状モック（フォローの実フォルダ構造をハードコード）。
+// Phase 2で Drive API 連携、書類種別マスタ、ポイポイ式Docs を順次実装予定。
+
+// フォローの実フォルダ構造を反映したモックデータ。
+// 本番ではDrive APIからフォルダ構造を読み取って動的に組み立てる。
+const DOCS_MOCK = {
+  "株式会社フォロー": [
+    {category:"★決算資料", icon:"💰", files:[
+      {name:"第4期決算報告書.pdf", type:"pdf", updated:"2020/01/15"},
+      {name:"第5期決算報告書.pdf", type:"pdf", updated:"2021/01/15"},
+      {name:"第6期決算報告書.pdf", type:"pdf", updated:"2022/01/15"},
+      {name:"第7期決算報告書.pdf", type:"pdf", updated:"2023/01/10"},
+      {name:"第8期決算報告書.pdf", type:"pdf", updated:"2024/01/10"},
+      {name:"第9期決算報告書.pdf", type:"pdf", updated:"2025/01/04"},
+      {name:"第10期決算報告書.pdf", type:"pdf", updated:"2026/01/04"},
+    ]},
+    {category:"シフト表・賃金台帳", icon:"📋", files:[]},
+    {category:"メニュー", icon:"🍽️", files:[]},
+    {category:"営業許可証", icon:"📜", files:[
+      {name:"アジアンカレー2営業許可証.pdf", type:"pdf", updated:"2026/03/26"},
+      {name:"立北ダイニング営業許可書.pdf", type:"pdf", updated:"2026/03/26"},
+      {name:"立北ダイニング店舗見取り図.pdf", type:"pdf", updated:"2026/03/26"},
+    ]},
+    {category:"雇用契約書等", icon:"📝", files:[
+      {name:"雇用契約書（英語）-REGMI.pdf", type:"pdf", updated:"2025/09/17"},
+      {name:"雇用契約書-KAFLE KESHAV.pdf", type:"pdf", updated:"2025/09/17"},
+      {name:"雇用契約書-REGMI.pdf", type:"pdf", updated:"2025/09/17"},
+      {name:"雇用契約書-SUMAN.pdf", type:"pdf", updated:"2025/09/17"},
+      {name:"REGMI退職証明書.jpg", type:"jpg", updated:"2025/09/17"},
+    ]},
+    {category:"店舗", icon:"🏪", files:[
+      {name:"立北ダイニング（写真フォルダ）", type:"folder", updated:"2026/03/26"},
+    ]},
+    {category:"法定調書合計表", icon:"📊", files:[
+      {name:"平成30年分法定調書合計表.pdf", type:"pdf", updated:"2019/02/01"},
+      {name:"平成31年分法定調書合計表.pdf", type:"pdf", updated:"2020/02/01"},
+      {name:"令和1年分法定調書合計表.pdf", type:"pdf", updated:"2020/02/01"},
+      {name:"令和2年分法定調書合計表.pdf", type:"pdf", updated:"2021/02/01"},
+      {name:"令和3年分法定調書合計表.pdf", type:"pdf", updated:"2022/02/01"},
+      {name:"令和5年分法定調書合計表.pdf", type:"pdf", updated:"2024/02/01"},
+      {name:"令和6年分法定調書合計表.pdf", type:"pdf", updated:"2025/02/01"},
+      {name:"令和7年分法定調書合計表.pdf", type:"pdf", updated:"2026/04/05"},
+    ]},
+    {category:"履歴事項全部証明書", icon:"🏛️", files:[
+      {name:"R8.2.4まで有効_履歴事項全部証明書.pdf", type:"pdf", updated:"2026/01/05", expiry:"2026-02-04"},
+      {name:"R8.6.17まで有効_履歴事項全部証明書.pdf", type:"pdf", updated:"2026/04/05", expiry:"2026-06-17"},
+    ]},
+    {category:"労働保険関係", icon:"🛡️", files:[
+      {name:"労働保険概算確定保険料申告書（事業主控）.pdf", type:"pdf", updated:"2026/04/05"},
+      {name:"労働保険関係成立届（事業主控）.pdf", type:"pdf", updated:"2026/04/05"},
+      {name:"労働保険納付書・領収証書.pdf", type:"pdf", updated:"2026/04/05"},
+    ]},
+  ],
+};
+
+function CompanyDocs({data, setData}){
+  const isMobile = useMobile();
+  const companies = data.companies || [];
+  
+  // 初期選択: フォローがあればそれ、なければ最初の企業
+  const [selCoId, setSelCoId] = useState(()=>{
+    const follow = companies.find(c => (c.name||"").includes("フォロー"));
+    return follow?.company_id || companies[0]?.company_id || null;
+  });
+  const [expandedCat, setExpandedCat] = useState({});
+  
+  const [previewFile, setPreviewFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState("");
+  const [savedUrls, setSavedUrls] = useState(()=>{
+    try { return JSON.parse(localStorage.getItem("clavis-docs-preview-urls")||"{}"); } catch(e){ return {}; }
+  });
+  
+  // Drive URL や File ID からファイルIDだけを抽出
+  function extractFileId(input){
+    if(!input) return null;
+    const s = input.trim();
+    // パターン1: /file/d/FILE_ID/
+    const m1 = s.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if(m1) return m1[1];
+    // パターン2: id=FILE_ID
+    const m2 = s.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+    if(m2) return m2[1];
+    // パターン3: FILE_ID単体
+    if(/^[a-zA-Z0-9_-]{20,}$/.test(s)) return s;
+    return null;
+  }
+  
+  // プレビューモーダルを開く
+  function openPreview(file, catName){
+    const key = `${selCo?.name}::${catName}::${file.name}`;
+    setPreviewFile({...file, _key:key, _category:catName});
+    setPreviewUrl(savedUrls[key] || "");
+  }
+  
+  // URLを保存
+  function savePreviewUrl(){
+    if(!previewFile) return;
+    const next = {...savedUrls, [previewFile._key]:previewUrl};
+    setSavedUrls(next);
+    localStorage.setItem("clavis-docs-preview-urls", JSON.stringify(next));
+  }
+  
+  const selCo = companies.find(c => c.company_id === selCoId);
+  const docs = selCo ? (DOCS_MOCK[selCo.name] || []) : [];
+  
+  // 期限バッジを返す
+  function expiryBadge(expiry){
+    if(!expiry) return null;
+    const daysLeft = Math.ceil((new Date(expiry) - new Date())/86400000);
+    if(daysLeft < 0) return <span style={{fontSize:10, padding:"2px 6px", background:"#FDE8E8", color:"#A32D2D", borderRadius:3, marginLeft:6, fontWeight:500}}>期限切れ</span>;
+    if(daysLeft < 30) return <span style={{fontSize:10, padding:"2px 6px", background:"#FEF3C7", color:"#854F0B", borderRadius:3, marginLeft:6, fontWeight:500}}>あと{daysLeft}日</span>;
+    if(daysLeft < 90) return <span style={{fontSize:10, padding:"2px 6px", background:"#FFF8E1", color:"#A87A00", borderRadius:3, marginLeft:6}}>あと{daysLeft}日</span>;
+    return <span style={{fontSize:10, padding:"2px 6px", background:"#E6F1FB", color:"#185FA5", borderRadius:3, marginLeft:6}}>有効</span>;
+  }
+  
+  function fileIcon(type){
+    if(type==="pdf") return "📄";
+    if(type==="jpg"||type==="png") return "🖼️";
+    if(type==="xlsx") return "📊";
+    if(type==="folder") return "📁";
+    return "📄";
+  }
+  
+  const sidebarWidth = isMobile ? "100%" : 240;
+  const showSidebar = !isMobile || !selCoId;
+  const showMain = !isMobile || !!selCoId;
+  
+  return (
+    <div style={{display:"flex", height:"calc(100vh - 52px)"}}>
+      {/* 左サイドバー: 企業一覧 */}
+      {showSidebar && (
+      <div style={{width:sidebarWidth, borderRight:isMobile?"none":"0.5px solid var(--border)", overflowY:"auto", background:"var(--bg2)", flexShrink:0}}>
+        <div style={{padding:"10px 12px", fontSize:11, color:"var(--text3)", fontWeight:500, borderBottom:"0.5px solid var(--border)", letterSpacing:"0.03em"}}>
+          企業一覧 ({companies.length})
+        </div>
+        {companies.length === 0 ? (
+          <div style={{padding:"20px 12px", fontSize:11, color:"var(--text3)", lineHeight:1.6}}>
+            マスター登録 → 会社DB<br/>から企業を登録してください
+          </div>
+        ) : companies.map(co => {
+          const isSel = selCo?.company_id === co.company_id;
+          const hasData = !!DOCS_MOCK[co.name];
+          return (
+            <div key={co.company_id} onClick={()=>setSelCoId(co.company_id)}
+              style={{
+                padding:"10px 12px", cursor:"pointer",
+                fontSize:12, lineHeight:1.4,
+                background: isSel && !isMobile ? "var(--bg)" : "transparent",
+                borderLeft: isSel && !isMobile ? "3px solid var(--accent)" : "3px solid transparent",
+                borderBottom: "0.5px solid var(--border)",
+                fontWeight: isSel ? 500 : 400,
+                color: isSel ? "var(--accent-text)" : "var(--text)"
+              }}>
+              <div>🏢 {co.name || "(名称未設定)"}</div>
+              {hasData && <div style={{fontSize:10, color:"var(--text3)", marginTop:3}}>書類あり</div>}
+            </div>
+          );
+        })}
+      </div>
+      )}
+      
+      {/* 右メイン: 書類リスト */}
+      {showMain && (
+      <div style={{flex:1, overflowY:"auto", padding:isMobile?"0":"16px 24px", minWidth:0}}>
+        {/* モバイル時のサブヘッダー（戻るボタン + 企業名） */}
+        {isMobile && selCo && (
+          <div style={{
+            display:"flex", alignItems:"center", gap:10,
+            padding:"8px 12px",
+            background:"var(--bg2)",
+            borderBottom:"0.5px solid var(--border)",
+            position:"sticky", top:0, zIndex:5
+          }}>
+            <button onClick={()=>setSelCoId(null)} style={{fontSize:12, padding:"5px 10px", border:"0.5px solid var(--border2)", borderRadius:6, background:"var(--bg)", color:"var(--text)", cursor:"pointer", whiteSpace:"nowrap"}}>
+              ← 企業一覧
+            </button>
+            <span style={{fontSize:13, fontWeight:500, flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>
+              🏢 {selCo.name}
+            </span>
+          </div>
+        )}
+        
+        <div style={{padding:isMobile?"12px":"0"}}>
+        {!selCo ? (
+          <div style={{padding:"60px 20px", textAlign:"center", color:"var(--text3)", fontSize:13}}>
+            左から企業を選択してください
+          </div>
+        ) : (
+          <>
+            {/* 企業ヘッダー（デスクトップのみ企業名表示、モバイルはサブヘッダーに移動済み） */}
+            <div style={{display:"flex", alignItems:"center", gap:12, marginBottom:16, paddingBottom:12, borderBottom:"0.5px solid var(--border)", flexWrap:"wrap"}}>
+              {!isMobile && <div style={{fontSize:18, fontWeight:500, flex:"1 1 auto", minWidth:0}}>🏢 {selCo.name}</div>}
+              {isMobile && <div style={{flex:1}}/>}
+              <div style={{display:"flex", gap:8, flexShrink:0, flexWrap:"wrap"}}>
+                {selCo.drive_url && (
+                  <a href={selCo.drive_url} target="_blank" rel="noopener"
+                    style={{fontSize:11, padding:"5px 10px", border:"0.5px solid var(--border2)", borderRadius:6, background:"var(--bg2)", color:"var(--text)", textDecoration:"none", whiteSpace:"nowrap"}}>
+                    📁 Driveで開く
+                  </a>
+                )}
+                <button 
+                  onClick={()=>alert("✨ ポイポイ式Docs\n\nこのボタンは Phase 2 で実装予定です。\n書類を投げ込むと、Claude AIが書類を解析して、命名規則に従って自動でリネーム＆整理します。")}
+                  style={{fontSize:11, padding:"5px 10px", border:"0.5px solid var(--accent)", borderRadius:6, background:"var(--accent-bg)", color:"var(--accent-text)", cursor:"pointer", fontWeight:500, whiteSpace:"nowrap"}}>
+                  ✨ ポイポイ式Docs
+                </button>
+              </div>
+            </div>
+            
+            {/* ステータスサマリー */}
+            {docs.length > 0 && (() => {
+              const totalFiles = docs.reduce((sum,c)=>sum+c.files.length, 0);
+              const expiring = docs.flatMap(c=>c.files).filter(f=>{
+                if(!f.expiry) return false;
+                const d = Math.ceil((new Date(f.expiry)-new Date())/86400000);
+                return d >= 0 && d < 90;
+              }).length;
+              const expired = docs.flatMap(c=>c.files).filter(f=>{
+                if(!f.expiry) return false;
+                return new Date(f.expiry) < new Date();
+              }).length;
+              return (
+                <div style={{display:"flex", gap:12, marginBottom:16, fontSize:11, color:"var(--text2)", flexWrap:"wrap"}}>
+                  <span>📁 カテゴリ {docs.length}</span>
+                  <span>📄 書類 {totalFiles}件</span>
+                  {expiring>0 && <span style={{color:"#854F0B"}}>⚠️ 期限近し {expiring}件</span>}
+                  {expired>0 && <span style={{color:"#A32D2D"}}>❌ 期限切れ {expired}件</span>}
+                </div>
+              );
+            })()}
+            
+            {/* カテゴリ別書類リスト */}
+            {docs.length === 0 ? (
+              <div style={{padding:"40px 20px", textAlign:"center", color:"var(--text3)", fontSize:13, border:"1px dashed var(--border2)", borderRadius:8, background:"var(--bg2)"}}>
+                <div style={{fontSize:32, marginBottom:8}}>📂</div>
+                <div>この企業の書類はまだありません。</div>
+                <div style={{fontSize:11, marginTop:6}}>「✨ ポイポイ式Docs」で書類を登録しましょう（Phase 2で実装）</div>
+              </div>
+            ) : (
+              docs.map(cat => {
+                const isOpen = expandedCat[cat.category] !== false;
+                const hasExpiryAlert = cat.files.some(f=>{
+                  if(!f.expiry) return false;
+                  const d = Math.ceil((new Date(f.expiry)-new Date())/86400000);
+                  return d < 90;
+                });
+                return (
+                  <div key={cat.category} style={{marginBottom:8, border:"0.5px solid var(--border)", borderRadius:6, background:"var(--bg)", overflow:"hidden"}}>
+                    <div onClick={()=>setExpandedCat({...expandedCat, [cat.category]:!isOpen})}
+                      style={{padding:"10px 14px", cursor:"pointer", display:"flex", alignItems:"center", gap:8, borderBottom: isOpen && cat.files.length>0 ?"0.5px solid var(--border)":"none", background: isOpen?"var(--bg2)":"transparent"}}>
+                      <span style={{fontSize:10, color:"var(--text3)", width:10, display:"inline-block"}}>{isOpen?"▼":"▶"}</span>
+                      <span style={{fontSize:13, fontWeight:500}}>{cat.icon} {cat.category}</span>
+                      <span style={{fontSize:11, color:"var(--text3)"}}>({cat.files.length})</span>
+                      {hasExpiryAlert && <span style={{fontSize:10}}>⚠️</span>}
+                      <div style={{flex:1}}/>
+                      {cat.files.length === 0 && <span style={{fontSize:10, color:"var(--text3)", fontStyle:"italic"}}>未登録</span>}
+                    </div>
+                    {isOpen && cat.files.length > 0 && (
+                      <div style={{padding:"4px 8px"}}>
+                        {cat.files.map((f, i) => {
+                          const key = `${selCo?.name}::${cat.category}::${f.name}`;
+                          const hasUrl = !!savedUrls[key];
+                          return (
+                          <div key={i} 
+                            style={{padding:"7px 10px", display:"flex", alignItems:"center", gap:8, fontSize:12, borderRadius:4, cursor:"pointer", transition:"background 0.15s"}}
+                            onMouseEnter={e=>e.currentTarget.style.background="var(--bg2)"}
+                            onMouseLeave={e=>e.currentTarget.style.background="transparent"}
+                            onClick={()=>openPreview(f, cat.category)}>
+                            <span style={{flexShrink:0}}>{fileIcon(f.type)}</span>
+                            <span style={{flex:1, minWidth:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>{f.name}</span>
+                            {hasUrl && <span style={{fontSize:10, padding:"2px 5px", background:"#E6F1FB", color:"#185FA5", borderRadius:3, flexShrink:0}}>🔗 連携済</span>}
+                            {expiryBadge(f.expiry)}
+                            {f.updated && <span style={{fontSize:10, color:"var(--text3)", whiteSpace:"nowrap", flexShrink:0}}>{f.updated}</span>}
+                          </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+            
+            {/* Day1モック表示 */}
+            <div style={{marginTop:24, padding:"12px 14px", background:"var(--bg2)", borderRadius:6, fontSize:11, color:"var(--text3)", lineHeight:1.6}}>
+              💡 <b>Clavis Docs Day1 モック</b><br/>
+              現在表示されている書類は、フォローの実フォルダ構造をハードコードしたモックデータです。<br/>
+              Phase 2 で Drive API 連携・書類種別マスタ・ポイポイ式Docs を実装していきます。
+            </div>
+          </>
+        )}
+        </div>
+      </div>
+      )}
+      
+      {/* ===== プレビューモーダル ===== */}
+      {previewFile && (()=>{
+        const fileId = extractFileId(previewUrl);
+        return (
+          <div style={{position:"fixed", inset:0, background:"rgba(0,0,0,0.65)", zIndex:9999, display:"flex", alignItems:"center", justifyContent:"center", padding:isMobile?8:20}}
+            onClick={e=>{if(e.target===e.currentTarget){setPreviewFile(null);setPreviewUrl("");}}}>
+            <div style={{background:"var(--bg)", borderRadius:isMobile?8:10, width:"100%", maxWidth:1100, height:isMobile?"95vh":"90vh", display:"flex", flexDirection:"column", overflow:"hidden", boxShadow:"0 20px 60px rgba(0,0,0,0.3)"}}>
+              {/* ヘッダー */}
+              <div style={{padding:"12px 16px", borderBottom:"0.5px solid var(--border)", display:"flex", alignItems:"center", gap:10, flexShrink:0}}>
+                <span style={{fontSize:18}}>{fileIcon(previewFile.type)}</span>
+                <div style={{flex:1, minWidth:0}}>
+                  <div style={{fontSize:13, fontWeight:500, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>{previewFile.name}</div>
+                  <div style={{fontSize:10, color:"var(--text3)"}}>{previewFile._category}</div>
+                </div>
+                <button onClick={()=>{setPreviewFile(null);setPreviewUrl("");}} style={{fontSize:12, padding:"6px 14px", cursor:"pointer", borderRadius:6, border:"0.5px solid var(--border2)", background:"var(--bg2)", color:"var(--text)"}}>✕ 閉じる</button>
+              </div>
+              
+              {/* URL入力欄 */}
+              <div style={{padding:"10px 16px", borderBottom:"0.5px solid var(--border)", background:"var(--bg2)", flexShrink:0}}>
+                <div style={{display:"flex", gap:8, alignItems:"center", flexWrap:"wrap"}}>
+                  <div style={{fontSize:10, color:"var(--text3)", fontWeight:500, letterSpacing:"0.03em"}}>Drive URL / ファイルID</div>
+                  {fileId && <span style={{fontSize:10, padding:"2px 6px", background:"#E6F1FB", color:"#185FA5", borderRadius:3, fontFamily:"monospace"}}>ID: {fileId.substring(0,12)}...</span>}
+                </div>
+                <div style={{display:"flex", gap:6, marginTop:5}}>
+                  <input value={previewUrl} onChange={e=>setPreviewUrl(e.target.value)} 
+                    placeholder="https://drive.google.com/file/d/... を貼り付け"
+                    style={{flex:1, fontSize:12, padding:"6px 10px", borderRadius:5, border:"0.5px solid var(--border2)", background:"var(--bg)", color:"var(--text)", fontFamily:"monospace"}}/>
+                  <button onClick={savePreviewUrl} disabled={!fileId} 
+                    style={{fontSize:11, padding:"6px 12px", cursor:fileId?"pointer":"not-allowed", borderRadius:5, border:"0.5px solid var(--accent)", background:fileId?"var(--accent-bg)":"var(--bg2)", color:"var(--accent-text)", fontWeight:500, opacity:fileId?1:0.4, whiteSpace:"nowrap"}}>
+                    💾 保存
+                  </button>
+                  {fileId && (
+                    <a href={`https://drive.google.com/file/d/${fileId}/view`} target="_blank" rel="noopener"
+                      style={{fontSize:11, padding:"6px 12px", borderRadius:5, border:"0.5px solid var(--border2)", background:"var(--bg)", color:"var(--text)", textDecoration:"none", whiteSpace:"nowrap"}}>
+                      📁 Driveで開く
+                    </a>
+                  )}
+                </div>
+              </div>
+              
+              {/* iframeプレビュー領域 */}
+              <div style={{flex:1, background:"#1a1a1a", position:"relative", minHeight:0}}>
+                {!fileId ? (
+                  <div style={{height:"100%", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", color:"#888", padding:20, textAlign:"center", gap:12}}>
+                    <div style={{fontSize:48, opacity:0.3}}>📄</div>
+                    <div style={{fontSize:14, color:"#bbb"}}>上にDrive URLを貼り付けると、ここにプレビューが表示されます</div>
+                    <div style={{fontSize:11, maxWidth:500, lineHeight:1.6, color:"#777"}}>
+                      DriveでファイルのURLをコピー（右クリック → リンクをコピー or URL欄から）して貼り付けてください。<br/>
+                      めっちがGoogleにログイン中で、ファイルへのアクセス権を持っていれば、ここにプレビューが表示されます。
+                    </div>
+                  </div>
+                ) : (
+                  <iframe 
+                    src={`https://drive.google.com/file/d/${fileId}/preview`}
+                    style={{width:"100%", height:"100%", border:"none"}}
+                    allow="autoplay"
+                    title={previewFile.name}/>
+                )}
+              </div>
+              
+              {/* フッター */}
+              <div style={{padding:"8px 16px", borderTop:"0.5px solid var(--border)", fontSize:10, color:"var(--text3)", flexShrink:0, lineHeight:1.5}}>
+                💡 プレビューが表示されない場合: ファイルへのアクセス権、Googleへのログイン状態、組織のiframe埋め込み設定 などを確認してください。「📁 Driveで開く」なら確実に開けます。
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -7609,11 +8321,18 @@ function MasterRegistration({data,setData,onNavigateToClient}){
 const MobileContext = React.createContext(false);
 function useMobile(){ return React.useContext(MobileContext); }
 
+// Clavis Docs（企業書庫）の表示制御
+// テスター配布版ではfalse。開発環境では localStorage.setItem('clavis-dev-mode','1') で表示可能。
+const SHOW_DOCS = (()=>{
+  try{return localStorage.getItem('clavis-dev-mode')==='1';}catch(e){return false;}
+})();
+
 const TABS = [
   {id:"clients",label:"クライアント",icon:"👤"},
   {id:"cases",label:"案件管理",icon:"📋"},
   {id:"payments",label:"報酬管理",icon:"💰"},
   {id:"journal",label:"事件簿",icon:"📕"},
+  ...(SHOW_DOCS?[{id:"docs",label:"企業書庫",icon:"🏢"}]:[]),
   {id:"master",label:"マスター登録",icon:"⚙️"},
 ];
 
@@ -7654,12 +8373,13 @@ function App(){
   const [data,setData]=useState(getInitialData);
   const [isMobile,setIsMobile]=useState(()=>window.innerWidth<768||/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent));
   const [activeTab,setActiveTab]=useState(()=>{
-    // URLのhashを優先
-    const hash=location.hash.replace('#','');
-    if(['dashboard','clients','cases','journal','payments','master'].includes(hash)) return hash;
+    // URLのhashを優先(/detailなどのサブパスは切り離してタブ名のみ抽出)
+    const hash=location.hash.replace('#','').split('/')[0];
+    const validTabs=['dashboard','clients','cases','journal','payments',...(SHOW_DOCS?['docs']:[]),'master'];
+    if(validTabs.includes(hash)) return hash;
     // localStorageのフォールバック
     const t=localStorage.getItem('clavis-note-tab');
-    if(t){localStorage.removeItem('clavis-note-tab');return t;}
+    if(t&&validTabs.includes(t)){localStorage.removeItem('clavis-note-tab');return t;}
     return "dashboard";
   });
   const [fs,setFs]=useState(()=>localStorage.getItem(FS_KEY)||"1");
@@ -7679,13 +8399,23 @@ function App(){
 
   // ブラウザバック対応（PWA）
   useEffect(()=>{
-    try{window.history.replaceState({tab:activeTab},'','#'+activeTab);}catch(e){}
+    try{window.history.replaceState({tab:activeTab,detail:false},'','#'+activeTab);}catch(e){}
     const handlePopState=(e)=>{
-      if(e.state&&e.state.tab){setActiveTab(e.state.tab);}
+      if(e.state&&e.state.tab){
+        setActiveTab(e.state.tab);
+        // detail:false の履歴に戻った = 詳細画面を閉じる
+        if(!e.state.detail){
+          window.dispatchEvent(new CustomEvent('clavis-close-detail'));
+        }
+      }
       else{
         try{
-          const hash=location.hash.replace('#','');
-          if(['dashboard','clients','cases','journal','payments','master'].includes(hash)) setActiveTab(hash);
+          const hash=location.hash.replace('#','').split('/')[0];
+          const validTabs=['dashboard','clients','cases','journal','payments',...(SHOW_DOCS?['docs']:[]),'master'];
+          if(validTabs.includes(hash)){
+            setActiveTab(hash);
+            window.dispatchEvent(new CustomEvent('clavis-close-detail'));
+          }
         }catch(e){}
       }
     };
@@ -7694,7 +8424,11 @@ function App(){
   },[]);
   useEffect(()=>{
     if(prevTabRef.current!==activeTab){
-      try{window.history.pushState({tab:activeTab},'','#'+activeTab);}catch(e){}
+      // 子コンポーネントが既に同じタブのstateをpushしてる場合はスキップ(detail:true保護)
+      const cur=window.history.state;
+      if(!cur||cur.tab!==activeTab){
+        try{window.history.pushState({tab:activeTab,detail:false},'','#'+activeTab);}catch(e){}
+      }
       prevTabRef.current=activeTab;
     }
   },[activeTab]);
@@ -8042,6 +8776,7 @@ function App(){
       {activeTab==="cases"&&<CaseManagement data={data} setData={setData} navigateCaseId={navigateCaseId} clearNavigate={()=>setNavigateCaseId(null)}/>}
       {activeTab==="journal"&&<CaseJournal data={data} setData={setData}/>}
       {activeTab==="payments"&&<PaymentManagement data={data} setData={setData} navigatePaymentId={navigatePaymentId} clearNavigate={()=>setNavigatePaymentId(null)}/>}
+      {SHOW_DOCS&&activeTab==="docs"&&<CompanyDocs data={data} setData={setData}/>}
       {activeTab==="master"&&<MasterRegistration data={data} setData={setData} onNavigateToClient={handleNavigateToClient}/>}
       </div>
       {/* トースト通知 */}
