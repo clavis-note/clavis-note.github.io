@@ -7308,6 +7308,7 @@ function MasterFee({feeMaster,setFeeMaster}){
   const [newPrice,setNewPrice]=useState("");
   const [editingCategory,setEditingCategory]=useState(null);
   const [editCategoryName,setEditCategoryName]=useState("");
+  const [editingCategorySource,setEditingCategorySource]=useState(null);
   const [dragCatIdx,setDragCatIdx]=useState(null);
   const [dragItemIdx,setDragItemIdx]=useState(null);
 
@@ -7433,10 +7434,10 @@ function MasterFee({feeMaster,setFeeMaster}){
               {dragCatIdx!==null&&dragCatIdx!==idx&&<div onDragOver={e=>{e.preventDefault();e.currentTarget.style.opacity="1";}} onDragLeave={e=>{e.currentTarget.style.opacity="0";}} onDrop={e=>{e.stopPropagation();moveCat(dragCatIdx,idx);setDragCatIdx(null);}}
                 style={{position:"absolute",top:-2,left:0,right:0,height:12,zIndex:2,borderTop:"2.5px solid var(--accent)",opacity:0,transition:"opacity 0.1s"}}/>}
               {editingCategory===id?(
-                <input value={editCategoryName} onChange={e=>setEditCategoryName(e.target.value)} onBlur={saveCategoryName} onKeyDown={e=>{if(e.key==="Enter")saveCategoryName();if(e.key==="Escape")setEditingCategory(null);}} autoFocus
+                <input value={editCategoryName} onChange={e=>setEditCategoryName(e.target.value)} onBlur={saveCategoryName} onKeyDown={e=>{if(e.key==="Enter")saveCategoryName();if(e.key==="Escape")setEditingCategory(null);}} autoFocus={editingCategorySource!=='detail'}
                   style={{width:"100%",fontSize:12,padding:"8px 10px",borderRadius:6,border:"0.5px solid var(--accent)",background:"var(--bg2)",outline:"none",marginBottom:4}}/>
               ):(
-                <div onClick={()=>setSelCat(id)} onDoubleClick={()=>{setEditingCategory(id);setEditCategoryName(cat.label);}}
+                <div onClick={()=>setSelCat(id)} onDoubleClick={()=>{setEditingCategory(id);setEditCategoryName(cat.label);setEditingCategorySource('sidebar');}}
                   style={{padding:"10px 10px",marginBottom:4,borderRadius:6,cursor:"pointer",display:"flex",alignItems:"center",gap:8,
                     background:selCat===id?"var(--accent-bg)":"var(--bg2)",
                     border:selCat===id?"0.5px solid var(--accent)":"0.5px solid transparent"}}>
@@ -7452,7 +7453,7 @@ function MasterFee({feeMaster,setFeeMaster}){
                 <div style={{position:"absolute",top:6,right:6,display:"flex",gap:3}}>
                   <button onClick={(e)=>{e.stopPropagation();duplicateCategory(id);}} title="複製"
                     style={{fontSize:10,width:20,height:20,borderRadius:"50%",border:"0.5px solid var(--accent)",background:"var(--accent-bg)",color:"var(--accent-text)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>⧉</button>
-                  {isMobile&&<button onClick={(e)=>{e.stopPropagation();setEditingCategory(id);setEditCategoryName(cat.label);}} title="名前変更"
+                  {isMobile&&<button onClick={(e)=>{e.stopPropagation();setEditingCategory(id);setEditCategoryName(cat.label);setEditingCategorySource('sidebar');}} title="名前変更"
                     style={{fontSize:10,width:20,height:20,borderRadius:"50%",border:"0.5px solid var(--accent)",background:"var(--accent-bg)",color:"var(--accent-text)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>✏️</button>}
                   {categories.length>1&&<button onClick={(e)=>{e.stopPropagation();deleteCategory(id);}} title="カテゴリ削除"
                     style={{fontSize:10,width:20,height:20,borderRadius:"50%",border:"none",background:"#e74c3c",color:"#fff",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>}
@@ -7468,7 +7469,16 @@ function MasterFee({feeMaster,setFeeMaster}){
 
       {/* 右: 項目一覧 */}
       <div style={{flex:1,overflowY:"auto",padding:16}}>
-        <div style={{fontSize:14,fontWeight:500,marginBottom:12}}>{current.label||"—"}</div>
+        {editingCategory===selCat?(
+          <input value={editCategoryName} onChange={e=>setEditCategoryName(e.target.value)} onBlur={saveCategoryName} onKeyDown={e=>{if(e.key==="Enter")saveCategoryName();if(e.key==="Escape")setEditingCategory(null);}} autoFocus={editingCategorySource==='detail'}
+            style={{fontSize:14,fontWeight:500,marginBottom:12,padding:"4px 10px",borderRadius:6,border:"0.5px solid var(--accent)",background:"var(--bg2)",outline:"none",display:"block",minWidth:200}}/>
+        ):(
+          <div onClick={()=>{setEditingCategory(selCat);setEditCategoryName(current.label||"");setEditingCategorySource('detail');}}
+            title="クリックで名前変更"
+            style={{fontSize:14,fontWeight:500,marginBottom:12,cursor:"pointer",display:"inline-block",padding:"2px 6px",borderRadius:4}}>
+            {current.label||"—"}<span style={{fontSize:11,opacity:0.4,marginLeft:8}}>✏️</span>
+          </div>
+        )}
         <div style={{background:"var(--bg)",border:"0.5px solid var(--border)",borderRadius:10,overflow:"hidden"}}>
           <div style={{display:"grid",gridTemplateColumns:"28px 1fr 100px 40px",padding:"8px 16px",background:"var(--bg2)",fontSize:10,color:"var(--text3)",fontWeight:500}}>
             <span/><span>項目名</span><span style={{textAlign:"right"}}>金額</span><span/>
