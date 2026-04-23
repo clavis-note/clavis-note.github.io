@@ -8425,6 +8425,11 @@ function App(){
   function handleNavigateToPayment(paymentId){setNavigatePaymentId(paymentId);setActiveTab("payments");}
   const fileRef=useRef(null);
   const prevTabRef=useRef(activeTab);
+  // Google Drive自動同期用
+  const autoUpTimerRef=useRef(null);
+  const skipAutoUpRef=useRef(false);
+  const hasMountedRef=useRef(false);
+  const initialSyncCheckedRef=useRef(false);
 
   // ブラウザバック対応（PWA）
   useEffect(()=>{
@@ -8479,7 +8484,7 @@ function App(){
     try {
       await googleSignIn();
       setGdriveSignedIn(true);
-      const t=document.getElementById("toast");if(t){t.textContent="✅ Googleにログインしました";t.style.opacity=1;setTimeout(()=>t.style.opacity=0,2500);}
+      const t=document.getElementById("toast");if(t){t.textContent="✅ ログイン完了。自動同期が有効になりました✨";t.style.opacity=1;setTimeout(()=>t.style.opacity=0,3500);}
     } catch(e) {
       alert("ログインに失敗しました: "+e.message);
     }
@@ -8490,11 +8495,16 @@ function App(){
     setGdriveSignedIn(false);
     setGdriveLastSync(null);
     localStorage.removeItem("clavis-gdrive-last-sync");
+    // 自動同期用の状態をリセット
+    if(autoUpTimerRef.current){ clearTimeout(autoUpTimerRef.current); autoUpTimerRef.current=null; }
+    initialSyncCheckedRef.current=false;
     const t=document.getElementById("toast");if(t){t.textContent="ログアウトしました";t.style.opacity=1;setTimeout(()=>t.style.opacity=0,2500);}
   }
 
   async function handleGdriveUpload(){
     if(!gdriveSignedIn){alert("先にGoogleにログインしてください");return;}
+    // 保留中の自動UPタイマーをキャンセル
+    if(autoUpTimerRef.current){ clearTimeout(autoUpTimerRef.current); autoUpTimerRef.current=null; }
     setGdriveSyncing(true);
     try {
       await uploadToDrive(data);
@@ -8515,35 +8525,137 @@ function App(){
     }
   }
 
-  async function handleGdriveDownload(){
-    if(!gdriveSignedIn){alert("先にGoogleにログインしてください");return;}
+  async function handleGdriveDownload(silent=false){
+    if(!gdriveSignedIn){if(!silent)alert("先にGoogleにログインしてください");return;}
     setGdriveSyncing(true);
     try {
       const result = await downloadFromDrive();
-      if(!result){alert("Driveにデータがありません");setGdriveSyncing(false);return;}
-      if(!result.data.cases||!result.data.clients){alert("不正なデータ形式です");setGdriveSyncing(false);return;}
-      if(confirm(`Driveからデータを読み込みます。\n（最終更新: ${new Date(result.modifiedTime).toLocaleString()}）\n現在のデータは上書きされます。よろしいですか？`)){
+      if(!result){if(!silent)alert("Driveにデータがありません");setGdriveSyncing(false);return;}
+      if(!result.data.cases||!result.data.clients){if(!silent)alert("不正なデータ形式です");setGdriveSyncing(false);return;}
+      const proceed = silent || confirm(`Driveからデータを読み込みます。\n（最終更新: ${new Date(result.modifiedTime).toLocaleString()}）\n現在のデータは上書きされます。よろしいですか？`);
+      if(proceed){
+        skipAutoUpRef.current=true; // 自動UPの誤発火防止
         setData(migrateData(result.data));
         const now = new Date().toISOString();
         setGdriveLastSync(now);
         localStorage.setItem("clavis-gdrive-last-sync",now);
-        const t=document.getElementById("toast");if(t){t.textContent="☁️ Driveからダウンロードしました";t.style.opacity=1;setTimeout(()=>t.style.opacity=0,2500);}
+        localStorage.setItem("clavis-note-last-modified",now); // DL時は編集時刻もリセット
+        const t=document.getElementById("toast");if(t){t.textContent=silent?"☁️ Driveから自動同期しました":"☁️ Driveからダウンロードしました";t.style.opacity=1;setTimeout(()=>t.style.opacity=0,2500);}
       }
     } catch(e) {
       if(e.message.includes("401")||e.message.includes("403")){
         setGdriveSignedIn(false);
         localStorage.removeItem("clavis-google-token");
-        alert("セッションが切れました。再度ログインしてください。");
+        if(!silent)alert("セッションが切れました。再度ログインしてください。");
       } else {
-        alert("ダウンロードに失敗しました: "+e.message);
+        if(!silent)alert("ダウンロードに失敗しました: "+e.message);
+        else console.warn("auto-download failed:",e);
       }
     } finally {
       setGdriveSyncing(false);
     }
   }
 
-  // Auto-save to localStorage
-  useEffect(()=>{ saveData(data); },[data]);
+  // Auto-save to localStorage + last-modified記録 + Drive自動UP(debounce)
+  // 注: depsは[data]のみ。gdriveSignedInを入れるとログイン時にlast-modifiedが誤更新される
+  useEffect(()=>{
+    saveData(data);
+    // 初回マウント時は自動UPもlast-modified更新もスキップ（ロード直後の誤発火防止）
+    if(!hasMountedRef.current){ hasMountedRef.current=true; return; }
+    // Driveからの自動DL直後は自動UPをスキップ（無限ループ防止）
+    if(skipAutoUpRef.current){ skipAutoUpRef.current=false; return; }
+    // ローカル編集時刻を記録
+    localStorage.setItem("clavis-note-last-modified", new Date().toISOString());
+    // Drive自動UP（debounce 5秒）— クロージャ時点でのgdriveSignedInを使用
+    if(!gdriveSignedIn) return;
+    if(autoUpTimerRef.current) clearTimeout(autoUpTimerRef.current);
+    autoUpTimerRef.current=setTimeout(async()=>{
+      autoUpTimerRef.current=null;
+      try {
+        await uploadToDrive(data);
+        const now=new Date().toISOString();
+        setGdriveLastSync(now);
+        localStorage.setItem("clavis-gdrive-last-sync",now);
+      } catch(e){
+        if(e.message && (e.message.includes("401")||e.message.includes("403"))){
+          setGdriveSignedIn(false);
+          localStorage.removeItem("clavis-google-token");
+        }
+        console.warn("auto-upload failed:",e);
+      }
+    },5000);
+  },[data]);
+
+  // Drive起動時自動DL（ログイン確認後に1回だけ実施）
+  useEffect(()=>{
+    if(!gdriveSignedIn || !gdriveReady) return;
+    if(initialSyncCheckedRef.current) return;
+    initialSyncCheckedRef.current=true;
+    (async()=>{
+      try {
+        const file=await findDriveFile();
+        if(!file){
+          // リモートにファイルが無い＝初回同期。ローカルをUPして初期ファイルを作成
+          try {
+            await uploadToDrive(data);
+            const now=new Date().toISOString();
+            setGdriveLastSync(now);
+            localStorage.setItem("clavis-gdrive-last-sync",now);
+            const t=document.getElementById("toast");if(t){t.textContent="☁️ Driveに初回アップロードしました";t.style.opacity=1;setTimeout(()=>t.style.opacity=0,2500);}
+          } catch(e){ console.warn("initial seed upload failed:",e); }
+          return;
+        }
+        const remoteTime=new Date(file.modifiedTime).getTime();
+        const lastSync=localStorage.getItem("clavis-gdrive-last-sync");
+        const lastSyncTime=lastSync?new Date(lastSync).getTime():0;
+        if(remoteTime<=lastSyncTime) return; // リモートは古いか同じ
+        const lastMod=localStorage.getItem("clavis-note-last-modified");
+        const lastModTime=lastMod?new Date(lastMod).getTime():0;
+        const hasLocalChanges=lastModTime>lastSyncTime;
+        if(hasLocalChanges){
+          // 競合 → 確認ダイアログ
+          const useRemote=confirm(
+            "⚠️ 同期の確認\n\n"+
+            "他の端末で更新されたデータが見つかりましたが、\n"+
+            "この端末にも未同期の編集があります。\n\n"+
+            `リモート最終更新: ${new Date(file.modifiedTime).toLocaleString()}\n`+
+            (lastMod?`ローカル最終編集: ${new Date(lastMod).toLocaleString()}\n`:"")+
+            "\nOK: リモートのデータを取得（この端末の変更は破棄）\n"+
+            "キャンセル: この端末を保持（あとで自動アップロードされます）"
+          );
+          if(useRemote) await handleGdriveDownload(true);
+        } else {
+          // 競合なし → 自動DL（サイレント）
+          await handleGdriveDownload(true);
+        }
+      } catch(e){ console.warn("initial auto-sync failed:",e); }
+    })();
+  },[gdriveSignedIn,gdriveReady]);
+
+  // タブ非表示/閉じる時に保留中のUPをフラッシュ
+  useEffect(()=>{
+    const flushPendingUpload=()=>{
+      if(autoUpTimerRef.current){
+        clearTimeout(autoUpTimerRef.current);
+        autoUpTimerRef.current=null;
+        if(gdriveSignedIn){
+          // バックグラウンド送信（ベストエフォート）
+          uploadToDrive(data).then(()=>{
+            const now=new Date().toISOString();
+            localStorage.setItem("clavis-gdrive-last-sync",now);
+            setGdriveLastSync(now);
+          }).catch(e=>console.warn("flush upload failed:",e));
+        }
+      }
+    };
+    const onVis=()=>{ if(document.visibilityState==="hidden") flushPendingUpload(); };
+    document.addEventListener("visibilitychange",onVis);
+    window.addEventListener("beforeunload",flushPendingUpload);
+    return()=>{
+      document.removeEventListener("visibilitychange",onVis);
+      window.removeEventListener("beforeunload",flushPendingUpload);
+    };
+  },[data,gdriveSignedIn]);
 
   // zoom適用
   useEffect(()=>{
@@ -8713,8 +8825,8 @@ function App(){
                     </>
                   )}
                   <div style={{fontSize:9,color:"var(--text3)",marginTop:8,lineHeight:1.5}}>
-                    ※ PC↔スマホでデータ共有できます<br/>
-                    ※ アップロード→別端末でダウンロード
+                    ✨ 自動同期: 起動時にDriveから最新データ取得、編集5秒後に自動アップロード<br/>
+                    ※ PC・スマホ・タブレット間で自動共有されます
                   </div>
                 </div>
 
