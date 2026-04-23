@@ -7597,6 +7597,7 @@ function MasterTemplate({templates,setTemplates,data,setData}){
   const [editNote,setEditNote]=useState("");
   const [editDocs,setEditDocs]=useState([]);
   const [editHearing,setEditHearing]=useState([]);
+  const [idEditUnlocked,setIdEditUnlocked]=useState(false);
   
   // サイドバー並び替え用
   const [dragTplIdx,setDragTplIdx]=useState(null);
@@ -7651,18 +7652,22 @@ function MasterTemplate({templates,setTemplates,data,setData}){
     setEditNote(sel.note||"");
     setEditDocs(sel.docs.map(d=>({...d})));
     setEditHearing(sel.hearing.map(h=>({...h})));
+    setIdEditUnlocked(false);
     setEditMode(true);
   }
   function saveEdit(){
     const newId=editId.toUpperCase().trim();
     if(!newId){alert("IDを入力してください");return;}
     if(newId!==selId && templates[newId]){alert("このIDは既に存在します");return;}
-    
+
     if(newId===selId){
       // ID変更なし
       setTemplates(prev=>({...prev,[selId]:{label:editLabel,note:editNote,docs:editDocs,hearing:editHearing}}));
     }else{
-      // ID変更あり → テンプレ更新 + 案件のtemplate_id更新
+      // ID変更あり → 影響件数を計算してconfirm
+      const affectedCount=(data.cases||[]).filter(c=>c.template_id===selId).length;
+      const msg=`テンプレートID を変更します。\n\n  ${selId} → ${newId}\n\n紐づく案件 ${affectedCount}件 のtemplate_idも自動的に更新されます。\n本当に変更しますか？\n\n※ ID変更が必要なケースは稀です。新しいテンプレートを作りたい場合は「複製」を使う方が安全です。`;
+      if(!confirm(msg))return;
       setData(prev=>{
         const newTemplates={...prev.templates};
         delete newTemplates[selId];
@@ -7673,9 +7678,10 @@ function MasterTemplate({templates,setTemplates,data,setData}){
       });
       setSelId(newId);
     }
+    setIdEditUnlocked(false);
     setEditMode(false);
   }
-  function cancelEdit(){setEditMode(false);}
+  function cancelEdit(){setIdEditUnlocked(false);setEditMode(false);}
 
   function addDoc(){
     const newId="D"+Date.now().toString().slice(-6);
@@ -7818,8 +7824,18 @@ function MasterTemplate({templates,setTemplates,data,setData}){
             <div style={{background:"var(--bg)",borderRadius:8,padding:12,marginBottom:12}}>
               <div style={{marginBottom:10}}>
                 <div style={{fontSize:10,color:"var(--text3)",marginBottom:3}}>テンプレートID（並び順に影響）</div>
-                <input value={editId} onChange={e=>setEditId(e.target.value.toUpperCase())} style={{width:120,fontSize:13,padding:"6px 8px",borderRadius:5,border:"0.5px solid var(--border)",background:"var(--bg2)"}}/>
-                {editId!==selId&&<span style={{fontSize:10,color:"#F57C00",marginLeft:8}}>※ 変更すると紐づく案件も更新されます</span>}
+                <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                  <input value={editId} onChange={e=>setEditId(e.target.value.toUpperCase())} disabled={!idEditUnlocked}
+                    style={{width:120,fontSize:13,padding:"6px 8px",borderRadius:5,border:"0.5px solid var(--border)",background:idEditUnlocked?"var(--bg2)":"var(--bg3)",color:idEditUnlocked?"var(--text)":"var(--text2)",cursor:idEditUnlocked?"text":"not-allowed"}}/>
+                  {idEditUnlocked?(
+                    <button onClick={()=>{setIdEditUnlocked(false);setEditId(selId);}} title="変更を取りやめてロック"
+                      style={{fontSize:10,padding:"4px 8px",borderRadius:4,border:"0.5px solid #ccc",background:"#f5f5f5",color:"#666",cursor:"pointer"}}>🔓 取消</button>
+                  ):(
+                    <button onClick={()=>{if(confirm(`テンプレートID は通常変更しません。\n\n別のIDが必要なら「複製」して新規作成する方が安全です。\n紐づく案件 ${(data.cases||[]).filter(c=>c.template_id===selId).length}件 にも影響します。\n\nそれでも変更しますか？`))setIdEditUnlocked(true);}} title="ID変更を許可"
+                      style={{fontSize:10,padding:"4px 8px",borderRadius:4,border:"0.5px solid #ccc",background:"#f5f5f5",color:"#666",cursor:"pointer"}}>🔒 変更</button>
+                  )}
+                </div>
+                {idEditUnlocked&&editId!==selId&&<div style={{fontSize:10,color:"#F57C00",marginTop:4}}>※ 保存時に紐づく案件 {(data.cases||[]).filter(c=>c.template_id===selId).length}件 のtemplate_idも更新されます</div>}
               </div>
               <div style={{marginBottom:10}}>
                 <div style={{fontSize:10,color:"var(--text3)",marginBottom:3}}>テンプレート名</div>
