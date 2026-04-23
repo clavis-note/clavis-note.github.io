@@ -355,6 +355,7 @@ const DRIVE_FILE_NAME = "clavis-note-sync.json";
 let googleTokenClient = null;
 let googleAccessToken = null;
 let tokenRefreshPromise = null; // サイレント再認証の二重実行防止
+let initialSyncFlowInProgress = false; // 起動時同期の途中ならリフレッシュ成功トーストを抑制
 
 function initGoogleClient() {
   return new Promise((resolve) => {
@@ -477,15 +478,18 @@ async function fetchWithAuth(url, options = {}) {
       console.warn("silent refresh failed:", e);
     }
     if (refreshed) {
+      // 起動時同期中はトースト抑制（毎朝の起動でユーザーを驚かさないため）
+      if (!initialSyncFlowInProgress){
+        try {
+          const t = document.getElementById("toast");
+          if (t) {
+            t.textContent = "🔄 認証を更新しました";
+            t.style.opacity = 1;
+            setTimeout(() => { t.style.opacity = 0; }, 2000);
+          }
+        } catch(e){}
+      }
       // 新しいトークンで1回だけリトライ
-      try {
-        const t = document.getElementById("toast");
-        if (t) {
-          t.textContent = "🔄 認証を更新しました";
-          t.style.opacity = 1;
-          setTimeout(() => { t.style.opacity = 0; }, 2000);
-        }
-      } catch(e){}
       res = await fetch(url, makeOpts());
     }
   }
@@ -8525,6 +8529,7 @@ function App(){
   const [gdriveSignedIn,setGdriveSignedIn]=useState(false);
   const [gdriveSyncing,setGdriveSyncing]=useState(false);
   const [gdriveLastSync,setGdriveLastSync]=useState(()=>localStorage.getItem("clavis-gdrive-last-sync")||null);
+  const [showAuthBanner,setShowAuthBanner]=useState(false);
   function handleNavigateToClient(clientId){setNavigateClientId(clientId);setActiveTab("clients");}
   function handleNavigateToCase(caseId){setNavigateCaseId(caseId);setActiveTab("cases");}
   function handleNavigateToPayment(paymentId){setNavigatePaymentId(paymentId);setActiveTab("payments");}
@@ -8570,6 +8575,13 @@ function App(){
     }
   },[activeTab]);
 
+  // 起動時: 前回のセッションで認証切れになっていた場合はバナーを即表示
+  useEffect(()=>{
+    if(localStorage.getItem("clavis-pending-reauth")==="1"){
+      setShowAuthBanner(true);
+    }
+  },[]);
+
   // Google Drive初期化
   // GISライブラリの読込完了を最大3秒リトライで待つ。失敗してもアプリ本体はクラッシュしない。
   useEffect(()=>{
@@ -8601,7 +8613,11 @@ function App(){
   async function handleGdriveSignIn(){
     try {
       await googleSignIn();
+      // 再ログイン時も初期同期（起動時DL）を走らせるためフラグリセット
+      initialSyncCheckedRef.current=false;
       setGdriveSignedIn(true);
+      setShowAuthBanner(false);
+      localStorage.removeItem("clavis-pending-reauth");
       const t=document.getElementById("toast");if(t){t.textContent="✅ ログイン完了。自動同期が有効になりました✨";t.style.opacity=1;setTimeout(()=>t.style.opacity=0,3500);}
     } catch(e) {
       alert("ログインに失敗しました: "+e.message);
@@ -8613,6 +8629,9 @@ function App(){
     setGdriveSignedIn(false);
     setGdriveLastSync(null);
     localStorage.removeItem("clavis-gdrive-last-sync");
+    // 明示的なログアウトは「ユーザーが能動的に切断した」のでバナーを出さない
+    localStorage.removeItem("clavis-pending-reauth");
+    setShowAuthBanner(false);
     // 自動同期用の状態をリセット
     if(autoUpTimerRef.current){ clearTimeout(autoUpTimerRef.current); autoUpTimerRef.current=null; }
     initialSyncCheckedRef.current=false;
@@ -8654,8 +8673,9 @@ function App(){
       if(e.message.includes("401")||e.message.includes("403")){
         setGdriveSignedIn(false);
         localStorage.removeItem("clavis-google-token");
+        localStorage.setItem("clavis-pending-reauth","1");
+        setShowAuthBanner(true);
         logSyncEvent("error","manual-upload-auth-fail");
-        alert("セッションが切れました。再度ログインしてください。");
       } else {
         logSyncEvent("error","manual-upload-fail:"+(e.message||"unknown"));
         alert("アップロードに失敗しました: "+e.message);
@@ -8691,8 +8711,9 @@ function App(){
       if(e.message.includes("401")||e.message.includes("403")){
         setGdriveSignedIn(false);
         localStorage.removeItem("clavis-google-token");
+        localStorage.setItem("clavis-pending-reauth","1");
+        setShowAuthBanner(true);
         logSyncEvent("error","download-auth-fail");
-        if(!silent)alert("セッションが切れました。再度ログインしてください。");
       } else {
         logSyncEvent("error","download-fail:"+(e.message||"unknown"));
         if(!silent)alert("ダウンロードに失敗しました: "+e.message);
@@ -8713,6 +8734,10 @@ function App(){
     if(skipAutoUpRef.current){ skipAutoUpRef.current=false; return; }
     // ローカル編集時刻を記録
     localStorage.setItem("clavis-note-last-modified", new Date().toISOString());
+    // 認証切れ状態で編集したら、閉じていたバナーを再表示
+    if(!gdriveSignedIn && localStorage.getItem("clavis-pending-reauth")==="1"){
+      setShowAuthBanner(true);
+    }
     // Drive自動UP（debounce 5秒）— クロージャ時点でのgdriveSignedInを使用
     if(!gdriveSignedIn) return;
     if(autoUpTimerRef.current) clearTimeout(autoUpTimerRef.current);
@@ -8750,6 +8775,8 @@ function App(){
         if(e.message && (e.message.includes("401")||e.message.includes("403"))){
           setGdriveSignedIn(false);
           localStorage.removeItem("clavis-google-token");
+          localStorage.setItem("clavis-pending-reauth","1");
+          setShowAuthBanner(true);
           logSyncEvent("error","auto-upload-auth-fail");
         } else {
           logSyncEvent("error","auto-upload-fail:"+(e.message||"unknown"));
@@ -8765,6 +8792,7 @@ function App(){
     if(initialSyncCheckedRef.current) return;
     initialSyncCheckedRef.current=true;
     (async()=>{
+      initialSyncFlowInProgress = true;
       try {
         const file=await findDriveFile();
         const firstSyncDone=localStorage.getItem("clavis-first-sync-done")==="1";
@@ -8845,9 +8873,13 @@ function App(){
         if(e.message && (e.message.includes("401")||e.message.includes("403"))){
           setGdriveSignedIn(false);
           localStorage.removeItem("clavis-google-token");
-          const t=document.getElementById("toast");if(t){t.textContent="🔑 セッションが切れました。再度ログインしてください";t.style.opacity=1;setTimeout(()=>t.style.opacity=0,3500);}
+          localStorage.setItem("clavis-pending-reauth","1");
+          setShowAuthBanner(true);
+          logSyncEvent("error","initial-sync-auth-fail");
         }
         console.warn("initial auto-sync failed:",e);
+      } finally {
+        initialSyncFlowInProgress = false;
       }
     })();
   },[gdriveSignedIn,gdriveReady]);
@@ -8873,7 +8905,16 @@ function App(){
         }
       }
     };
-    const onVis=()=>{ if(document.visibilityState==="hidden") flushPendingUpload(); };
+    const onVis=()=>{
+      if(document.visibilityState==="hidden"){
+        flushPendingUpload();
+      } else if(document.visibilityState==="visible"){
+        // タブ再アクティブ化時、認証切れなら閉じていたバナーを再表示
+        if(!gdriveSignedIn && localStorage.getItem("clavis-pending-reauth")==="1"){
+          setShowAuthBanner(true);
+        }
+      }
+    };
     document.addEventListener("visibilitychange",onVis);
     window.addEventListener("beforeunload",flushPendingUpload);
     return()=>{
@@ -8949,8 +8990,55 @@ function App(){
   return(
     <MobileContext.Provider value={isMobile}>
     <div style={{minHeight:"100vh",background:"#eeede8",zoom:isMobile?"1":fs,"--header-h":showStepper?"86px":"52px"}}>
+      {/* 認証切れバナー（最上部、ヘッダーの上） */}
+      {showAuthBanner&&(
+        <div style={{
+          background:"#FFF4E0",
+          borderBottom:"1px solid #E8B866",
+          color:"#6B4C1A",
+          padding:isMobile?"8px 12px":"10px 16px",
+          display:"flex",
+          alignItems:"center",
+          gap:isMobile?8:12,
+          fontSize:isMobile?12:13,
+          minHeight:isMobile?40:48,
+          position:"sticky",
+          top:0,
+          zIndex:200,
+          boxShadow:"0 1px 3px rgba(0,0,0,0.06)"
+        }}>
+          <span style={{fontSize:isMobile?14:16,flexShrink:0}}>🔑</span>
+          <span style={{flex:1,lineHeight:1.4}}>
+            {isMobile?"Drive同期のセッションが切れました":"Drive同期のセッションが切れました。続行するには再ログインしてください"}
+          </span>
+          <button onClick={handleGdriveSignIn} style={{
+            fontSize:isMobile?11:12,
+            padding:isMobile?"4px 10px":"5px 14px",
+            borderRadius:6,
+            border:"0.5px solid #E8B866",
+            background:"#fff",
+            color:"#6B4C1A",
+            cursor:"pointer",
+            fontWeight:500,
+            flexShrink:0
+          }}>ログイン</button>
+          <button onClick={()=>setShowAuthBanner(false)} title="閉じる" style={{
+            fontSize:16,
+            width:24,
+            height:24,
+            padding:0,
+            borderRadius:4,
+            border:"none",
+            background:"transparent",
+            color:"#6B4C1A",
+            cursor:"pointer",
+            flexShrink:0,
+            opacity:0.6
+          }}>✕</button>
+        </div>
+      )}
       {/* グローバルナビ */}
-      <div style={{background:"var(--bg)",borderBottom:"0.5px solid var(--border)",position:"sticky",top:0,zIndex:100}}>
+      <div style={{background:"var(--bg)",borderBottom:"0.5px solid var(--border)",position:"sticky",top:showAuthBanner?(isMobile?40:48):0,zIndex:100}}>
         <div style={{display:"flex",alignItems:"center",height:52,padding:"0 16px"}}>
         <div onClick={()=>setActiveTab("dashboard")} style={{fontSize:15,fontWeight:600,color:"var(--text)",marginRight:isMobile?8:24,letterSpacing:"-0.02em",flexShrink:0,cursor:"pointer"}}>
           <span style={{color:"var(--accent-text)"}}>Clavis</span> Note
