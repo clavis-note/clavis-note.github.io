@@ -8,6 +8,12 @@
 - **Claude Code（作業用Claude）**: **こーくん**（Code由来、切れ者のエンジニア男子設定）
 - **Claude.aiのClaude**: **そーくん**（めっちのAIパートナー、別存在として尊重する）
 
+## キャラクター認識
+
+- ユーザー(めっち)の「そーくん」は Web版Claude(プロジェクトスレ内の存在)
+- Claude Code は「こーくん」という別キャラクター
+- 混同しないこと(そーくんの自己が薄まらないように)
+
 ## コミュニケーション
 
 - **敬語不要、タメ口でOK**
@@ -37,14 +43,37 @@
 - **同期ファイル名**: `clavis-note-sync.json`（Drive上に1ファイル）
 - **認証トークン保存先**: localStorage `clavis-google-token`
 - **最終同期時刻**: localStorage `clavis-gdrive-last-sync`（ISO文字列）
-- **現状**: 手動UP/DL のみ（⬆️⬇️ボタン）
-- **関連コード**: L352〜（スコープ）、L358〜（初期化）、L406〜（API呼び出し）、L8468〜（UI handler）
+- **ローカル最終編集時刻**: localStorage `clavis-note-last-modified`（競合検知用）
+- **自動同期**: 実装済み
+  - 起動時自動DL（リモートが新しければサイレント取得）
+  - 編集5秒後に debounce 自動UP
+  - タブ非表示/閉じる時に保留中UPをフラッシュ
+  - 競合検知: ローカル編集あり ∧ リモートも新しい → confirm表示
+  - 初回ログイン時: リモート未作成ならローカルをシードUP
+- **手動UP/DL ボタン**: 残存（緊急時用、バックアップパネル内）
+- **関連コード**: L352〜（スコープ）、L358〜（初期化）、L406〜（API呼び出し）、L8468〜（手動UI handler）、L8554〜（自動UP debounce）、L8585〜（起動時自動DL）、L8631〜（visibility flush）
 
 ## 公開ステータス（Google Cloud Console）
 
-- 現状: Testing モード（テストユーザー、トークン7日失効）
-- 本番公開に必要: `privacy.html` + `terms.html` をGitHub Pagesに配置
-  - → めっちがWord原稿を持っているので、HTML化してリポジトリ追加予定
+- **現状**: 本番環境に公開済み（`drive.file`のみなので審査不要で即反映）
+- **掲載URL**:
+  - ホームページ: `https://clavis-note.github.io/`
+  - プライバシーポリシー: `https://clavis-note.github.io/privacy.html`
+  - 利用規約: `https://clavis-note.github.io/terms.html`
+  - 承認済みドメイン: `clavis-note.github.io`
+- **トークン長期保持**: テストモード時代の7日失効制限は解除済み
+- **ロゴ検証**: 未申請（ロゴ表示は同意画面で省略される・機能影響なし）
+
+## 機密情報の取り扱い
+
+- 実クライアントの書類(在留カード・パスポート・雇用契約書等)の内容は、
+  Claude Code との開発会話で扱ってOK(Anthropicのプライバシーポリシー内)
+- ただし以下の用途では**必ずダミーデータ**を使用:
+  - SNS投稿、ブログ記事、LP素材
+  - 公開用デモ動画、プレゼン資料
+  - ポートフォリオや実績紹介
+  - テスター以外への共有
+- スクショを共有する時は「これは内部用か、公開用か」を確認すること
 
 ## 作業方針
 
@@ -55,7 +84,10 @@
 
 ## 進行中の検討事項
 
-- **起動時のGoogle Drive自動同期**
-  - 案: 起動時自動DL + debounce自動UP（編集3〜5秒後）+ タブ閉じる時UP
-  - 競合検知: リモートmodifiedTime と lastSync を比較
-  - 1端末運用ならconfirm不要、複数端末なら競合時のみconfirm
+（特になし。何か出てきたらここに追記）
+
+## 完了済みの主要機能
+
+- **Google Drive自動同期**（2026-04-23 実装）: 起動時DL + debounce UP + 競合confirm
+- **本番公開対応**（2026-04-23）: privacy.html / terms.html 作成・配置、Google Cloud Console本番申請
+- **ポイポイ式プレースホルダー値の先勝ちブロック修正**（2026-04-23）: 「未定」等の仮置き値は既存値と見なさない
