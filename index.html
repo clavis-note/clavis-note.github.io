@@ -3010,11 +3010,17 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
       let processedCount=0;
       const t=document.getElementById("toast");
       // 先勝ち管理：現在選択中クライアントの既存値をチェック
+      // プレースホルダー文字列（「未定」「未登録」等）は既存値と見なさない
+      const PLACEHOLDER_PATTERNS=["未定","未登録","未記入","不明","N/A","未記載"];
+      const isPlaceholderValue=(v)=>{
+        if(!v||typeof v!=="string")return false;
+        return PLACEHOLDER_PATTERNS.some(p=>v.includes(p));
+      };
       const alreadyFilled={};
       const ed0=(clients.find(c=>c.client_id===selected?.client_id))||{};
       let localWorkHistory=Array.isArray(ed0.work_history)?[...ed0.work_history]:[];
       const MERGE_FIELDS=["name_roman","name_kana","nationality","dob","gender","phone","email","postal_code","address","residence_status","residence_expiry","residence_card","passport_number","passport_expiry","company_name","store","work_start_date"];
-      MERGE_FIELDS.forEach(f=>{if(ed0[f]) alreadyFilled[f]=true;});
+      MERGE_FIELDS.forEach(f=>{if(ed0[f]&&!isPlaceholderValue(ed0[f])) alreadyFilled[f]=true;});
       try{
         for(let fi=0;fi<files.length;fi++){
           const f=files[fi];
