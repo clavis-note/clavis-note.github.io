@@ -354,6 +354,7 @@ const DRIVE_FILE_NAME = "clavis-note-sync.json";
 
 let googleTokenClient = null;
 let googleAccessToken = null;
+let tokenRefreshPromise = null; // サイレント再認証の二重実行防止
 
 function initGoogleClient() {
   return new Promise((resolve) => {
@@ -362,17 +363,28 @@ function initGoogleClient() {
       resolve(false);
       return;
     }
-    googleTokenClient = google.accounts.oauth2.initTokenClient({
-      client_id: GOOGLE_CLIENT_ID,
-      scope: GOOGLE_SCOPES,
-      callback: (response) => {
-        if (response.access_token) {
-          googleAccessToken = response.access_token;
-          localStorage.setItem("clavis-google-token", response.access_token);
-        }
-      },
-    });
-    resolve(true);
+    if (googleTokenClient) {
+      // 既に初期化済み（HMRや二重呼び出し対策）
+      resolve(true);
+      return;
+    }
+    try {
+      googleTokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: GOOGLE_CLIENT_ID,
+        scope: GOOGLE_SCOPES,
+        callback: (response) => {
+          // デフォルトコールバック。実際のサインイン/リフレッシュ時は個別に上書き
+          if (response && response.access_token) {
+            googleAccessToken = response.access_token;
+            localStorage.setItem("clavis-google-token", response.access_token);
+          }
+        },
+      });
+      resolve(true);
+    } catch(e) {
+      console.error("initGoogleClient failed:", e);
+      resolve(false);
+    }
   });
 }
 
@@ -391,23 +403,99 @@ function googleSignIn() {
       localStorage.setItem("clavis-google-token", response.access_token);
       resolve(response.access_token);
     };
-    googleTokenClient.requestAccessToken({ prompt: "consent" });
+    try {
+      googleTokenClient.requestAccessToken({ prompt: "consent" });
+    } catch(e){ reject(e); }
   });
 }
 
 function googleSignOut() {
   if (googleAccessToken) {
-    google.accounts.oauth2.revoke(googleAccessToken);
+    try { google.accounts.oauth2.revoke(googleAccessToken); } catch(e){}
     googleAccessToken = null;
     localStorage.removeItem("clavis-google-token");
   }
 }
 
+// サイレント再認証（prompt: 'none'）
+// 既に承認済みのGoogleアカウントから、ユーザー操作なしで新しいaccess_tokenを取得
+// 同時に複数のAPI呼び出しが401になっても、refresh自体は1回だけ走る（promise共有）
+function refreshAccessTokenSilently() {
+  if (tokenRefreshPromise) return tokenRefreshPromise;
+  tokenRefreshPromise = new Promise((resolve, reject) => {
+    if (!googleTokenClient) {
+      reject(new Error("Token client not initialized"));
+      return;
+    }
+    // 10秒タイムアウト（GISが応答しないケースの保険）
+    const timer = setTimeout(() => reject(new Error("Silent refresh timeout")), 10000);
+    googleTokenClient.callback = (response) => {
+      clearTimeout(timer);
+      if (response && response.error) {
+        reject(new Error(response.error));
+        return;
+      }
+      if (!response || !response.access_token) {
+        reject(new Error("No access token returned"));
+        return;
+      }
+      googleAccessToken = response.access_token;
+      localStorage.setItem("clavis-google-token", response.access_token);
+      resolve(response.access_token);
+    };
+    try {
+      googleTokenClient.requestAccessToken({ prompt: 'none' });
+    } catch(e){
+      clearTimeout(timer);
+      reject(e);
+    }
+  });
+  // 成否に関わらずpromiseをクリア（次回リフレッシュに備える）
+  tokenRefreshPromise.then(
+    () => { tokenRefreshPromise = null; },
+    () => { tokenRefreshPromise = null; }
+  );
+  return tokenRefreshPromise;
+}
+
+// Drive API用のfetchラッパー：401検知 → サイレント再認証 → 1回だけリトライ
+// リトライ後も401の場合は呼び出し元でログアウト処理される
+async function fetchWithAuth(url, options = {}) {
+  if (!googleAccessToken) throw new Error("Not signed in");
+  const baseHeaders = options.headers || {};
+  const makeOpts = () => ({ ...options, headers: { ...baseHeaders, Authorization: `Bearer ${googleAccessToken}` } });
+  let res = await fetch(url, makeOpts());
+  if (res.status === 401 || res.status === 403) {
+    // サイレント再認証を試みる
+    let refreshed = false;
+    try {
+      await refreshAccessTokenSilently();
+      refreshed = true;
+      if (typeof logSyncEvent === "function") logSyncEvent("auth","silent-refresh-success");
+    } catch(e){
+      if (typeof logSyncEvent === "function") logSyncEvent("auth","silent-refresh-failed");
+      console.warn("silent refresh failed:", e);
+    }
+    if (refreshed) {
+      // 新しいトークンで1回だけリトライ
+      try {
+        const t = document.getElementById("toast");
+        if (t) {
+          t.textContent = "🔄 認証を更新しました";
+          t.style.opacity = 1;
+          setTimeout(() => { t.style.opacity = 0; }, 2000);
+        }
+      } catch(e){}
+      res = await fetch(url, makeOpts());
+    }
+  }
+  return res;
+}
+
 async function findDriveFile() {
   if (!googleAccessToken) return null;
-  const res = await fetch(
-    `https://www.googleapis.com/drive/v3/files?q=name='${DRIVE_FILE_NAME}' and trashed=false&spaces=drive&fields=files(id,name,modifiedTime)`,
-    { headers: { Authorization: `Bearer ${googleAccessToken}` } }
+  const res = await fetchWithAuth(
+    `https://www.googleapis.com/drive/v3/files?q=name='${DRIVE_FILE_NAME}' and trashed=false&spaces=drive&fields=files(id,name,modifiedTime)`
   );
   if (!res.ok) throw new Error(`Drive search failed: ${res.status}`);
   const data = await res.json();
@@ -429,11 +517,7 @@ async function uploadToDrive(jsonData, existingFile) {
     method = "PATCH";
   }
 
-  const res = await fetch(url, {
-    method,
-    headers: { Authorization: `Bearer ${googleAccessToken}` },
-    body: form,
-  });
+  const res = await fetchWithAuth(url, { method, body: form });
   if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
   return await res.json();
 }
@@ -442,9 +526,8 @@ async function downloadFromDrive() {
   if (!googleAccessToken) throw new Error("Not signed in");
   const file = await findDriveFile();
   if (!file) return null;
-  const res = await fetch(
-    `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`,
-    { headers: { Authorization: `Bearer ${googleAccessToken}` } }
+  const res = await fetchWithAuth(
+    `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`
   );
   if (!res.ok) throw new Error(`Download failed: ${res.status}`);
   return { data: await res.json(), modifiedTime: file.modifiedTime };
@@ -8488,18 +8571,31 @@ function App(){
   },[activeTab]);
 
   // Google Drive初期化
+  // GISライブラリの読込完了を最大3秒リトライで待つ。失敗してもアプリ本体はクラッシュしない。
   useEffect(()=>{
+    let cancelled = false;
     const init = async () => {
-      await new Promise(r => setTimeout(r, 500)); // API読み込み待機
-      const ok = await initGoogleClient();
+      let ok = false;
+      for (let attempt = 0; attempt < 6 && !cancelled; attempt++){
+        await new Promise(r => setTimeout(r, 500));
+        ok = await initGoogleClient();
+        if (ok) break;
+      }
+      if (cancelled) return;
       setGdriveReady(ok);
+      if (!ok){
+        console.warn("Google Drive: initGoogleClient failed after retries");
+        return;
+      }
       const savedToken = localStorage.getItem("clavis-google-token");
       if (savedToken) {
         googleAccessToken = savedToken;
         setGdriveSignedIn(true);
+        // 初回のAPI呼び出しで401が出たら fetchWithAuth 内でサイレント再認証される
       }
     };
     init();
+    return ()=>{ cancelled = true; };
   },[]);
 
   async function handleGdriveSignIn(){
