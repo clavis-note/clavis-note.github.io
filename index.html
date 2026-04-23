@@ -7452,6 +7452,8 @@ function MasterFee({feeMaster,setFeeMaster}){
                 <div style={{position:"absolute",top:6,right:6,display:"flex",gap:3}}>
                   <button onClick={(e)=>{e.stopPropagation();duplicateCategory(id);}} title="複製"
                     style={{fontSize:10,width:20,height:20,borderRadius:"50%",border:"0.5px solid var(--accent)",background:"var(--accent-bg)",color:"var(--accent-text)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>⧉</button>
+                  {isMobile&&<button onClick={(e)=>{e.stopPropagation();setEditingCategory(id);setEditCategoryName(cat.label);}} title="名前変更"
+                    style={{fontSize:10,width:20,height:20,borderRadius:"50%",border:"0.5px solid var(--accent)",background:"var(--accent-bg)",color:"var(--accent-text)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>✏️</button>}
                   {categories.length>1&&<button onClick={(e)=>{e.stopPropagation();deleteCategory(id);}} title="カテゴリ削除"
                     style={{fontSize:10,width:20,height:20,borderRadius:"50%",border:"none",background:"#e74c3c",color:"#fff",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>}
                 </div>
@@ -7460,7 +7462,7 @@ function MasterFee({feeMaster,setFeeMaster}){
           ))}
         </div>
         <div style={{padding:"8px 12px",borderTop:"0.5px solid var(--border)",fontSize:10,color:"var(--text3)"}}>
-          ≡ ドラッグで並び替え ・ ダブルクリックで名前変更
+          ≡ ドラッグで並び替え ・ {isMobile?"✏️":"ダブルクリック"}で名前変更
         </div>
       </div>
 
