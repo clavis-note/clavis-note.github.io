@@ -409,7 +409,7 @@ async function findDriveFile() {
     `https://www.googleapis.com/drive/v3/files?q=name='${DRIVE_FILE_NAME}' and trashed=false&spaces=drive&fields=files(id,name,modifiedTime)`,
     { headers: { Authorization: `Bearer ${googleAccessToken}` } }
   );
-  if (!res.ok) throw new Error("Drive search failed");
+  if (!res.ok) throw new Error(`Drive search failed: ${res.status}`);
   const data = await res.json();
   return data.files && data.files.length > 0 ? data.files[0] : null;
 }
@@ -421,20 +421,20 @@ async function uploadToDrive(jsonData) {
   const form = new FormData();
   form.append("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }));
   form.append("file", new Blob([JSON.stringify(jsonData)], { type: "application/json" }));
-  
+
   let url = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,modifiedTime";
   let method = "POST";
   if (existingFile) {
     url = `https://www.googleapis.com/upload/drive/v3/files/${existingFile.id}?uploadType=multipart&fields=id,name,modifiedTime`;
     method = "PATCH";
   }
-  
+
   const res = await fetch(url, {
     method,
     headers: { Authorization: `Bearer ${googleAccessToken}` },
     body: form,
   });
-  if (!res.ok) throw new Error("Upload failed");
+  if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
   return await res.json();
 }
 
@@ -446,7 +446,7 @@ async function downloadFromDrive() {
     `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`,
     { headers: { Authorization: `Bearer ${googleAccessToken}` } }
   );
-  if (!res.ok) throw new Error("Download failed");
+  if (!res.ok) throw new Error(`Download failed: ${res.status}`);
   return { data: await res.json(), modifiedTime: file.modifiedTime };
 }
 
@@ -8628,7 +8628,14 @@ function App(){
           // 競合なし → 自動DL（サイレント）
           await handleGdriveDownload(true);
         }
-      } catch(e){ console.warn("initial auto-sync failed:",e); }
+      } catch(e){
+        if(e.message && (e.message.includes("401")||e.message.includes("403"))){
+          setGdriveSignedIn(false);
+          localStorage.removeItem("clavis-google-token");
+          const t=document.getElementById("toast");if(t){t.textContent="🔑 セッションが切れました。再度ログインしてください";t.style.opacity=1;setTimeout(()=>t.style.opacity=0,3500);}
+        }
+        console.warn("initial auto-sync failed:",e);
+      }
     })();
   },[gdriveSignedIn,gdriveReady]);
 
