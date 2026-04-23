@@ -414,9 +414,9 @@ async function findDriveFile() {
   return data.files && data.files.length > 0 ? data.files[0] : null;
 }
 
-async function uploadToDrive(jsonData) {
+async function uploadToDrive(jsonData, existingFile) {
   if (!googleAccessToken) throw new Error("Not signed in");
-  const existingFile = await findDriveFile();
+  if (existingFile === undefined) existingFile = await findDriveFile();
   const metadata = { name: DRIVE_FILE_NAME, mimeType: "application/json" };
   const form = new FormData();
   form.append("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }));
@@ -448,6 +448,22 @@ async function downloadFromDrive() {
   );
   if (!res.ok) throw new Error(`Download failed: ${res.status}`);
   return { data: await res.json(), modifiedTime: file.modifiedTime };
+}
+
+// 同期アクティビティログ（最新50件、localStorage "clavis-sync-log"）
+function logSyncEvent(action, detail){
+  try{
+    const raw = localStorage.getItem("clavis-sync-log") || "[]";
+    const log = JSON.parse(raw);
+    log.push({
+      timestamp: new Date().toISOString(),
+      action,
+      detail: detail || "",
+      user_agent: (navigator.userAgent||"").slice(0,120)
+    });
+    const trimmed = log.slice(-50);
+    localStorage.setItem("clavis-sync-log", JSON.stringify(trimmed));
+  } catch(e){ console.warn("logSyncEvent failed:",e); }
 }
 
 // ============================================================
@@ -8504,7 +8520,24 @@ function App(){
     // 自動同期用の状態をリセット
     if(autoUpTimerRef.current){ clearTimeout(autoUpTimerRef.current); autoUpTimerRef.current=null; }
     initialSyncCheckedRef.current=false;
+    logSyncEvent("signout","manual");
     const t=document.getElementById("toast");if(t){t.textContent="ログアウトしました";t.style.opacity=1;setTimeout(()=>t.style.opacity=0,2500);}
+  }
+
+  function handleShowSyncLog(){
+    try {
+      const raw=localStorage.getItem("clavis-sync-log")||"[]";
+      const log=JSON.parse(raw);
+      console.table(log);
+      if(log.length===0){ alert("同期ログはまだありません。"); return; }
+      const latest=log.slice(-20).reverse().map(e=>{
+        const ts=new Date(e.timestamp).toLocaleString();
+        return `${ts}  [${e.action}]  ${e.detail}`;
+      }).join("\n");
+      alert(`📋 同期履歴（最新20件 / 全${log.length}件）\n\n${latest}\n\n※ 全履歴と詳細（User-Agent含む）は、F12 → Console でご確認いただけます（console.tableで出力済）`);
+    } catch(e){
+      alert("ログの読み込みに失敗しました: "+e.message);
+    }
   }
 
   async function handleGdriveUpload(){
@@ -8513,17 +8546,22 @@ function App(){
     if(autoUpTimerRef.current){ clearTimeout(autoUpTimerRef.current); autoUpTimerRef.current=null; }
     setGdriveSyncing(true);
     try {
-      await uploadToDrive(data);
+      const result = await uploadToDrive(data);
       const now = new Date().toISOString();
       setGdriveLastSync(now);
       localStorage.setItem("clavis-gdrive-last-sync",now);
+      if(result && result.modifiedTime) localStorage.setItem("clavis-gdrive-last-remote-time", result.modifiedTime);
+      localStorage.setItem("clavis-first-sync-done","1");
+      logSyncEvent("upload","manual");
       const t=document.getElementById("toast");if(t){t.textContent="☁️ Driveにアップロードしました";t.style.opacity=1;setTimeout(()=>t.style.opacity=0,2500);}
     } catch(e) {
       if(e.message.includes("401")||e.message.includes("403")){
         setGdriveSignedIn(false);
         localStorage.removeItem("clavis-google-token");
+        logSyncEvent("error","manual-upload-auth-fail");
         alert("セッションが切れました。再度ログインしてください。");
       } else {
+        logSyncEvent("error","manual-upload-fail:"+(e.message||"unknown"));
         alert("アップロードに失敗しました: "+e.message);
       }
     } finally {
@@ -8546,14 +8584,21 @@ function App(){
         setGdriveLastSync(now);
         localStorage.setItem("clavis-gdrive-last-sync",now);
         localStorage.setItem("clavis-note-last-modified",now); // DL時は編集時刻もリセット
+        localStorage.setItem("clavis-gdrive-last-remote-time", result.modifiedTime);
+        localStorage.setItem("clavis-first-sync-done","1");
+        if(!silent) logSyncEvent("download","manual");
         const t=document.getElementById("toast");if(t){t.textContent=silent?"☁️ Driveから自動同期しました":"☁️ Driveからダウンロードしました";t.style.opacity=1;setTimeout(()=>t.style.opacity=0,2500);}
+      } else {
+        if(!silent) logSyncEvent("skip","manual-download-cancelled");
       }
     } catch(e) {
       if(e.message.includes("401")||e.message.includes("403")){
         setGdriveSignedIn(false);
         localStorage.removeItem("clavis-google-token");
+        logSyncEvent("error","download-auth-fail");
         if(!silent)alert("セッションが切れました。再度ログインしてください。");
       } else {
+        logSyncEvent("error","download-fail:"+(e.message||"unknown"));
         if(!silent)alert("ダウンロードに失敗しました: "+e.message);
         else console.warn("auto-download failed:",e);
       }
@@ -8578,14 +8623,40 @@ function App(){
     autoUpTimerRef.current=setTimeout(async()=>{
       autoUpTimerRef.current=null;
       try {
-        await uploadToDrive(data);
+        // 改善②: UP直前にリモートの最新状態を確認（他端末による更新を検知）
+        let preUploadFile=null;
+        try { preUploadFile=await findDriveFile(); } catch(e){ /* pre-check失敗時はUP続行 */ }
+        if(preUploadFile){
+          const storedRemote=localStorage.getItem("clavis-gdrive-last-remote-time");
+          if(storedRemote && preUploadFile.modifiedTime !== storedRemote){
+            // 他端末が先にUP済み → ユーザー確認
+            const forceOverwrite=confirm(
+              "⚠️ 他端末でDriveが更新されています\n\n"+
+              `リモート最終更新: ${new Date(preUploadFile.modifiedTime).toLocaleString()}\n\n`+
+              "OK: このまま上書きする（他端末の変更は失われます）\n"+
+              "キャンセル: アップロード中止（先にダウンロード推奨）"
+            );
+            if(!forceOverwrite){
+              logSyncEvent("conflict","pre-upload-aborted");
+              const t=document.getElementById("toast");if(t){t.textContent="⚠️ 自動UP中止: 他端末の変更を確認してください";t.style.opacity=1;setTimeout(()=>t.style.opacity=0,3500);}
+              return;
+            }
+            logSyncEvent("conflict","pre-upload-forced-overwrite");
+          }
+        }
+        const result=await uploadToDrive(data, preUploadFile===null?undefined:preUploadFile);
         const now=new Date().toISOString();
         setGdriveLastSync(now);
         localStorage.setItem("clavis-gdrive-last-sync",now);
+        if(result && result.modifiedTime) localStorage.setItem("clavis-gdrive-last-remote-time", result.modifiedTime);
+        logSyncEvent("upload","auto");
       } catch(e){
         if(e.message && (e.message.includes("401")||e.message.includes("403"))){
           setGdriveSignedIn(false);
           localStorage.removeItem("clavis-google-token");
+          logSyncEvent("error","auto-upload-auth-fail");
+        } else {
+          logSyncEvent("error","auto-upload-fail:"+(e.message||"unknown"));
         }
         console.warn("auto-upload failed:",e);
       }
@@ -8600,21 +8671,53 @@ function App(){
     (async()=>{
       try {
         const file=await findDriveFile();
+        const firstSyncDone=localStorage.getItem("clavis-first-sync-done")==="1";
         if(!file){
           // リモートにファイルが無い＝初回同期。ローカルをUPして初期ファイルを作成
           try {
-            await uploadToDrive(data);
+            const result=await uploadToDrive(data);
             const now=new Date().toISOString();
             setGdriveLastSync(now);
             localStorage.setItem("clavis-gdrive-last-sync",now);
+            if(result && result.modifiedTime) localStorage.setItem("clavis-gdrive-last-remote-time", result.modifiedTime);
+            localStorage.setItem("clavis-first-sync-done","1");
+            logSyncEvent("upload","initial-seed");
             const t=document.getElementById("toast");if(t){t.textContent="☁️ Driveに初回アップロードしました";t.style.opacity=1;setTimeout(()=>t.style.opacity=0,2500);}
-          } catch(e){ console.warn("initial seed upload failed:",e); }
+          } catch(e){
+            logSyncEvent("error","initial-seed-fail:"+(e.message||"unknown"));
+            console.warn("initial seed upload failed:",e);
+          }
+          return;
+        }
+        // 改善①: 新規端末での初回起動 → 必ず confirm（インポート直後の誤上書き防止）
+        if(!firstSyncDone){
+          const useRemote=confirm(
+            "☁️ Drive にデータがあります\n\n"+
+            `最終更新: ${new Date(file.modifiedTime).toLocaleString()}\n\n`+
+            "この端末で初めてClavis Noteを使用しています。\n"+
+            "どちらのデータで開始しますか？\n\n"+
+            "OK: Drive のデータで開く（現在のローカルデータは破棄）\n"+
+            "キャンセル: 現在のローカルデータで開始（あとで自動UPされます）"
+          );
+          localStorage.setItem("clavis-first-sync-done","1");
+          if(useRemote){
+            logSyncEvent("download","first-sync-accepted");
+            await handleGdriveDownload(true);
+            // last-remote-time をDriveの現在時刻で記録
+            localStorage.setItem("clavis-gdrive-last-remote-time", file.modifiedTime);
+          } else {
+            logSyncEvent("skip","first-sync-declined");
+          }
           return;
         }
         const remoteTime=new Date(file.modifiedTime).getTime();
         const lastSync=localStorage.getItem("clavis-gdrive-last-sync");
         const lastSyncTime=lastSync?new Date(lastSync).getTime():0;
-        if(remoteTime<=lastSyncTime) return; // リモートは古いか同じ
+        if(remoteTime<=lastSyncTime){
+          // リモートは古いか同じ → last-remote-timeだけ更新（次回UP時のズレ防止）
+          localStorage.setItem("clavis-gdrive-last-remote-time", file.modifiedTime);
+          return;
+        }
         const lastMod=localStorage.getItem("clavis-note-last-modified");
         const lastModTime=lastMod?new Date(lastMod).getTime():0;
         const hasLocalChanges=lastModTime>lastSyncTime;
@@ -8629,10 +8732,18 @@ function App(){
             "\nOK: リモートのデータを取得（この端末の変更は破棄）\n"+
             "キャンセル: この端末を保持（あとで自動アップロードされます）"
           );
-          if(useRemote) await handleGdriveDownload(true);
+          if(useRemote){
+            logSyncEvent("download","conflict-resolved-remote");
+            await handleGdriveDownload(true);
+            localStorage.setItem("clavis-gdrive-last-remote-time", file.modifiedTime);
+          } else {
+            logSyncEvent("skip","conflict-resolved-local");
+          }
         } else {
           // 競合なし → 自動DL（サイレント）
+          logSyncEvent("download","initial-silent");
           await handleGdriveDownload(true);
+          localStorage.setItem("clavis-gdrive-last-remote-time", file.modifiedTime);
         }
       } catch(e){
         if(e.message && (e.message.includes("401")||e.message.includes("403"))){
@@ -8652,12 +8763,17 @@ function App(){
         clearTimeout(autoUpTimerRef.current);
         autoUpTimerRef.current=null;
         if(gdriveSignedIn){
-          // バックグラウンド送信（ベストエフォート）
-          uploadToDrive(data).then(()=>{
+          // バックグラウンド送信（ベストエフォート）。タブ閉じる寸前なのでpre-checkはスキップ
+          uploadToDrive(data).then((result)=>{
             const now=new Date().toISOString();
             localStorage.setItem("clavis-gdrive-last-sync",now);
             setGdriveLastSync(now);
-          }).catch(e=>console.warn("flush upload failed:",e));
+            if(result && result.modifiedTime) localStorage.setItem("clavis-gdrive-last-remote-time", result.modifiedTime);
+            logSyncEvent("upload","flush-on-hide");
+          }).catch(e=>{
+            logSyncEvent("error","flush-upload-fail:"+(e.message||"unknown"));
+            console.warn("flush upload failed:",e);
+          });
         }
       }
     };
@@ -8831,10 +8947,16 @@ function App(){
                           最終同期: {new Date(gdriveLastSync).toLocaleString()}
                         </div>
                       )}
-                      <button onClick={handleGdriveSignOut}
-                        style={{fontSize:10,padding:"4px 8px",borderRadius:5,border:"none",background:"transparent",color:"var(--text3)",cursor:"pointer",textDecoration:"underline"}}>
-                        ログアウト
-                      </button>
+                      <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                        <button onClick={handleGdriveSignOut}
+                          style={{fontSize:10,padding:"4px 8px",borderRadius:5,border:"none",background:"transparent",color:"var(--text3)",cursor:"pointer",textDecoration:"underline"}}>
+                          ログアウト
+                        </button>
+                        <button onClick={handleShowSyncLog}
+                          style={{fontSize:10,padding:"4px 8px",borderRadius:5,border:"none",background:"transparent",color:"var(--text3)",cursor:"pointer",textDecoration:"underline"}}>
+                          📋 同期履歴
+                        </button>
+                      </div>
                     </>
                   )}
                   <div style={{fontSize:9,color:"var(--text3)",marginTop:8,lineHeight:1.5}}>
