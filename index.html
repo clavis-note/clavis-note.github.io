@@ -2802,6 +2802,7 @@ function TabCaseHistory({c,cases,onNavigateCase}){
 }
 
 function TabWorkHistory({c,editMode,update,companies}){
+  const isMobile=useMobile();
   // クライアントの会社→都道府県解決
   const companyList=companies||COMPANY_DB;
   const clientCo=companyList.find(co=>co.name===c.company_name);
@@ -2917,11 +2918,11 @@ function TabWorkHistory({c,editMode,update,companies}){
   const workFormJSX=(
     <div style={{background:"var(--bg)",border:"0.5px solid var(--accent)",borderRadius:8,padding:12,marginBottom:10}}>
       <div style={{fontSize:11,fontWeight:500,color:"var(--accent-text)",marginBottom:8}}>{editWorkId?"職歴編集":"職歴追加"}</div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 80px",gap:8,marginBottom:8}}>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 80px",gap:8,marginBottom:8}}>
         <div><div style={{fontSize:10,color:"var(--text3)",marginBottom:2}}>会社名・店名</div><IMEInput value={wf.company_name||""} onChange={v=>setWf(p=>({...p,company_name:v}))} style={inputS}/></div>
         <div><div style={{fontSize:10,color:"var(--text3)",marginBottom:2}}>国</div><select value={wf.country||"日本"} onChange={e=>setWf(p=>({...p,country:e.target.value}))} style={inputS}><option value="日本">🇯🇵 日本</option><option value="ネパール">🇳🇵 ネパール</option><option value="インド">🇮🇳 インド</option><option value="中国">🇨🇳 中国</option><option value="ベトナム">🇻🇳 ベトナム</option><option value="フィリピン">🇵🇭 フィリピン</option><option value="ミャンマー">🇲🇲 ミャンマー</option><option value="バングラデシュ">🇧🇩 バングラデシュ</option><option value="スリランカ">🇱🇰 スリランカ</option></select></div>
       </div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:8}}>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:8,marginBottom:8}}>
         <div><div style={{fontSize:10,color:"var(--text3)",marginBottom:2}}>開始日</div><input type="date" max="9999-12-31" min="1900-01-01" value={wf.start_date||""} onChange={e=>setWf(p=>({...p,start_date:e.target.value}))} style={inputS}/></div>
         <div><div style={{fontSize:10,color:"var(--text3)",marginBottom:2}}>終了日（空欄=在職中）</div><input type="date" max="9999-12-31" min="1900-01-01" value={wf.end_date||""} onChange={e=>setWf(p=>({...p,end_date:e.target.value}))} style={inputS}/></div>
         <div><div style={{fontSize:10,color:"var(--text3)",marginBottom:2}}>職種</div><IMEInput value={wf.job_title||""} onChange={v=>setWf(p=>({...p,job_title:v}))} placeholder="調理師" style={inputS}/></div>
@@ -2929,7 +2930,7 @@ function TabWorkHistory({c,editMode,update,companies}){
       {!editWorkId&&(
         <div style={{background:"#FEFAF3",border:"0.5px solid #EF9F27",borderRadius:6,padding:10,marginBottom:8}}>
           <div style={{fontSize:10,fontWeight:500,color:"#854F0B",marginBottom:6}}>💴 給与情報を同時登録（任意）</div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 80px 100px 100px",gap:6}}>
+          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 80px 100px 100px",gap:6}}>
             <div><div style={{fontSize:9,color:"var(--text3)",marginBottom:2}}>月給</div><input type="number" value={wf.init_monthly_salary||""} onChange={e=>setWf(p=>({...p,init_monthly_salary:e.target.value}))} placeholder="例: 200000" style={{...inputS,fontSize:11,textAlign:"right"}}/></div>
             <div><div style={{fontSize:9,color:"var(--text3)",marginBottom:2}}>週時間</div><input type="number" value={wf.init_weekly_hours||""} onChange={e=>setWf(p=>({...p,init_weekly_hours:e.target.value}))} style={{...inputS,fontSize:11,textAlign:"right"}}/></div>
             <div><div style={{fontSize:9,color:"var(--text3)",marginBottom:2}}>雇用形態</div><select value={wf.init_employment_type||"正社員"} onChange={e=>setWf(p=>({...p,init_employment_type:e.target.value}))} style={{...inputS,fontSize:11}}><option>正社員</option><option>パート</option><option>アルバイト</option></select></div>
@@ -2956,7 +2957,7 @@ function TabWorkHistory({c,editMode,update,companies}){
   const salaryFormJSX=(
     <div style={{background:"#FEFAF3",border:"0.5px solid #EF9F27",borderRadius:6,padding:10,marginTop:6}}>
       <div style={{fontSize:10,fontWeight:500,color:"#854F0B",marginBottom:6}}>{editSalaryId?"給与編集":"給与追加"}</div>
-      <div style={{display:"grid",gridTemplateColumns:"100px 1fr 1fr 80px 90px 100px",gap:6,marginBottom:6}}>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"100px 1fr 1fr 80px 90px 100px",gap:6,marginBottom:6}}>
         <div><div style={{fontSize:9,color:"var(--text3)",marginBottom:2}}>適用日</div><input type="date" max="9999-12-31" min="1900-01-01" value={sf.effective_date||""} onChange={e=>setSf(p=>({...p,effective_date:e.target.value}))} style={{...inputS,fontSize:11}}/></div>
         <div><div style={{fontSize:9,color:"var(--text3)",marginBottom:2}}>月給</div><input type="number" value={sf.monthly_salary||""} onChange={e=>setSf(p=>({...p,monthly_salary:e.target.value}))} style={{...inputS,fontSize:11,textAlign:"right"}}/></div>
         <div><div style={{fontSize:9,color:"var(--text3)",marginBottom:2}}>時給（月給なしの場合）</div><input type="number" value={sf.hourly_wage||""} onChange={e=>setSf(p=>({...p,hourly_wage:e.target.value}))} placeholder={sfAutoHourly?"自動: ¥"+sfAutoHourly:""} style={{...inputS,fontSize:11,textAlign:"right"}}/></div>
