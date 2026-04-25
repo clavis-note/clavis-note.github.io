@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>特定商取引法に基づく表記 - Clavis Note</title>
+<style>
+  :root {
+    --bg: #f5f4ee;
+    --bg-alt: #ebe9e0;
+    --text: #2a2724;
+    --text-muted: #6b6760;
+    --accent: #d97757;
+    --line: #d4d2c8;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Kaku Gothic ProN", "Noto Sans JP", Meiryo, sans-serif;
+    line-height: 1.8;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .container {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 40px 24px;
+  }
+  header.site {
+    padding: 32px 24px 16px;
+    text-align: center;
+    border-bottom: 1px solid var(--line);
+  }
+  header.site .brand {
+    font-size: 18px;
+    letter-spacing: 0.15em;
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+  h1 {
+    font-size: 28px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    margin: 0 0 32px;
+    text-align: center;
+  }
+  .lead {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 15px;
+    margin: 0 0 40px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0 0 32px;
+    font-size: 14.5px;
+  }
+  th, td {
+    border: 1px solid var(--line);
+    padding: 12px 16px;
+    text-align: left;
+    vertical-align: top;
+    line-height: 1.7;
+  }
+  th {
+    background: var(--bg-alt);
+    font-weight: 600;
+    width: 35%;
+    white-space: nowrap;
+  }
+  td .note {
+    color: var(--text-muted);
+    font-size: 13px;
+    display: block;
+    margin-top: 4px;
+  }
+  .updated {
+    text-align: right;
+    color: var(--text-muted);
+    font-size: 13px;
+    margin: 32px 0 0;
+  }
+  footer.site {
+    border-top: 1px solid var(--line);
+    padding: 32px 24px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+  footer.site a {
+    color: var(--text-muted);
+    text-decoration: none;
+    margin: 0 8px;
+  }
+  footer.site a:hover {
+    color: var(--accent);
+    text-decoration: underline;
+  }
+  @media (max-width: 600px) {
+    h1 { font-size: 22px; }
+    th, td {
+      display: block;
+      width: 100%;
+      border-bottom: none;
+    }
+    th {
+      border-bottom: none;
+      padding-bottom: 4px;
+    }
+    td {
+      border-top: none;
+      padding-top: 4px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--line);
+    }
+    table {
+      border: 1px solid var(--line);
+    }
+  }
+</style>
+</head>
+<body>
+
+<header class="site">
+  <div class="brand">CLAVIS NOTE</div>
+</header>
+
+<div class="container">
+  <h1>特定商取引法に基づく表記</h1>
+  <p class="lead">Clavis Note 特定商取引法に基づく表記</p>
+
+  <table>
+    <tr>
+      <th>販売事業者</th>
+      <td>ながみ行政書士事務所</td>
+    </tr>
+    <tr>
+      <th>運営責任者</th>
+      <td>長見　恵</td>
+    </tr>
+    <tr>
+      <th>所在地</th>
+      <td>東京都立川市高松町３－１４－２　２F</td>
+    </tr>
+    <tr>
+      <th>連絡先</th>
+      <td>
+        メール：<a href="mailto:clavis.note.info@gmail.com" style="color: var(--accent); text-decoration: none;">clavis.note.info@gmail.com</a>
+        <span class="note">※お問い合わせはメールにて承ります。電話番号は請求があれば遅滞なく開示します。</span>
+      </td>
+    </tr>
+    <tr>
+      <th>販売価格</th>
+      <td>
+        各プランの月額利用料金（税込）<br>
+        ※詳細はサービス内ご案内ページに記載いたします。
+        <span class="note">正式リリース時に確定し、ウェブサイトおよびサービス内に明記します。</span>
+      </td>
+    </tr>
+    <tr>
+      <th>商品代金以外の必要料金</th>
+      <td>
+        インターネット接続にかかる通信費は、利用者のご負担となります。<br>
+        消費税は表示価格に含まれます。
+      </td>
+    </tr>
+    <tr>
+      <th>支払方法</th>
+      <td>
+        外部決済サービス（Stripe等）によるクレジットカード決済<br>
+        サブスクリプション（継続課金）方式
+      </td>
+    </tr>
+    <tr>
+      <th>支払時期</th>
+      <td>
+        初回：申込手続完了時<br>
+        2回目以降：毎月（または毎年）の更新日に自動課金
+      </td>
+    </tr>
+    <tr>
+      <th>役務の提供時期</th>
+      <td>決済完了後、速やかにアカウント情報およびAPIキーをご登録のメールアドレスへ送付します。</td>
+    </tr>
+    <tr>
+      <th>キャンセル・返品について</th>
+      <td>
+        本サービスはデジタルサービスの性質上、申込後のキャンセル・返金は行いません。<br>
+        利用契約の解約をご希望の場合は、次回更新日（決済日）の前日までに所定の手続きを行ってください。月途中の解約による日割精算・返金は行いません。
+        <span class="note">詳細は<a href="/terms.html" style="color: var(--accent); text-decoration: none;">ご利用規約</a>第6条をご確認ください。</span>
+      </td>
+    </tr>
+    <tr>
+      <th>動作環境</th>
+      <td>
+        最新版の Google Chrome / Microsoft Edge / Safari を推奨<br>
+        スマートフォン・タブレットからもご利用いただけます。
+      </td>
+    </tr>
+    <tr>
+      <th>利用対象者</th>
+      <td>
+        行政書士資格保有者に限ります。<br>
+        一般企業・個人ユーザー・登録支援機関単体の方への提供は行いません。
+      </td>
+    </tr>
+  </table>
+
+  <p class="updated">本表記は2026年4月25日現在の内容です。最新の情報は公式サイト等をご確認ください。</p>
+</div>
+
+<footer class="site">
+  <div>
+    <a href="/">Clavis Note ホームへ</a> ／
+    <a href="/terms.html">ご利用規約</a> ／
+    <a href="/privacy.html">プライバシーポリシー</a>
+  </div>
+</footer>
+
+</body>
+</html>
