@@ -1021,14 +1021,38 @@ function sanitizeDate(v){
 }
 function trimDateYear(v){if(!v||v.length<=10)return v;const p=v.split("-");p[0]=p[0].slice(0,4);return p.join("-");}
 
+// 日付入力専用コンポーネント
+// Android Chrome の date picker と React controlled input の衝突回避のため、
+// 内部でローカル state を持ち、フォーカスが外れた時にだけ親に通知する。
+// 入力中は親 state が更新されないので、Android picker が安定して編集できる。
+// 外部から value が変わった時（ポイポイ式の自動入力等）はローカルにも反映する。
+function DateInput({value, onChange, ...rest}){
+  const [localValue, setLocalValue] = useState(value || "");
+  useEffect(() => { setLocalValue(value || ""); }, [value]);
+  return (
+    <input
+      type="date"
+      value={localValue}
+      onChange={e => setLocalValue(e.target.value)}
+      onBlur={e => {
+        const v = e.target.value;
+        if (v !== (value || "")) onChange(v);
+      }}
+      {...rest}
+    />
+  );
+}
+
 function Field({label,value,editMode,field,update,type="text"}){
+  const inputStyle={fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)",width:"100%"};
   return(
     <div style={{display:"flex",flexDirection:"column",gap:3}}>
       <span style={{fontSize:10,color:"var(--text3)",fontWeight:500,letterSpacing:"0.05em"}}>{label.toUpperCase()}</span>
-      {editMode?<input type={type} value={value||""} onChange={e=>update(field,e.target.value)}
-        max={type==="date"?"9999-12-31":undefined} min={type==="date"?"1900-01-01":undefined}
-        style={{fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)",width:"100%"}}/>
-        :<span style={{fontSize:13,color:value?"var(--text)":"var(--text3)"}}>{value||"—"}</span>}
+      {editMode?(
+        type==="date"
+          ? <DateInput value={value||""} onChange={v=>update(field,v)} max="9999-12-31" min="1900-01-01" style={inputStyle}/>
+          : <input type={type} value={value||""} onChange={e=>update(field,e.target.value)} style={inputStyle}/>
+      ):<span style={{fontSize:13,color:value?"var(--text)":"var(--text3)"}}>{value||"—"}</span>}
     </div>
   );
 }
@@ -2510,8 +2534,8 @@ function TabBasic({c,editMode,update}){
           <div style={{fontSize:10,color:"var(--text3)",fontWeight:500,marginBottom:3,letterSpacing:"0.05em"}}>勤務開始日</div>
           {editMode?(
             <div style={{display:"flex",gap:6,alignItems:"center"}}>
-              <input type="date" max="9999-12-31" min="1900-01-01" value={c.work_start_date==="未定"?"":c.work_start_date||""} disabled={c.work_start_date==="未定"}
-                onChange={e=>update("work_start_date",e.target.value)}
+              <DateInput max="9999-12-31" min="1900-01-01" value={c.work_start_date==="未定"?"":c.work_start_date||""} disabled={c.work_start_date==="未定"}
+                onChange={v=>update("work_start_date",v)}
                 style={{fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)",opacity:c.work_start_date==="未定"?0.4:1}}/>
               <label style={{fontSize:11,color:"var(--text2)",display:"flex",alignItems:"center",gap:3,cursor:"pointer",whiteSpace:"nowrap"}}>
                 <input type="checkbox" checked={c.work_start_date==="未定"} onChange={e=>update("work_start_date",e.target.checked?"未定":"")}/>未定
@@ -2576,7 +2600,7 @@ function TabResidence({c,editMode,update,office}){
           </div>
           <div>
             <div style={{fontSize:10,color:"var(--text3)",fontWeight:500,marginBottom:3,letterSpacing:"0.05em"}}>在留期限</div>
-            {editMode?<input type="date" max="9999-12-31" min="1900-01-01" value={c.residence_expiry||""} onChange={e=>update("residence_expiry",e.target.value)} style={{fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)"}}/>
+            {editMode?<DateInput max="9999-12-31" min="1900-01-01" value={c.residence_expiry||""} onChange={v=>update("residence_expiry",v)} style={{fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)"}}/>
               :<span style={{fontSize:13,display:"flex",alignItems:"center",gap:8}}>{c.residence_expiry||"—"} <AlertBadge days={days}/></span>}
           </div>
           <Field label="在留カード番号" value={c.residence_card} editMode={editMode} field="residence_card" update={update}/>
@@ -2588,7 +2612,7 @@ function TabResidence({c,editMode,update,office}){
           <Field label="番号" value={c.passport_number} editMode={editMode} field="passport_number" update={update}/>
           <div>
             <div style={{fontSize:10,color:"var(--text3)",fontWeight:500,marginBottom:3,letterSpacing:"0.05em"}}>有効期限</div>
-            {editMode?<input type="date" max="9999-12-31" min="1900-01-01" value={c.passport_expiry||""} onChange={e=>update("passport_expiry",e.target.value)} style={{fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)"}}/>
+            {editMode?<DateInput max="9999-12-31" min="1900-01-01" value={c.passport_expiry||""} onChange={v=>update("passport_expiry",v)} style={{fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)"}}/>
               :<span style={{fontSize:13,display:"flex",alignItems:"center",gap:8}}>{c.passport_expiry||"—"} <AlertBadge days={pdays}/></span>}
           </div>
         </div>
