@@ -3439,7 +3439,8 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
                       {c.client_status==="returned"&&<span style={{fontSize:10,padding:"1px 5px",borderRadius:3,background:"#FAEEDA",color:"#854F0B"}}>帰国済み</span>}
                       {c.client_status==="resigned"&&<span style={{fontSize:10,padding:"1px 5px",borderRadius:3,background:"#FCEBEB",color:"#A32D2D"}}>退職</span>}
                       {c.client_status!=="returned"&&displayExpiry&&<span style={{fontSize:10,color:displayDays!==null&&displayDays<=90?"#A32D2D":"var(--text3)"}}>{tokurei.isTokurei?"特例〜":""}{ displayExpiry.replace(/-/g,"/")}</span>}
-                      {c.client_status!=="returned"&&<AlertBadge days={days} tokurei={tokurei}/>}</>}
+                      {c.client_status!=="returned"&&<AlertBadge days={days} tokurei={tokurei}/>}
+                      {c.client_status!=="returned"&&c.passport_expiry&&(()=>{const pd=getDays(c.passport_expiry);return pd!==null&&pd<=0?<span style={{fontSize:10,padding:"1px 5px",borderRadius:3,background:"#FCEBEB",color:"#A32D2D",fontWeight:500}}>🛂 期限切</span>:null;})()}</>}
                       {!indent&&childDeps.length>0&&<span style={{fontSize:10,padding:"1px 5px",borderRadius:3,background:"#FAEEDA",color:"#854F0B"}}>家族{childDeps.length}名</span>}
                     </div>
                   </div>
@@ -3501,7 +3502,7 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
               </div>
               <div style={{display:"flex",gap:6,alignItems:"center"}}>
                 {(()=>{const tk=getTokureiInfo(cur,data.cases);return <AlertBadge days={getDays(cur.residence_expiry)} tokurei={tk}/>;})()}
-                {cur.client_type!=="general"&&cur.passport_expiry&&(()=>{const pd=getDays(cur.passport_expiry);return alertLevel(pd)!=="none"?<span style={{display:"inline-flex",alignItems:"center",gap:3}}>🛂<AlertBadge days={pd}/></span>:null;})()}
+                {cur.client_type!=="general"&&cur.passport_expiry&&(()=>{const pd=getDays(cur.passport_expiry);return pd!==null&&pd<=0?<span style={{fontSize:11,padding:"2px 7px",borderRadius:4,background:"#FCEBEB",color:"#A32D2D",fontWeight:500}}>🛂 期限切れ</span>:null;})()}
                 {!isMobile&&<>
                   <button onClick={handleDeleteClient} style={{fontSize:12,padding:"4px 10px",cursor:"pointer",borderRadius:6,border:"0.5px solid #A32D2D",background:"transparent",color:"#A32D2D"}}>削除</button>
                   <button onClick={archiveClient} style={{fontSize:12,padding:"4px 10px",cursor:"pointer",borderRadius:6,border:"0.5px solid var(--border)",background:"transparent",color:"var(--text3)"}}>{cur.archived?"復元":"アーカイブ"}</button>
