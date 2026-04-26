@@ -4027,9 +4027,9 @@ function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments,templates,com
                 onChange={e=>{
                   if(e.target.value){
                     const co=(companies||[]).find(co=>co.company_id===e.target.value);
-                    if(co){updateField("requester",co.name);updateField("requester_id",co.company_id);}
+                    if(co){onUpdate({...c,requester:co.name,requester_id:co.company_id});}
                   }else{
-                    updateField("requester","");updateField("requester_id","");
+                    onUpdate({...c,requester:"",requester_id:""});
                   }
                 }}
                 style={{width:120,fontSize:11,padding:"4px 6px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}>
@@ -4039,7 +4039,7 @@ function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments,templates,com
                 ))}
               </select>
               <input value={c.requester||""}
-                onChange={e=>{updateField("requester",e.target.value);updateField("requester_id","");}}
+                onChange={e=>onUpdate({...c,requester:e.target.value,requester_id:""})}
                 placeholder="直接入力も可"
                 style={{flex:1,fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/>
             </div>
