@@ -68,10 +68,10 @@ const AVATAR_COLORS = ["#185FA5","#0F6E56","#534AB7","#854F0B","#993C1D","#3B6D1
 
 // 案件管理用定数
 const DEFAULT_TEMPLATES = {
-  T01:{label:"技能（調理）COE",hearing:[{id:"h1",type:"text",label:"最終学歴の学校名"},{id:"h2",type:"yearmonth",label:"卒業年月"},{id:"h3",type:"text",label:"過去の日本への出入国の有無"},{id:"h4",type:"text",label:"過去のCOE申請履歴"}],docs:[{id:"d1",name:"写真（縦4cm×横3cm）",group:null},{id:"d2",name:"パスポート",group:null},{id:"d3",name:"結核非発病証明書",group:null},{id:"d4",name:"職務経歴書",group:null},{id:"d5",name:"退職証明書（以前の会社）",group:null},{id:"d6",name:"雇用理由書",group:null},{id:"d7",name:"雇用契約書",group:"招へい企業資料"},{id:"d8",name:"登記事項証明書",group:"招へい企業資料"},{id:"d9",name:"法定調書合計表",group:"招へい企業資料"},{id:"d10",name:"直近の決算資料",group:"招へい企業資料"},{id:"d11",name:"勤務先営業許可証",group:"招へい企業資料"},{id:"d12",name:"勤務先写真（外観・内観）",group:"招へい企業資料"},{id:"d13",name:"勤務先メニュー表",group:"招へい企業資料"}]},
-  T02:{label:"技能（調理）転職後初更新・初回担当",hearing:[{id:"h1",type:"text",label:"最終学歴の学校名"},{id:"h2",type:"yearmonth",label:"卒業年月"}],docs:[{id:"d1",name:"在留カード（表裏コピー）",group:null},{id:"d2",name:"パスポート（身分事項・査証ページコピー）",group:null},{id:"d3",name:"写真（縦4cm×横3cm）",group:null},{id:"d4",name:"課税証明書（市区町村発行）※1/1住民登録地",group:null},{id:"d5",name:"雇用契約書",group:null},{id:"d6",name:"勤務先写真（外観・内観）",group:null},{id:"d7",name:"職務経歴書",group:null},{id:"d8",name:"退職証明書（以前の会社）",group:null},{id:"d9",name:"法定調書合計表",group:"転職先書類"},{id:"d10",name:"登記事項証明書",group:"転職先書類"},{id:"d11",name:"直近の決算資料",group:"転職先書類"}]},
-  T03:{label:"技能（調理）継続更新",hearing:[{id:"h1",type:"text",label:"最終学歴の学校名"},{id:"h2",type:"yearmonth",label:"卒業年月"}],docs:[{id:"d1",name:"在留カード（表裏コピー）",group:null},{id:"d2",name:"パスポート（身分事項・査証ページコピー）",group:null},{id:"d3",name:"写真（縦4cm×横3cm）",group:null},{id:"d4",name:"課税証明書（市区町村発行）",group:null},{id:"d5",name:"法定調書合計表",group:null}]},
-  T07:{label:"技能（調理）新店舗初更新",note:"継続案件だが新店舗のため店舗固有書類が必要",hearing:[{id:"h1",type:"text",label:"最終学歴の学校名"},{id:"h2",type:"yearmonth",label:"卒業年月"}],docs:[{id:"d1",name:"在留カード（表裏コピー）",group:null},{id:"d2",name:"パスポート（身分事項・査証ページコピー）",group:null},{id:"d3",name:"写真（縦4cm×横3cm）",group:null},{id:"d4",name:"課税証明書（市区町村発行）",group:null},{id:"d5",name:"法定調書合計表",group:null},{id:"d6",name:"雇用契約書",group:"新店舗書類"},{id:"d7",name:"勤務先営業許可証",group:"新店舗書類"},{id:"d8",name:"勤務先写真（外観・内観）",group:"新店舗書類"},{id:"d9",name:"勤務先メニュー表",group:"新店舗書類"}]},
+  T01:{label:"技能（調理）COE",hearing:[{id:"h1",type:"text",label:"最終学歴の学校名"},{id:"h2",type:"date",label:"卒業年月日"},{id:"h3",type:"text",label:"過去の日本への出入国の有無"},{id:"h4",type:"text",label:"過去のCOE申請履歴"}],docs:[{id:"d1",name:"写真（縦4cm×横3cm）",group:null},{id:"d2",name:"パスポート",group:null},{id:"d3",name:"結核非発病証明書",group:null},{id:"d4",name:"職務経歴書",group:null},{id:"d5",name:"退職証明書（以前の会社）",group:null},{id:"d6",name:"雇用理由書",group:null},{id:"d7",name:"雇用契約書",group:"招へい企業資料"},{id:"d8",name:"登記事項証明書",group:"招へい企業資料"},{id:"d9",name:"法定調書合計表",group:"招へい企業資料"},{id:"d10",name:"直近の決算資料",group:"招へい企業資料"},{id:"d11",name:"勤務先営業許可証",group:"招へい企業資料"},{id:"d12",name:"勤務先写真（外観・内観）",group:"招へい企業資料"},{id:"d13",name:"勤務先メニュー表",group:"招へい企業資料"}]},
+  T02:{label:"技能（調理）転職後初更新・初回担当",hearing:[{id:"h1",type:"text",label:"最終学歴の学校名"},{id:"h2",type:"date",label:"卒業年月日"}],docs:[{id:"d1",name:"在留カード（表裏コピー）",group:null},{id:"d2",name:"パスポート（身分事項・査証ページコピー）",group:null},{id:"d3",name:"写真（縦4cm×横3cm）",group:null},{id:"d4",name:"課税証明書（市区町村発行）※1/1住民登録地",group:null},{id:"d5",name:"雇用契約書",group:null},{id:"d6",name:"勤務先写真（外観・内観）",group:null},{id:"d7",name:"職務経歴書",group:null},{id:"d8",name:"退職証明書（以前の会社）",group:null},{id:"d9",name:"法定調書合計表",group:"転職先書類"},{id:"d10",name:"登記事項証明書",group:"転職先書類"},{id:"d11",name:"直近の決算資料",group:"転職先書類"}]},
+  T03:{label:"技能（調理）継続更新",hearing:[{id:"h1",type:"text",label:"最終学歴の学校名"},{id:"h2",type:"date",label:"卒業年月日"}],docs:[{id:"d1",name:"在留カード（表裏コピー）",group:null},{id:"d2",name:"パスポート（身分事項・査証ページコピー）",group:null},{id:"d3",name:"写真（縦4cm×横3cm）",group:null},{id:"d4",name:"課税証明書（市区町村発行）",group:null},{id:"d5",name:"法定調書合計表",group:null}]},
+  T07:{label:"技能（調理）新店舗初更新",note:"継続案件だが新店舗のため店舗固有書類が必要",hearing:[{id:"h1",type:"text",label:"最終学歴の学校名"},{id:"h2",type:"date",label:"卒業年月日"}],docs:[{id:"d1",name:"在留カード（表裏コピー）",group:null},{id:"d2",name:"パスポート（身分事項・査証ページコピー）",group:null},{id:"d3",name:"写真（縦4cm×横3cm）",group:null},{id:"d4",name:"課税証明書（市区町村発行）",group:null},{id:"d5",name:"法定調書合計表",group:null},{id:"d6",name:"雇用契約書",group:"新店舗書類"},{id:"d7",name:"勤務先営業許可証",group:"新店舗書類"},{id:"d8",name:"勤務先写真（外観・内観）",group:"新店舗書類"},{id:"d9",name:"勤務先メニュー表",group:"新店舗書類"}]},
   T04:{label:"家族滞在 COE",hearing:[],docs:[{id:"d1",name:"写真（縦4cm×横3cm）※16歳以上",group:null},{id:"d2",name:"パスポート（本人）",group:null},{id:"d3",name:"婚姻証明書",group:"続柄証明"},{id:"d4",name:"出生証明書",group:"続柄証明"},{id:"d5",name:"結核非発病証明書",group:null},{id:"d6",name:"在留カード（扶養者）",group:null},{id:"d7",name:"パスポート（扶養者）",group:null},{id:"d8",name:"扶養者の在職証明書",group:null},{id:"d9",name:"扶養者の源泉徴収票／課税証明書",group:null}]},
   T05:{label:"家族滞在 初回担当更新",hearing:[],docs:[{id:"d1",name:"写真（縦4cm×横3cm）※16歳以上",group:null},{id:"d2",name:"在留カード（本人）",group:null},{id:"d3",name:"パスポート（本人）",group:null},{id:"d4",name:"在留カード（扶養者）",group:null},{id:"d5",name:"パスポート（扶養者）",group:null},{id:"d6",name:"婚姻証明書",group:"続柄証明"},{id:"d7",name:"出生証明書",group:"続柄証明"},{id:"d8",name:"扶養者の在職証明書",group:null},{id:"d9",name:"扶養者の課税証明書",group:null}]},
   T06:{label:"家族滞在 継続更新",hearing:[],docs:[{id:"d1",name:"写真（縦4cm×横3cm）※16歳以上",group:null},{id:"d2",name:"在留カード（本人）",group:null},{id:"d3",name:"パスポート（本人）",group:null},{id:"d4",name:"在留カード（扶養者）",group:null},{id:"d5",name:"パスポート（扶養者）",group:null},{id:"d6",name:"扶養者の在職証明書",group:null},{id:"d7",name:"扶養者の課税証明書",group:null}]},
@@ -641,7 +641,7 @@ function migrateData(saved){
   if(saved.cases) saved.cases = saved.cases.map(c=>{
     if(!c.docs && c.template_id && DEFAULT_TEMPLATES[c.template_id]){
       c.docs=DEFAULT_TEMPLATES[c.template_id].docs.map(d=>({...d,status:"未取得"}));
-      c.hearing_items=DEFAULT_TEMPLATES[c.template_id].hearing.map(h=>({...h,answer:"",year:"",month:""}));
+      c.hearing_items=DEFAULT_TEMPLATES[c.template_id].hearing.map(h=>({...h,answer:"",date:""}));
       c.additional_requests=c.additional_requests||[];
     }
     // 統合フィールド追加
@@ -2517,28 +2517,7 @@ function TabBasic({c,editMode,update}){
         </div>}
         {!isGenClient&&<div style={{gridColumn:"1/-1",display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
           <Field label="最終学歴の学校名" value={c.education_school} editMode={editMode} field="education_school" update={update}/>
-          <div>
-            <div style={{fontSize:10,color:"var(--text3)",fontWeight:500,marginBottom:3,letterSpacing:"0.05em"}}>卒業年月</div>
-            {editMode?(()=>{
-              const y=(c.education_yearmonth||"").slice(0,4);
-              const m=(c.education_yearmonth||"").slice(5,7);
-              const YEARS=Array.from({length:60},(_,i)=>String(new Date().getFullYear()-i));
-              const MONTHS=Array.from({length:12},(_,i)=>String(i+1).padStart(2,"0"));
-              const buildVal=(yy,mm)=>(yy&&mm)?`${yy}-${mm}`:"";
-              return(
-                <div style={{display:"flex",gap:6}}>
-                  <select value={y} onChange={e=>update("education_yearmonth",buildVal(e.target.value,m))} style={{flex:1,fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)"}}>
-                    <option value="">年</option>
-                    {YEARS.map(yy=><option key={yy} value={yy}>{yy}年</option>)}
-                  </select>
-                  <select value={m} onChange={e=>update("education_yearmonth",buildVal(y,e.target.value))} style={{flex:1,fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)"}}>
-                    <option value="">月</option>
-                    {MONTHS.map(mm=><option key={mm} value={mm}>{mm}月</option>)}
-                  </select>
-                </div>
-              );
-            })():<div style={{fontSize:13,color:c.education_yearmonth?"var(--text)":"var(--text3)"}}>{c.education_yearmonth?c.education_yearmonth.replace("-","年")+"月":"—"}</div>}
-          </div>
+          <Field label="卒業年月日" value={c.education_date} editMode={editMode} field="education_date" update={update} type="date"/>
         </div>}
         <div style={{gridColumn:"1/-1"}}>
           <div style={{fontSize:10,color:"var(--text3)",fontWeight:500,marginBottom:3,letterSpacing:"0.05em"}}>住所</div>
@@ -3301,7 +3280,7 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
   // 編集は常時インライン（自動保存）。入力のたびに clients ステートを直接更新する。
   // 日付フィールドは完全な YYYY-MM-DD 形式になった時点で sanitize。
   // company_name / work_start_date 変更時は work_history を自動同期。
-  const DATE_FIELDS=["dob","entry_date","residence_expiry","passport_expiry","work_start_date"];
+  const DATE_FIELDS=["dob","entry_date","residence_expiry","passport_expiry","work_start_date","education_date"];
   function update(f,v){
     const sid=selected?.client_id;
     if(!sid) return;
@@ -3358,7 +3337,7 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
       dependent_of:null, client_status:"active", relationship:null, school_name:null,
       photo:null, archived:false, salary_history:[], work_history:[],
       drive_path:"", drive_url:"",
-      education_school:"", education_yearmonth:""
+      education_school:"", education_date:""
     };
     setClients(prev=>[newClient,...prev]);
     setSelected(newClient);
@@ -3644,7 +3623,7 @@ function NewCaseModal({onClose,onSave,clients,nextNo,templates,companies}){
     const tmpl=templates[templateId];
     const cl=clients.find(c=>c.client_id===clientId);
     onSave({case_id:"A"+Date.now().toString().slice(-4),no:nextNo,category:"国際",client_id:clientId,template_id:templateId,case_title:title,status:"受任",accepted_date:new Date().toISOString().slice(0,10),applied_date:null,result_date:null,receipt_number:"",result:"",new_card:"",period:"",next_renewal:"",fee:0,paid:0,applicant:cl?.name_roman||"",applicant_id:clientId,requester:requester,requester_id:requesterId,notes:"",official_req_no:"",
-      docs:tmpl.docs.map(d=>({...d,status:"未取得"})),hearing_items:tmpl.hearing.map(h=>({...h,answer:"",year:"",month:""})),additional_requests:[]});
+      docs:tmpl.docs.map(d=>({...d,status:"未取得"})),hearing_items:tmpl.hearing.map(h=>({...h,answer:"",date:""})),additional_requests:[]});
   }
   return(
     <>{<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200}}>
@@ -3716,21 +3695,17 @@ function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments,templates,com
   function addDoc(){if(!newDocName.trim())return;onUpdate({...c,docs:[...c.docs,{id:"x"+Date.now(),name:newDocName.trim(),group:null,status:"未取得"}]});setNewDocName("");}
   function updateHearing(i,field,val){
     const items=[...c.hearing_items];
-    const before=items[i];
     items[i]={...items[i],[field]:val};
-    const after=items[i];
     onUpdate({...c,hearing_items:items});
     // クライアント台帳への自動反映（先勝ち方式）
     if(!client||!onUpdateClient) return;
-    const label=after.label||"";
+    const label=items[i].label||"";
     // 学校名はここでは反映しない（input の onBlur で確定後に判定する）
-    // 卒業年月：「年・月のどちらかが空」→「両方揃った」に
-    // 初めて変わった瞬間だけ発火（途中の変更には反応しない）
-    if(label==="卒業年月"){
-      const wasIncomplete=!before.year||!before.month;
-      const isComplete=after.year&&after.month;
-      if(wasIncomplete&&isComplete&&!client.education_yearmonth){
-        onUpdateClient(client.client_id,{education_yearmonth:`${after.year}-${after.month}`});
+    // 卒業年月日：DateInput が onBlur で値を確定してから onChange を呼ぶため、
+    // ここでは中間値の心配なし。台帳が空なら反映するシンプルな先勝ち判定。
+    if(label==="卒業年月日" && field==="date"){
+      if(!client.education_date && val){
+        onUpdateClient(client.client_id,{education_date:val});
       }
     }
   }
@@ -4199,11 +4174,8 @@ function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments,templates,com
           {c.hearing_items.map((item,i)=>(
             <div key={i} style={{marginBottom:12}}>
               <div style={{fontSize:12,color:"#444",marginBottom:5}}>{item.label}</div>
-              {item.type==="yearmonth"?(
-                <div style={{display:"flex",gap:6}}>
-                  <select value={item.year||""} onChange={e=>updateHearing(i,"year",e.target.value)} style={{fontSize:12,padding:"4px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}><option value="">年</option>{YEARS.map(y=><option key={y} value={y}>{y}年</option>)}</select>
-                  <select value={item.month||""} onChange={e=>updateHearing(i,"month",e.target.value)} style={{fontSize:12,padding:"4px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}><option value="">月</option>{MONTHS.map(m=><option key={m} value={m}>{m}月</option>)}</select>
-                </div>
+              {item.type==="date"?(
+                <DateInput value={item.date||""} onChange={v=>updateHearing(i,"date",v)} max="9999-12-31" min="1900-01-01" style={{width:"100%",fontSize:12,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/>
               ):<input value={item.answer||""} onChange={e=>updateHearing(i,"answer",e.target.value)} onBlur={e=>{if(item.label==="最終学歴の学校名"&&client&&onUpdateClient){if(!client.education_school&&e.target.value){onUpdateClient(client.client_id,{education_school:e.target.value});}}}} placeholder="回答を入力…" style={{width:"100%",fontSize:12,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/>}
             </div>
           ))}
@@ -8133,7 +8105,7 @@ function MasterTemplate({templates,setTemplates,data,setData}){
                   <input value={h.label} onChange={e=>updateHearing(i,"label",e.target.value)} style={{flex:1,fontSize:12,padding:"5px 8px",borderRadius:4,border:"0.5px solid var(--border)",background:"var(--bg2)"}} placeholder="項目名"/>
                   <select value={h.type} onChange={e=>updateHearing(i,"type",e.target.value)} style={{width:100,fontSize:11,padding:"5px 6px",borderRadius:4,border:"0.5px solid var(--border)",background:"var(--bg2)"}}>
                     <option value="text">テキスト</option>
-                    <option value="yearmonth">年月</option>
+                    <option value="date">年月日</option>
                     <option value="date">日付</option>
                     <option value="number">数値</option>
                     <option value="textarea">長文</option>
