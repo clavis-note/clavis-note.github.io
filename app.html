@@ -3716,25 +3716,21 @@ function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments,templates,com
   function addDoc(){if(!newDocName.trim())return;onUpdate({...c,docs:[...c.docs,{id:"x"+Date.now(),name:newDocName.trim(),group:null,status:"未取得"}]});setNewDocName("");}
   function updateHearing(i,field,val){
     const items=[...c.hearing_items];
+    const before=items[i];
     items[i]={...items[i],[field]:val};
+    const after=items[i];
     onUpdate({...c,hearing_items:items});
     // クライアント台帳への自動反映（先勝ち方式）
-    // ヒアリング label が学歴系で、台帳が空の時だけ書き込む
     if(!client||!onUpdateClient) return;
-    const item=items[i];
-    const label=item.label||"";
-    if(label==="最終学歴の学校名" && field==="answer"){
-      if(!client.education_school && val){
-        onUpdateClient(client.client_id,{education_school:val});
-      }
-    }
-    if(label==="卒業年月" && (field==="year"||field==="month")){
-      if(!client.education_yearmonth){
-        const yy=field==="year"?val:item.year;
-        const mm=field==="month"?val:item.month;
-        if(yy&&mm){
-          onUpdateClient(client.client_id,{education_yearmonth:`${yy}-${mm}`});
-        }
+    const label=after.label||"";
+    // 学校名はここでは反映しない（input の onBlur で確定後に判定する）
+    // 卒業年月：「年・月のどちらかが空」→「両方揃った」に
+    // 初めて変わった瞬間だけ発火（途中の変更には反応しない）
+    if(label==="卒業年月"){
+      const wasIncomplete=!before.year||!before.month;
+      const isComplete=after.year&&after.month;
+      if(wasIncomplete&&isComplete&&!client.education_yearmonth){
+        onUpdateClient(client.client_id,{education_yearmonth:`${after.year}-${after.month}`});
       }
     }
   }
@@ -4208,7 +4204,7 @@ function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments,templates,com
                   <select value={item.year||""} onChange={e=>updateHearing(i,"year",e.target.value)} style={{fontSize:12,padding:"4px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}><option value="">年</option>{YEARS.map(y=><option key={y} value={y}>{y}年</option>)}</select>
                   <select value={item.month||""} onChange={e=>updateHearing(i,"month",e.target.value)} style={{fontSize:12,padding:"4px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}><option value="">月</option>{MONTHS.map(m=><option key={m} value={m}>{m}月</option>)}</select>
                 </div>
-              ):<input value={item.answer||""} onChange={e=>updateHearing(i,"answer",e.target.value)} placeholder="回答を入力…" style={{width:"100%",fontSize:12,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/>}
+              ):<input value={item.answer||""} onChange={e=>updateHearing(i,"answer",e.target.value)} onBlur={e=>{if(item.label==="最終学歴の学校名"&&client&&onUpdateClient){if(!client.education_school&&e.target.value){onUpdateClient(client.client_id,{education_school:e.target.value});}}}} placeholder="回答を入力…" style={{width:"100%",fontSize:12,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/>}
             </div>
           ))}
         </div>
