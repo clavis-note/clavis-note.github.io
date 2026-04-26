@@ -3597,10 +3597,12 @@ function TemplatePreviewModal({templateId,templates,onClose}){
   );
 }
 
-function NewCaseModal({onClose,onSave,clients,nextNo,templates}){
+function NewCaseModal({onClose,onSave,clients,nextNo,templates,companies}){
   const [clientId,setClientId]=useState("");
   const [templateId,setTemplateId]=useState("");
   const [title,setTitle]=useState("");
+  const [requesterId,setRequesterId]=useState("");
+  const [requester,setRequester]=useState("");
   const [preview,setPreview]=useState(false);
   const selClient=clients.find(x=>x.client_id===clientId);
   const availableTemplates=Object.entries(templates).filter(([tid,t])=>{
@@ -3613,7 +3615,7 @@ function NewCaseModal({onClose,onSave,clients,nextNo,templates}){
     if(!clientId||!templateId||!title)return;
     const tmpl=templates[templateId];
     const cl=clients.find(c=>c.client_id===clientId);
-    onSave({case_id:"A"+Date.now().toString().slice(-4),no:nextNo,category:"国際",client_id:clientId,template_id:templateId,case_title:title,status:"受任",accepted_date:new Date().toISOString().slice(0,10),applied_date:null,result_date:null,receipt_number:"",result:"",new_card:"",period:"",next_renewal:"",fee:0,paid:0,applicant:cl?.name_roman||"",applicant_id:clientId,requester:"",requester_id:"",notes:"",official_req_no:"",
+    onSave({case_id:"A"+Date.now().toString().slice(-4),no:nextNo,category:"国際",client_id:clientId,template_id:templateId,case_title:title,status:"受任",accepted_date:new Date().toISOString().slice(0,10),applied_date:null,result_date:null,receipt_number:"",result:"",new_card:"",period:"",next_renewal:"",fee:0,paid:0,applicant:cl?.name_roman||"",applicant_id:clientId,requester:requester,requester_id:requesterId,notes:"",official_req_no:"",
       docs:tmpl.docs.map(d=>({...d,status:"未取得"})),hearing_items:tmpl.hearing.map(h=>({...h,answer:"",year:"",month:""})),additional_requests:[]});
   }
   return(
@@ -3629,9 +3631,27 @@ function NewCaseModal({onClose,onSave,clients,nextNo,templates}){
               <option value="">選択してください</option>{clients.map(c=><option key={c.client_id} value={c.client_id}>{c.name_roman}</option>)}
             </select></div>
           {clientId&&<div><div style={{fontSize:10,color:"#999",marginBottom:4}}>申請種別</div>
-            <div style={{display:"flex",gap:6}}><select value={templateId} onChange={e=>{setTemplateId(e.target.value);const c=clients.find(x=>x.client_id===clientId);if(c&&e.target.value)setTitle(`${c.name_roman} ${templates[e.target.value].label}`);}} style={{flex:1,fontSize:13,padding:"6px 8px",borderRadius:6,border:"0.5px solid rgba(0,0,0,0.2)",background:"var(--bg2)"}}>
+            <div style={{display:"flex",gap:6}}><select value={templateId} onChange={e=>{setTemplateId(e.target.value);if(e.target.value)setTitle(templates[e.target.value].label);}} style={{flex:1,fontSize:13,padding:"6px 8px",borderRadius:6,border:"0.5px solid rgba(0,0,0,0.2)",background:"var(--bg2)"}}>
               <option value="">選択してください</option>{availableTemplates.map(([tid,t])=><option key={tid} value={tid}>{t.label}</option>)}
             </select>{templateId&&<button onClick={()=>setPreview(true)} style={{fontSize:11,padding:"5px 10px",cursor:"pointer",borderRadius:6,border:"0.5px solid #378ADD",background:"#E6F1FB",color:"#185FA5",whiteSpace:"nowrap"}}>書類確認</button>}</div></div>}
+          {templateId&&<div>
+            <div style={{fontSize:10,color:"#999",marginBottom:4}}>依頼主（任意）</div>
+            <div style={{display:"flex",gap:4}}>
+              <select value={requesterId}
+                onChange={e=>{
+                  setRequesterId(e.target.value);
+                  const co=(companies||[]).find(co=>co.company_id===e.target.value);
+                  setRequester(co?co.name:"");
+                }}
+                style={{width:140,fontSize:12,padding:"5px 8px",borderRadius:6,border:"0.5px solid rgba(0,0,0,0.2)",background:"var(--bg2)"}}>
+                <option value="">会社を選択</option>
+                {(companies||[]).filter(co=>co.status!=="inactive").map(co=>(
+                  <option key={co.company_id} value={co.company_id}>{co.name}</option>
+                ))}
+              </select>
+              <input value={requester} onChange={e=>{setRequester(e.target.value);setRequesterId("");}} placeholder="直接入力も可" style={{flex:1,fontSize:13,padding:"6px 8px",borderRadius:6,border:"0.5px solid rgba(0,0,0,0.2)",background:"var(--bg2)"}}/>
+            </div>
+          </div>}
           {templateId&&<div><div style={{fontSize:10,color:"#999",marginBottom:4}}>案件タイトル</div>
             <input value={title} onChange={e=>setTitle(e.target.value)} style={{width:"100%",fontSize:13,padding:"6px 8px",borderRadius:6,border:"0.5px solid rgba(0,0,0,0.2)",background:"var(--bg2)"}}/>
             <div style={{fontSize:11,color:"#999",marginTop:5}}>書類リスト：{templates[templateId].docs.length}件が自動展開されます</div></div>}
@@ -3645,7 +3665,7 @@ function NewCaseModal({onClose,onSave,clients,nextNo,templates}){
   );
 }
 
-function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments,templates}){
+function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments,templates,companies}){
   const isMobile=useMobile();
   const client=clients.find(x=>x.client_id===c.client_id);
   const tmpl=templates[c.template_id];
@@ -3975,7 +3995,12 @@ function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments,templates}){
             {c.applicant&&<div style={{fontSize:16,fontWeight:600,marginBottom:2,display:"flex",alignItems:"center",gap:6}}>
               {client?<span onClick={()=>setShowClientModal(true)} style={{cursor:"pointer",borderBottom:"1px dashed #999"}} title="クライアント情報を表示">{c.applicant}</span>:<span>{c.applicant}</span>}
             </div>}
-            <div style={{fontSize:13,color:c.applicant?"var(--text3)":"#1a1a1a",fontWeight:c.applicant?400:500,marginBottom:3}}>{c.case_title}</div>
+            <input value={c.case_title||""}
+              onChange={e=>updateField("case_title",e.target.value)}
+              placeholder="件名（例: 技能（調理）COE）"
+              style={{fontSize:13,color:c.applicant?"var(--text3)":"#1a1a1a",fontWeight:c.applicant?400:500,marginBottom:3,padding:"3px 6px",borderRadius:4,border:"0.5px solid transparent",background:"transparent",width:"100%"}}
+              onFocus={e=>{e.target.style.border="0.5px solid rgba(0,0,0,0.15)";e.target.style.background="var(--bg2)";}}
+              onBlur={e=>{e.target.style.border="0.5px solid transparent";e.target.style.background="transparent";}}/>
             <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
               <span style={{fontSize:12,color:"#666"}}>{client?.name_roman}</span>
               {client&&(client.drive_path||client.drive_url)&&<span onClick={()=>{if(client.drive_path){navigator.clipboard.writeText(client.drive_path);const b=document.getElementById("toast");if(b){b.textContent="📋 "+client.name_roman+" のパスをコピーしました";b.style.opacity=1;setTimeout(()=>b.style.opacity=0,1800);}}else if(client.drive_url){window.open(client.drive_url,"_blank","noopener");}}} style={{fontSize:11,cursor:"pointer",opacity:0.6}} title={(client.drive_path?"パスをコピー: "+client.drive_path:"Googleドライブを開く")}>📂</span>}
@@ -3990,9 +4015,35 @@ function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments,templates}){
             {onDelete&&<button onClick={onDelete} style={{fontSize:10,padding:"4px 10px",cursor:"pointer",borderRadius:5,border:"0.5px solid #A32D2D",background:"transparent",color:"#A32D2D"}}>🗑 削除</button>}
           </div>
         </div>
-        <div style={{marginBottom:10}}>
-          <div style={{fontSize:10,color:"#999",marginBottom:3}}>申請人</div>
-          <input value={c.applicant||""} onChange={e=>updateField("applicant",e.target.value)} placeholder="申請人名（例: SAPKOTA DIPAK+BHAGAWATI）" style={{fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",width:"100%"}}/>
+        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10,marginBottom:10}}>
+          <div>
+            <div style={{fontSize:10,color:"#999",marginBottom:3}}>申請人</div>
+            <input value={c.applicant||""} onChange={e=>updateField("applicant",e.target.value)} placeholder="申請人名（例: SAPKOTA DIPAK+BHAGAWATI）" style={{fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",width:"100%"}}/>
+          </div>
+          <div>
+            <div style={{fontSize:10,color:"#999",marginBottom:3}}>依頼主（会社・個人）</div>
+            <div style={{display:"flex",gap:4}}>
+              <select value={c.requester_id||""}
+                onChange={e=>{
+                  if(e.target.value){
+                    const co=(companies||[]).find(co=>co.company_id===e.target.value);
+                    if(co){updateField("requester",co.name);updateField("requester_id",co.company_id);}
+                  }else{
+                    updateField("requester","");updateField("requester_id","");
+                  }
+                }}
+                style={{width:120,fontSize:11,padding:"4px 6px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}>
+                <option value="">会社を選択</option>
+                {(companies||[]).filter(co=>co.status!=="inactive").map(co=>(
+                  <option key={co.company_id} value={co.company_id}>{co.name}{co.status==="changing"?" 🔄":""}</option>
+                ))}
+              </select>
+              <input value={c.requester||""}
+                onChange={e=>{updateField("requester",e.target.value);updateField("requester_id","");}}
+                placeholder="直接入力も可"
+                style={{flex:1,fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/>
+            </div>
+          </div>
         </div>
         <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:10,marginBottom:10}}>
           {[["受任日","accepted_date"],["申請日","applied_date"],["結果日","result_date"]].map(([label,field])=>(
@@ -4000,19 +4051,22 @@ function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments,templates}){
               <input type="date" max="9999-12-31" min="1900-01-01" value={c[field]||""} onChange={e=>updateField(field,e.target.value||null)} style={{fontSize:12,padding:"4px 6px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",width:"100%"}}/></div>
           ))}
         </div>
-        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10}}>
+        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10,marginBottom:10}}>
           <div><div style={{fontSize:10,color:"#999",marginBottom:3}}>受付番号</div>
             <input value={c.receipt_number||""} onChange={e=>updateField("receipt_number",e.target.value)} placeholder="東オン認XXXXXXXX" style={{fontSize:12,padding:"4px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",width:"100%"}}/></div>
-          <div><div style={{fontSize:10,color:"#999",marginBottom:3}}>📁 Googleドライブ</div>
-            <div style={{display:"flex",flexDirection:"column",gap:4}}>
-              <div style={{display:"flex",gap:4}}>
-                <input value={c.drive_path||""} onChange={e=>updateField("drive_path",e.target.value)} placeholder="ローカルパス（エクスプローラー用）" style={{fontSize:12,padding:"4px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",flex:1}}/>
-                {c.drive_path&&<button onClick={()=>{navigator.clipboard.writeText(c.drive_path);const b=document.getElementById("toast");if(b){b.textContent="📋 パスをコピーしました";b.style.opacity=1;setTimeout(()=>b.style.opacity=0,1800);}}} style={{fontSize:11,padding:"4px 8px",borderRadius:5,background:"var(--bg2)",border:"0.5px solid var(--border)",cursor:"pointer",color:"var(--text)",whiteSpace:"nowrap"}}>📂 コピー</button>}
-              </div>
-              <div style={{display:"flex",gap:4}}>
-                <input value={c.drive_url||""} onChange={e=>updateField("drive_url",e.target.value)} placeholder="Web URL（ブラウザ用）" style={{fontSize:12,padding:"4px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",flex:1}}/>
-                {c.drive_url&&<a href={c.drive_url} target="_blank" rel="noopener" style={{fontSize:11,padding:"4px 8px",borderRadius:5,background:"var(--accent-bg)",color:"var(--accent-text)",textDecoration:"none",display:"flex",alignItems:"center",whiteSpace:"nowrap"}}>🌐 開く</a>}
-              </div>
+          <div><div style={{fontSize:10,color:"#999",marginBottom:3}}>職務上請求番号</div>
+            <textarea value={c.official_req_no||""} onChange={e=>updateField("official_req_no",e.target.value)} rows={1} placeholder="複数はカンマまたは改行区切り" style={{width:"100%",fontSize:12,padding:"4px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",resize:"vertical",fontFamily:"inherit",lineHeight:1.5}}/></div>
+        </div>
+        <div>
+          <div style={{fontSize:10,color:"#999",marginBottom:3}}>📁 Googleドライブ</div>
+          <div style={{display:"flex",flexDirection:"column",gap:4}}>
+            <div style={{display:"flex",gap:4}}>
+              <input value={c.drive_path||""} onChange={e=>updateField("drive_path",e.target.value)} placeholder="ローカルパス（エクスプローラー用）" style={{fontSize:12,padding:"4px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",flex:1}}/>
+              {c.drive_path&&<button onClick={()=>{navigator.clipboard.writeText(c.drive_path);const b=document.getElementById("toast");if(b){b.textContent="📋 パスをコピーしました";b.style.opacity=1;setTimeout(()=>b.style.opacity=0,1800);}}} style={{fontSize:11,padding:"4px 8px",borderRadius:5,background:"var(--bg2)",border:"0.5px solid var(--border)",cursor:"pointer",color:"var(--text)",whiteSpace:"nowrap"}}>📂 コピー</button>}
+            </div>
+            <div style={{display:"flex",gap:4}}>
+              <input value={c.drive_url||""} onChange={e=>updateField("drive_url",e.target.value)} placeholder="Web URL（ブラウザ用）" style={{fontSize:12,padding:"4px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",flex:1}}/>
+              {c.drive_url&&<a href={c.drive_url} target="_blank" rel="noopener" style={{fontSize:11,padding:"4px 8px",borderRadius:5,background:"var(--accent-bg)",color:"var(--accent-text)",textDecoration:"none",display:"flex",alignItems:"center",whiteSpace:"nowrap"}}>🌐 開く</a>}
             </div>
           </div>
         </div>
@@ -4772,9 +4826,9 @@ function CaseManagement({data,setData,navigateCaseId,clearNavigate}){
         {isMobile&&showDetail&&<button onClick={()=>setShowDetail(false)} style={{display:"flex",alignItems:"center",gap:4,padding:"8px 14px",border:"none",background:"var(--bg)",borderBottom:"0.5px solid var(--border)",cursor:"pointer",color:"var(--accent-text)",fontSize:13,fontWeight:500,width:"100%"}}>← 一覧に戻る</button>}
         {!sel?<div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",color:"#bbb"}}>案件を選択してください</div>
           :isGeneral?<GeneralCaseDetail c={sel} onUpdate={updated=>{setCases(prev=>prev.map(c=>c.case_id===updated.case_id?updated:c));setSelected(updated);}} onDelete={()=>{if(confirm(`「${sel.case_title}」を削除しますか？\n\n⚠️ 事件簿からも完全に消えます。\n記録を残したい場合は「キャンセル」を押して\nステータスを「キャンセル」に変更してください。`)){setCases(prev=>prev.filter(x=>x.case_id!==sel.case_id));setSelected(null);}}} clients={clients} payments={payments||[]}/>
-          :<CaseDetail c={sel} onUpdate={updated=>{setCases(prev=>prev.map(c=>c.case_id===updated.case_id?updated:c));setSelected(updated);}} onDelete={()=>{if(confirm(`「${sel.case_title}」を削除しますか？\n\n⚠️ 事件簿からも完全に消えます。\n記録を残したい場合は「キャンセル」を押して\nステータスを「キャンセル」に変更してください。`)){setCases(prev=>prev.filter(x=>x.case_id!==sel.case_id));setSelected(null);}}} clients={clients} allCases={cases} payments={payments||[]} templates={data.templates||DEFAULT_TEMPLATES}/>}
+          :<CaseDetail c={sel} onUpdate={updated=>{setCases(prev=>prev.map(c=>c.case_id===updated.case_id?updated:c));setSelected(updated);}} onDelete={()=>{if(confirm(`「${sel.case_title}」を削除しますか？\n\n⚠️ 事件簿からも完全に消えます。\n記録を残したい場合は「キャンセル」を押して\nステータスを「キャンセル」に変更してください。`)){setCases(prev=>prev.filter(x=>x.case_id!==sel.case_id));setSelected(null);}}} clients={clients} allCases={cases} payments={payments||[]} templates={data.templates||DEFAULT_TEMPLATES} companies={data.companies}/>}
       </div>
-      {showNew&&subTab==="immigration"&&<NewCaseModal onClose={()=>setShowNew(false)} clients={clients} nextNo={nextNo} templates={data.templates||DEFAULT_TEMPLATES} onSave={nc=>{setCases(prev=>[nc,...prev]);setSelected(nc);setShowNew(false);}}/>}
+      {showNew&&subTab==="immigration"&&<NewCaseModal onClose={()=>setShowNew(false)} clients={clients} nextNo={nextNo} templates={data.templates||DEFAULT_TEMPLATES} companies={data.companies} onSave={nc=>{setCases(prev=>[nc,...prev]);setSelected(nc);setShowNew(false);}}/>}
       {showNew&&subTab==="general"&&<NewGeneralCaseModal onClose={()=>setShowNew(false)} clients={clients} companies={companies||[]} nextNo={nextNo} onSave={nc=>{setCases(prev=>[nc,...prev]);setSelected(nc);setShowNew(false);}}/>}
     </div>
   );
