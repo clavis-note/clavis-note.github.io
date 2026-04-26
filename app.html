@@ -2511,8 +2511,10 @@ function TabBasic({c,editMode,update}){
         </div>}
         <Field label="電話番号" value={c.phone} editMode={editMode} field="phone" update={update}/>
         <Field label="メールアドレス" value={c.email} editMode={editMode} field="email" update={update}/>
-        {!isGenClient&&<Field label="所属会社" value={c.company_name} editMode={editMode} field="company_name" update={update}/>}
-        {!isGenClient&&<Field label="店舗・部署" value={c.store} editMode={editMode} field="store" update={update}/>}
+        {!isGenClient&&<div style={{gridColumn:"1/-1",display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+          <Field label="所属会社" value={c.company_name} editMode={editMode} field="company_name" update={update}/>
+          <Field label="店舗・部署" value={c.store} editMode={editMode} field="store" update={update}/>
+        </div>}
         {!isGenClient&&<div style={{gridColumn:"1/-1",display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
           <Field label="最終学歴の学校名" value={c.education_school} editMode={editMode} field="education_school" update={update}/>
           <div>
