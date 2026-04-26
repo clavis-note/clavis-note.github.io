@@ -2513,6 +2513,31 @@ function TabBasic({c,editMode,update}){
         <Field label="メールアドレス" value={c.email} editMode={editMode} field="email" update={update}/>
         {!isGenClient&&<Field label="所属会社" value={c.company_name} editMode={editMode} field="company_name" update={update}/>}
         {!isGenClient&&<Field label="店舗・部署" value={c.store} editMode={editMode} field="store" update={update}/>}
+        {!isGenClient&&<div style={{gridColumn:"1/-1",display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+          <Field label="最終学歴の学校名" value={c.education_school} editMode={editMode} field="education_school" update={update}/>
+          <div>
+            <div style={{fontSize:10,color:"var(--text3)",fontWeight:500,marginBottom:3,letterSpacing:"0.05em"}}>卒業年月</div>
+            {editMode?(()=>{
+              const y=(c.education_yearmonth||"").slice(0,4);
+              const m=(c.education_yearmonth||"").slice(5,7);
+              const YEARS=Array.from({length:60},(_,i)=>String(new Date().getFullYear()-i));
+              const MONTHS=Array.from({length:12},(_,i)=>String(i+1).padStart(2,"0"));
+              const buildVal=(yy,mm)=>(yy&&mm)?`${yy}-${mm}`:"";
+              return(
+                <div style={{display:"flex",gap:6}}>
+                  <select value={y} onChange={e=>update("education_yearmonth",buildVal(e.target.value,m))} style={{flex:1,fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)"}}>
+                    <option value="">年</option>
+                    {YEARS.map(yy=><option key={yy} value={yy}>{yy}年</option>)}
+                  </select>
+                  <select value={m} onChange={e=>update("education_yearmonth",buildVal(y,e.target.value))} style={{flex:1,fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)"}}>
+                    <option value="">月</option>
+                    {MONTHS.map(mm=><option key={mm} value={mm}>{mm}月</option>)}
+                  </select>
+                </div>
+              );
+            })():<div style={{fontSize:13,color:c.education_yearmonth?"var(--text)":"var(--text3)"}}>{c.education_yearmonth?c.education_yearmonth.replace("-","年")+"月":"—"}</div>}
+          </div>
+        </div>}
         <div style={{gridColumn:"1/-1"}}>
           <div style={{fontSize:10,color:"var(--text3)",fontWeight:500,marginBottom:3,letterSpacing:"0.05em"}}>住所</div>
           {editMode?(
@@ -3330,7 +3355,8 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
       company_name:"", store:"", work_start_date:"", notes:"", address:"", postal_code:"",
       dependent_of:null, client_status:"active", relationship:null, school_name:null,
       photo:null, archived:false, salary_history:[], work_history:[],
-      drive_path:"", drive_url:""
+      drive_path:"", drive_url:"",
+      education_school:"", education_yearmonth:""
     };
     setClients(prev=>[newClient,...prev]);
     setSelected(newClient);
@@ -3665,7 +3691,7 @@ function NewCaseModal({onClose,onSave,clients,nextNo,templates,companies}){
   );
 }
 
-function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments,templates,companies}){
+function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments,templates,companies,onUpdateClient}){
   const isMobile=useMobile();
   const client=clients.find(x=>x.client_id===c.client_id);
   const tmpl=templates[c.template_id];
@@ -3686,7 +3712,30 @@ function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments,templates,com
   function cycleDoc(docId){onUpdate({...c,docs:c.docs.map(d=>d.id!==docId?d:{...d,status:DOC_STATUS_CYCLE[d.status]||"未取得"})});}
   function setDocStatus(docId,status){onUpdate({...c,docs:c.docs.map(d=>d.id===docId?{...d,status}:d)});}
   function addDoc(){if(!newDocName.trim())return;onUpdate({...c,docs:[...c.docs,{id:"x"+Date.now(),name:newDocName.trim(),group:null,status:"未取得"}]});setNewDocName("");}
-  function updateHearing(i,field,val){const items=[...c.hearing_items];items[i]={...items[i],[field]:val};onUpdate({...c,hearing_items:items});}
+  function updateHearing(i,field,val){
+    const items=[...c.hearing_items];
+    items[i]={...items[i],[field]:val};
+    onUpdate({...c,hearing_items:items});
+    // クライアント台帳への自動反映（先勝ち方式）
+    // ヒアリング label が学歴系で、台帳が空の時だけ書き込む
+    if(!client||!onUpdateClient) return;
+    const item=items[i];
+    const label=item.label||"";
+    if(label==="最終学歴の学校名" && field==="answer"){
+      if(!client.education_school && val){
+        onUpdateClient(client.client_id,{education_school:val});
+      }
+    }
+    if(label==="卒業年月" && (field==="year"||field==="month")){
+      if(!client.education_yearmonth){
+        const yy=field==="year"?val:item.year;
+        const mm=field==="month"?val:item.month;
+        if(yy&&mm){
+          onUpdateClient(client.client_id,{education_yearmonth:`${yy}-${mm}`});
+        }
+      }
+    }
+  }
   function updateField(f,v){onUpdate({...c,[f]:v});}
   function resetReqForm(){setNewReqDocs([""]);setNewReqDate(new Date().toISOString().slice(0,10));setNewReqDeadline("");setNewReqSubmitDate("");setNewReqMethod("");setNewReqTracking("");setNewReqNote("");setNewReqMemo("");setEditReqId(null);}
   function addAdditionalRequest(){
@@ -4725,6 +4774,9 @@ function CaseManagement({data,setData,navigateCaseId,clearNavigate}){
   const isMobile=useMobile();
   const {clients,cases,companies,payments}=data;
   const setCases=useCallback(fn=>{setData(prev=>{const nc=typeof fn==="function"?fn(prev.cases):fn;return{...prev,cases:nc};});},[setData]);
+  const onUpdateClient=useCallback((clientId,patch)=>{
+    setData(prev=>({...prev,clients:prev.clients.map(c=>c.client_id===clientId?{...c,...patch}:c)}));
+  },[setData]);
   const [subTab,setSubTab]=useState("immigration");
   const [selected,setSelected]=useState(()=>{
     if(navigateCaseId){const t=cases.find(c=>c.case_id===navigateCaseId);if(t)return t;}
@@ -4826,7 +4878,7 @@ function CaseManagement({data,setData,navigateCaseId,clearNavigate}){
         {isMobile&&showDetail&&<button onClick={()=>setShowDetail(false)} style={{display:"flex",alignItems:"center",gap:4,padding:"8px 14px",border:"none",background:"var(--bg)",borderBottom:"0.5px solid var(--border)",cursor:"pointer",color:"var(--accent-text)",fontSize:13,fontWeight:500,width:"100%"}}>← 一覧に戻る</button>}
         {!sel?<div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",color:"#bbb"}}>案件を選択してください</div>
           :isGeneral?<GeneralCaseDetail c={sel} onUpdate={updated=>{setCases(prev=>prev.map(c=>c.case_id===updated.case_id?updated:c));setSelected(updated);}} onDelete={()=>{if(confirm(`「${sel.case_title}」を削除しますか？\n\n⚠️ 事件簿からも完全に消えます。\n記録を残したい場合は「キャンセル」を押して\nステータスを「キャンセル」に変更してください。`)){setCases(prev=>prev.filter(x=>x.case_id!==sel.case_id));setSelected(null);}}} clients={clients} payments={payments||[]}/>
-          :<CaseDetail c={sel} onUpdate={updated=>{setCases(prev=>prev.map(c=>c.case_id===updated.case_id?updated:c));setSelected(updated);}} onDelete={()=>{if(confirm(`「${sel.case_title}」を削除しますか？\n\n⚠️ 事件簿からも完全に消えます。\n記録を残したい場合は「キャンセル」を押して\nステータスを「キャンセル」に変更してください。`)){setCases(prev=>prev.filter(x=>x.case_id!==sel.case_id));setSelected(null);}}} clients={clients} allCases={cases} payments={payments||[]} templates={data.templates||DEFAULT_TEMPLATES} companies={data.companies}/>}
+          :<CaseDetail c={sel} onUpdate={updated=>{setCases(prev=>prev.map(c=>c.case_id===updated.case_id?updated:c));setSelected(updated);}} onDelete={()=>{if(confirm(`「${sel.case_title}」を削除しますか？\n\n⚠️ 事件簿からも完全に消えます。\n記録を残したい場合は「キャンセル」を押して\nステータスを「キャンセル」に変更してください。`)){setCases(prev=>prev.filter(x=>x.case_id!==sel.case_id));setSelected(null);}}} clients={clients} allCases={cases} payments={payments||[]} templates={data.templates||DEFAULT_TEMPLATES} companies={data.companies} onUpdateClient={onUpdateClient}/>}
       </div>
       {showNew&&subTab==="immigration"&&<NewCaseModal onClose={()=>setShowNew(false)} clients={clients} nextNo={nextNo} templates={data.templates||DEFAULT_TEMPLATES} companies={data.companies} onSave={nc=>{setCases(prev=>[nc,...prev]);setSelected(nc);setShowNew(false);}}/>}
       {showNew&&subTab==="general"&&<NewGeneralCaseModal onClose={()=>setShowNew(false)} clients={clients} companies={companies||[]} nextNo={nextNo} onSave={nc=>{setCases(prev=>[nc,...prev]);setSelected(nc);setShowNew(false);}}/>}
