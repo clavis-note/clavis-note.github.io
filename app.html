@@ -3246,12 +3246,18 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
   function update(f,v){
     const sid=selected?.client_id;
     if(!sid) return;
+    // 日付フィールドのguard: Android Chromeのdate pickerとReact controlled inputの
+    // 衝突を防ぐため、完全な YYYY-MM-DD 形式かつ現実的な年範囲のときだけstate更新する。
+    // 部分値（"19-05-15" や "2024-" 等）でstate更新するとAndroidピッカーが桁ズレを起こす。
+    let val=v;
+    if(DATE_FIELDS.includes(f) && typeof v==="string" && v!==""){
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(v)) return; // 不完全な値はスキップ
+      const y=parseInt(v.slice(0,4));
+      if(y<1900||y>9999) return;                  // 範囲外もスキップ
+      val=sanitizeDate(v);
+    }
     setClients(prev=>prev.map(c=>{
       if(c.client_id!==sid) return c;
-      let val=v;
-      if(DATE_FIELDS.includes(f) && typeof v==="string" && /^\d{4,}-\d{2}-\d{2}$/.test(v)){
-        val=sanitizeDate(v);
-      }
       let updated={...c,[f]:val};
       // company_name / work_start_date 変更時、work_history を自動同期
       if((f==="company_name"||f==="work_start_date") && updated.company_name && updated.work_start_date && updated.work_start_date!=="未定"){
