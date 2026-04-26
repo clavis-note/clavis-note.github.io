@@ -2600,8 +2600,12 @@ function TabResidence({c,editMode,update,office}){
           </div>
           <div>
             <div style={{fontSize:10,color:"var(--text3)",fontWeight:500,marginBottom:3,letterSpacing:"0.05em"}}>在留期限</div>
-            {editMode?<DateInput max="9999-12-31" min="1900-01-01" value={c.residence_expiry||""} onChange={v=>update("residence_expiry",v)} style={{fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)"}}/>
-              :<span style={{fontSize:13,display:"flex",alignItems:"center",gap:8}}>{c.residence_expiry||"—"} <AlertBadge days={days}/></span>}
+            {editMode?(
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <DateInput max="9999-12-31" min="1900-01-01" value={c.residence_expiry||""} onChange={v=>update("residence_expiry",v)} style={{fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)"}}/>
+                <AlertBadge days={days}/>
+              </div>
+            ):<span style={{fontSize:13,display:"flex",alignItems:"center",gap:8}}>{c.residence_expiry||"—"} <AlertBadge days={days}/></span>}
           </div>
           <Field label="在留カード番号" value={c.residence_card} editMode={editMode} field="residence_card" update={update}/>
           <Field label="入国日" value={c.entry_date} editMode={editMode} field="entry_date" update={update} type="date" max="9999-12-31" min="1900-01-01"/>
@@ -2612,8 +2616,12 @@ function TabResidence({c,editMode,update,office}){
           <Field label="番号" value={c.passport_number} editMode={editMode} field="passport_number" update={update}/>
           <div>
             <div style={{fontSize:10,color:"var(--text3)",fontWeight:500,marginBottom:3,letterSpacing:"0.05em"}}>有効期限</div>
-            {editMode?<DateInput max="9999-12-31" min="1900-01-01" value={c.passport_expiry||""} onChange={v=>update("passport_expiry",v)} style={{fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)"}}/>
-              :<span style={{fontSize:13,display:"flex",alignItems:"center",gap:8}}>{c.passport_expiry||"—"} <AlertBadge days={pdays}/></span>}
+            {editMode?(
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <DateInput max="9999-12-31" min="1900-01-01" value={c.passport_expiry||""} onChange={v=>update("passport_expiry",v)} style={{fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)"}}/>
+                <AlertBadge days={pdays}/>
+              </div>
+            ):<span style={{fontSize:13,display:"flex",alignItems:"center",gap:8}}>{c.passport_expiry||"—"} <AlertBadge days={pdays}/></span>}
           </div>
         </div>
       </Card>
@@ -3493,6 +3501,7 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
               </div>
               <div style={{display:"flex",gap:6,alignItems:"center"}}>
                 {(()=>{const tk=getTokureiInfo(cur,data.cases);return <AlertBadge days={getDays(cur.residence_expiry)} tokurei={tk}/>;})()}
+                {cur.client_type!=="general"&&cur.passport_expiry&&(()=>{const pd=getDays(cur.passport_expiry);return alertLevel(pd)!=="none"?<span style={{display:"inline-flex",alignItems:"center",gap:3}}>🛂<AlertBadge days={pd}/></span>:null;})()}
                 {!isMobile&&<>
                   <button onClick={handleDeleteClient} style={{fontSize:12,padding:"4px 10px",cursor:"pointer",borderRadius:6,border:"0.5px solid #A32D2D",background:"transparent",color:"#A32D2D"}}>削除</button>
                   <button onClick={archiveClient} style={{fontSize:12,padding:"4px 10px",cursor:"pointer",borderRadius:6,border:"0.5px solid var(--border)",background:"transparent",color:"var(--text3)"}}>{cur.archived?"復元":"アーカイブ"}</button>
