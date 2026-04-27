@@ -2140,12 +2140,285 @@ function PromoteProspectModal({prospect,clients,cases,onPromote,onClose}){
   );
 }
 
-function Dashboard({data,setData,onNavClient,onNavCase,onNavPayment}){
+// 氏名正規化（スペース全除去 + 大文字統一）
+function normName(s){ return (s||"").replace(/\s+/g,"").toUpperCase(); }
+
+// 抽出データから既存クライアントを検索（マッチング優先順位）
+function findMatchingClients(extracted, clients){
+  if(!extracted) return [];
+  const liveClients = clients.filter(c=>!c.archived);
+  // 1. 在留カード番号
+  if(extracted.residence_card){
+    const m = liveClients.filter(c=>c.residence_card && c.residence_card===extracted.residence_card);
+    if(m.length>0) return m;
+  }
+  // 2. パスポート番号
+  if(extracted.passport_number){
+    const m = liveClients.filter(c=>c.passport_number && c.passport_number===extracted.passport_number);
+    if(m.length>0) return m;
+  }
+  // 3. 氏名+生年月日
+  if(extracted.name_roman && extracted.date_of_birth){
+    const target = normName(extracted.name_roman);
+    let m = liveClients.filter(c=>normName(c.name_roman)===target && c.dob===extracted.date_of_birth);
+    if(m.length>0) return m;
+    // 姓名逆転試行（2語のみ）
+    const parts = (extracted.name_roman||"").trim().split(/\s+/);
+    if(parts.length===2){
+      const reversed = normName(parts[1]+" "+parts[0]);
+      m = liveClients.filter(c=>normName(c.name_roman)===reversed && c.dob===extracted.date_of_birth);
+      if(m.length>0) return m;
+    }
+  }
+  // 4. 氏名のみ
+  if(extracted.name_roman){
+    const target = normName(extracted.name_roman);
+    let m = liveClients.filter(c=>c.name_roman && normName(c.name_roman)===target);
+    if(m.length>0) return m;
+    const parts = (extracted.name_roman||"").trim().split(/\s+/);
+    if(parts.length===2){
+      const reversed = normName(parts[1]+" "+parts[0]);
+      m = liveClients.filter(c=>c.name_roman && normName(c.name_roman)===reversed);
+      if(m.length>0) return m;
+    }
+  }
+  return [];
+}
+
+// 抽出データを既存クライアントにマージ（先勝ち、在留・パスポート系は常時上書き）
+function mergeExtractedToClient(existing, extracted){
+  const ALWAYS_OVERWRITE = ["residence_status","residence_period","residence_expiry","residence_card","passport_number","passport_expiry"];
+  const FIELD_MAP = {"name_roman":"name_roman","name_kana":"name_kana","nationality":"nationality","date_of_birth":"dob","gender":"gender","phone":"phone","email":"email","postal_code":"postal_code","address":"address","residence_status":"residence_status","residence_period":"residence_period","residence_expiry":"residence_expiry","residence_card":"residence_card","passport_number":"passport_number","passport_expiry":"passport_expiry","company_name":"company_name","store":"store","work_start_date":"work_start_date"};
+  const PLACEHOLDER_PATTERNS = ["未定","未登録","未記入","不明","N/A","未記載"];
+  const isPlaceholder = v => typeof v==="string" && PLACEHOLDER_PATTERNS.some(p=>v.includes(p));
+  const merged = {...existing};
+  Object.entries(FIELD_MAP).forEach(([src,dst])=>{
+    if(extracted[src]){
+      const cur = merged[dst];
+      if(ALWAYS_OVERWRITE.includes(dst) || !cur || isPlaceholder(cur)){
+        merged[dst] = extracted[src];
+      }
+    }
+  });
+  // 職歴は累積
+  if(extracted.work_history && Array.isArray(extracted.work_history) && extracted.work_history.length>0){
+    const newEntries = extracted.work_history.map((w,i)=>({
+      id:"wh-poi-"+Date.now()+"-"+i,
+      company_name:w.company||"",country:w.country||"",
+      start_date:w.start?w.start+"-01":"",end_date:w.end?w.end+"-01":""
+    }));
+    merged.work_history = [...(existing.work_history||[]), ...newEntries];
+  }
+  return merged;
+}
+
+// 抽出データから新規クライアントを生成
+function createClientFromExtracted(extracted){
+  const id = "C"+Date.now();
+  const wh = (extracted.work_history && Array.isArray(extracted.work_history))
+    ? extracted.work_history.map((w,i)=>({
+        id:"wh-poi-"+Date.now()+"-"+i,
+        company_name:w.company||"",country:w.country||"",
+        start_date:w.start?w.start+"-01":"",end_date:w.end?w.end+"-01":""
+      }))
+    : [];
+  return {
+    client_id:id, client_type:"immigration",
+    name_roman:extracted.name_roman||"", name_kana:extracted.name_kana||"",
+    nationality:extracted.nationality||"ネパール",
+    dob:extracted.date_of_birth||"", gender:extracted.gender||"男",
+    passport_number:extracted.passport_number||"", passport_expiry:extracted.passport_expiry||"",
+    entry_date:"", residence_card:extracted.residence_card||"",
+    residence_status:extracted.residence_status||"技能",
+    residence_expiry:extracted.residence_expiry||"",
+    residence_period:extracted.residence_period||"",
+    phone:extracted.phone||"", email:extracted.email||"",
+    company_name:extracted.company_name||"", store:extracted.store||"",
+    work_start_date:extracted.work_start_date||"",
+    notes:"", address:extracted.address||"", postal_code:extracted.postal_code||"",
+    dependent_of:null, client_status:"active", relationship:null, school_name:null,
+    photo:null, archived:false, salary_history:[], work_history:wh,
+    drive_path:"", drive_url:"",
+    education_school:"", education_date:""
+  };
+}
+
+// ファイルをAI読取するヘルパー（Excelもサポート）
+async function readFileViaAI(file, apiKey){
+  const isExcel=/\.(xlsx|xls|csv)$/i.test(file.name)||file.type==="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"||file.type==="application/vnd.ms-excel"||file.type==="text/csv";
+  if(isExcel && window.XLSX){
+    const ab=await file.arrayBuffer();
+    const wb=XLSX.read(ab,{type:"array"});
+    let allText="";
+    wb.SheetNames.forEach(sn=>{
+      const ws=wb.Sheets[sn];
+      allText+=`\n【シート: ${sn}】\n`+XLSX.utils.sheet_to_csv(ws,{FS:"\t"});
+    });
+    const resp=await fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+      body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:2048,
+        messages:[{role:"user",content:`以下はExcelファイル「${file.name}」の内容です。在留申請書や入管関連書類から読み取れる情報をすべてJSON形式で返してください。余計なテキストは一切不要です。\n\n以下のフィールドを持つJSONを返してください。読み取れない項目はnullにしてください。\n{"name_roman":"ローマ字氏名","name_kana":"カタカナ氏名","nationality":"国籍","date_of_birth":"YYYY-MM-DD","gender":"男 or 女","phone":"電話番号","email":"メールアドレス","postal_code":"郵便番号（ハイフンなし7桁）","address":"住所","residence_status":"在留資格","residence_expiry":"YYYY-MM-DD","residence_card":"在留カード番号","passport_number":"パスポート番号","passport_expiry":"YYYY-MM-DD","company_name":"勤務先","store":"支店名","work_start_date":"YYYY-MM-DD","work_history":[{"company":"勤務先名","country":"国名","start":"YYYY-MM","end":"YYYY-MM"}]}\n\n【データ】\n${allText}`}]
+      })
+    });
+    if(!resp.ok){const e=await resp.text();throw new Error(`API Error ${resp.status}: ${e}`);}
+    const rd=await resp.json();
+    const txt=rd.content.map(b=>b.text||"").join("");
+    const jm=txt.match(/\{[\s\S]*\}/);
+    if(!jm) throw new Error(`${file.name}: 読み取り結果を解析できませんでした`);
+    return JSON.parse(jm[0]);
+  } else {
+    const base64 = await new Promise((res,rej)=>{
+      const r=new FileReader();
+      r.onload=()=>res(r.result.split(",")[1]);
+      r.onerror=rej;
+      r.readAsDataURL(file);
+    });
+    const isPDF=file.type==="application/pdf"||file.name.toLowerCase().endsWith(".pdf");
+    let mediaType=isPDF?"application/pdf":(file.type||"image/jpeg");
+    if(!isPDF && !mediaType.startsWith("image/")) mediaType="image/jpeg";
+    return await readDocument(base64, mediaType, apiKey);
+  }
+}
+
+function DashPoiPoiZone({apiKey, reading, dragOver, onDragOver, onDragLeave, onDrop, onPickFiles, onSetup}){
+  return(
+    <div style={{background:"#FEFAF3",border:"0.5px solid #EF9F27",borderRadius:10,padding:14}}>
+      <div style={{fontSize:11,fontWeight:500,color:"#854F0B",marginBottom:8,display:"flex",alignItems:"center",gap:6}}>
+        <span style={{fontSize:13}}>📷</span> ポイポイ式（書類を投げ込んで自動読取）
+      </div>
+      {!apiKey?(
+        <div>
+          <div style={{fontSize:12,color:"var(--text2)",marginBottom:10,lineHeight:1.7}}>
+            在留カード・パスポート・雇用契約書などを投げ込むだけで内容を自動で読み取り、クライアント台帳に登録します。<br/>
+            <span style={{color:"#854F0B"}}>まずAPIキーを設定してください。</span>
+          </div>
+          <button onClick={onSetup} style={{fontSize:12,padding:"7px 14px",cursor:"pointer",borderRadius:6,border:"0.5px solid #EF9F27",background:"#fff",color:"#854F0B",fontWeight:500}}>
+            🔑 APIキーを設定する →
+          </button>
+        </div>
+      ):(
+        <div onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}
+          style={{border:`1.5px dashed ${dragOver?"#EF9F27":"rgba(239,159,39,0.6)"}`,borderRadius:8,padding:"22px 14px",textAlign:"center",background:dragOver?"rgba(239,159,39,0.10)":"rgba(239,159,39,0.04)",transition:"background 0.15s"}}>
+          <div style={{fontSize:22,marginBottom:4,opacity:reading?0.5:1}}>📷</div>
+          <div style={{fontSize:12,color:"var(--text2)",marginBottom:10,lineHeight:1.6}}>
+            {reading?"読取中…":<>在留カード・パスポート・雇用契約書 etc<br/>ここにドロップ または 下のボタンで選択</>}
+          </div>
+          <button onClick={onPickFiles} disabled={reading}
+            style={{fontSize:12,padding:"7px 16px",cursor:reading?"wait":"pointer",borderRadius:6,border:"none",background:reading?"#ccc":"linear-gradient(135deg,#F5A623,#EF9F27)",color:"#fff",fontWeight:600,boxShadow:reading?"none":"0 1px 4px rgba(239,159,39,0.3)"}}>
+            {reading?"処理中…":"📁 ファイルを選択"}
+          </button>
+          <div style={{fontSize:10,color:"var(--text3)",marginTop:8,lineHeight:1.5}}>
+            読取後は自動で名寄せ → クライアント詳細にジャンプします
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Dashboard({data,setData,onNavClient,onNavCase,onNavPayment,onNavMaster}){
   const isMobile=useMobile();
   const {clients,cases,payments,links}=data;
   const setLinks=useCallback(fn=>{
     setData(prev=>{const newLinks=typeof fn==="function"?fn(prev.links):fn; return{...prev,links:newLinks};});
   },[setData]);
+
+  // ポイポイエリア state
+  const [poiReading,setPoiReading]=useState(false);
+  const [poiDragOver,setPoiDragOver]=useState(false);
+  const [poiCandidates,setPoiCandidates]=useState(null); // {extracted, candidates:[clients]}
+
+  const apiKey=(data.office||{}).api_key;
+
+  function showToast(msg, ms=2500){
+    const t=document.getElementById("toast");
+    if(t){ t.textContent=msg; t.style.opacity=1; setTimeout(()=>t.style.opacity=0, ms); }
+  }
+
+  // 抽出データを使って新規/マージ/候補表示の処理を確定
+  function applyExtractedToClient(extracted, clientId){
+    if(clientId){
+      // 既存マージ
+      const existing=clients.find(c=>c.client_id===clientId);
+      if(!existing) return null;
+      const merged=mergeExtractedToClient(existing, extracted);
+      setData(prev=>({...prev, clients:prev.clients.map(c=>c.client_id===clientId?merged:c)}));
+      return clientId;
+    } else {
+      // 新規作成
+      const newClient=createClientFromExtracted(extracted);
+      setData(prev=>({...prev, clients:[newClient, ...prev.clients]}));
+      return newClient.client_id;
+    }
+  }
+
+  async function handlePoipoiFiles(files){
+    if(!files || files.length===0) return;
+    if(!apiKey){ showToast("APIキーが設定されていません", 3000); return; }
+    setPoiReading(true);
+    try {
+      // 1ファイルずつ処理（複数の場合は順次）
+      for(let i=0;i<files.length;i++){
+        const f=files[i];
+        if(files.length>1) showToast(`📷 読取中… (${i+1}/${files.length}) ${f.name}`, 8000);
+        const extracted=await readFileViaAI(f, apiKey);
+        if(!extracted){ showToast(`⚠️ ${f.name}: 読み取れませんでした`, 3000); continue; }
+        const matches=findMatchingClients(extracted, clients);
+        if(matches.length===0){
+          // 新規作成 → ジャンプ
+          const newId=applyExtractedToClient(extracted, null);
+          showToast("✨ 新規クライアントを作成しました");
+          if(onNavClient) onNavClient(newId);
+          break; // 1件処理したらループ抜ける（複数ファイル時は最後のジャンプ先を一意に）
+        } else if(matches.length===1){
+          // 自動マージ → ジャンプ
+          const id=applyExtractedToClient(extracted, matches[0].client_id);
+          showToast(`☁️ ${matches[0].name_roman||"既存クライアント"} に統合しました`);
+          if(onNavClient) onNavClient(id);
+          break;
+        } else {
+          // 複数マッチ → モーダル表示
+          setPoiCandidates({extracted, candidates:matches});
+          break;
+        }
+      }
+    } catch(e){
+      console.error("Dashboard ポイポイ式エラー:", e);
+      showToast(`⚠️ 読み取り失敗: ${e.message||"unknown"}`, 4000);
+    } finally {
+      setPoiReading(false);
+    }
+  }
+
+  function handlePoiPickFiles(){
+    const inp=document.createElement("input");
+    inp.type="file"; inp.accept="image/*,.pdf,.xlsx,.xls,.csv"; inp.capture="environment"; inp.multiple=true;
+    inp.onchange=async ev=>{ const fs=Array.from(ev.target.files||[]); await handlePoipoiFiles(fs); };
+    inp.click();
+  }
+  function handlePoiDragOver(e){ e.preventDefault(); e.stopPropagation(); if(!poiReading) setPoiDragOver(true); }
+  function handlePoiDragLeave(e){ e.preventDefault(); e.stopPropagation(); setPoiDragOver(false); }
+  function handlePoiDrop(e){
+    e.preventDefault(); e.stopPropagation(); setPoiDragOver(false);
+    const fs=Array.from(e.dataTransfer.files||[]);
+    if(fs.length>0) handlePoipoiFiles(fs);
+  }
+  function handlePoiCandidateSelect(clientId){
+    if(!poiCandidates) return;
+    const id=applyExtractedToClient(poiCandidates.extracted, clientId);
+    const target=clients.find(c=>c.client_id===clientId);
+    showToast(`☁️ ${target?.name_roman||"既存クライアント"} に統合しました`);
+    setPoiCandidates(null);
+    if(onNavClient) onNavClient(id);
+  }
+  function handlePoiCandidateNew(){
+    if(!poiCandidates) return;
+    const id=applyExtractedToClient(poiCandidates.extracted, null);
+    showToast("✨ 新規クライアントを作成しました");
+    setPoiCandidates(null);
+    if(onNavClient) onNavClient(id);
+  }
 
   const alerts=[];
   // 申請取次・研修日程アラート（事務所設定ベース）
@@ -2243,6 +2516,9 @@ function Dashboard({data,setData,onNavClient,onNavCase,onNavPayment}){
             else if(a.client) setModal({type:"client",data:a});
           }}/>
           <DashActiveCases cases={cases} onClickItem={c=>setModal({type:"case",data:c})}/>
+          <DashPoiPoiZone apiKey={apiKey} reading={poiReading} dragOver={poiDragOver}
+            onDragOver={handlePoiDragOver} onDragLeave={handlePoiDragLeave} onDrop={handlePoiDrop}
+            onPickFiles={handlePoiPickFiles} onSetup={onNavMaster}/>
         </div>
         <div style={{display:"flex",flexDirection:"column",gap:14}}>
           <DashUnpaidList payments={confirmedPayments} cases={cases} onUpdatePayment={p=>setData(prev=>({...prev,payments:(prev.payments||[]).map(x=>x.payment_id===p.payment_id?p:x)}))} onClickItem={p=>setModal({type:"payment",data:p,cases})}/>
@@ -2385,6 +2661,44 @@ function Dashboard({data,setData,onNavClient,onNavCase,onNavPayment}){
       {showNewProspect&&<NewProspectModal onClose={()=>setShowNewProspect(false)} onSave={handleNewProspect} feeMaster={data.fee_master} clients={clients}/>}
       {selectedProspect&&!promotingProspect&&<ProspectDetailModal prospect={selectedProspect} clients={clients} office={data.office} onUpdate={handleUpdateProspect} onDelete={()=>handleDeleteProspect(selectedProspect.payment_id)} onGenerate={()=>handleGenerateEstimateForProspect(selectedProspect)} onPromote={()=>setPromotingProspect(selectedProspect)} onClose={()=>setSelectedProspect(null)} feeMaster={data.fee_master}/>}
       {promotingProspect&&<PromoteProspectModal prospect={promotingProspect} clients={clients} cases={cases} onPromote={handlePromoteProspect} onClose={()=>setPromotingProspect(null)}/>}
+      {/* ポイポイ式：複数候補の選択モーダル */}
+      {poiCandidates&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9000,padding:16}}>
+          <div style={{background:"var(--bg)",borderRadius:12,maxWidth:480,width:"100%",maxHeight:"85vh",display:"flex",flexDirection:"column",border:"0.5px solid rgba(0,0,0,0.15)"}}>
+            <div style={{padding:"14px 18px",borderBottom:"0.5px solid rgba(0,0,0,0.1)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span style={{fontSize:14,fontWeight:500}}>📷 統合先のクライアントを選択</span>
+              <button onClick={()=>setPoiCandidates(null)} style={{border:"none",background:"none",fontSize:18,cursor:"pointer",color:"#999"}}>×</button>
+            </div>
+            <div style={{padding:"12px 18px",fontSize:12,color:"var(--text2)",borderBottom:"0.5px solid rgba(0,0,0,0.06)",lineHeight:1.6}}>
+              読み取った内容に該当するクライアントが {poiCandidates.candidates.length} 件見つかりました。<br/>
+              統合先を選んでください（または新規作成）。
+            </div>
+            <div style={{flex:1,overflowY:"auto",padding:"8px 0"}}>
+              {poiCandidates.candidates.map(c=>(
+                <button key={c.client_id} onClick={()=>handlePoiCandidateSelect(c.client_id)}
+                  style={{width:"100%",textAlign:"left",padding:"10px 18px",border:"none",background:"transparent",cursor:"pointer",borderBottom:"0.5px solid rgba(0,0,0,0.05)"}}
+                  onMouseEnter={e=>e.currentTarget.style.background="var(--bg2)"}
+                  onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                  <div style={{fontSize:13,fontWeight:500,color:"var(--text)"}}>{c.name_roman||"(名前未設定)"}</div>
+                  <div style={{fontSize:11,color:"var(--text2)",marginTop:2}}>
+                    {c.dob&&<span>生年月日: {c.dob}　</span>}
+                    {c.nationality&&<span>{c.nationality}　</span>}
+                    {c.residence_card&&<span>🪪 {c.residence_card}</span>}
+                  </div>
+                </button>
+              ))}
+            </div>
+            <div style={{padding:"10px 18px",borderTop:"0.5px solid rgba(0,0,0,0.1)",display:"flex",justifyContent:"space-between",gap:8}}>
+              <button onClick={handlePoiCandidateNew} style={{fontSize:12,padding:"6px 14px",cursor:"pointer",borderRadius:6,border:"0.5px solid #EF9F27",background:"#FEFAF3",color:"#854F0B",fontWeight:500}}>
+                ✨ 別人として新規作成
+              </button>
+              <button onClick={()=>setPoiCandidates(null)} style={{fontSize:12,padding:"6px 14px",cursor:"pointer",borderRadius:6,border:"0.5px solid rgba(0,0,0,0.15)",background:"transparent",color:"var(--text2)"}}>
+                キャンセル
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -8649,6 +8963,7 @@ function App(){
   function handleNavigateToClient(clientId){setNavigateClientId(clientId);setActiveTab("clients");}
   function handleNavigateToCase(caseId){setNavigateCaseId(caseId);setActiveTab("cases");}
   function handleNavigateToPayment(paymentId){setNavigatePaymentId(paymentId);setActiveTab("payments");}
+  function handleNavigateToMaster(){setActiveTab("master");}
   const fileRef=useRef(null);
   const prevTabRef=useRef(activeTab);
   // Google Drive自動同期用
@@ -9350,7 +9665,7 @@ function App(){
       <div>
       {activeTab==="dashboard"&&(
         <div style={{maxWidth:960,margin:"0 auto",padding:"16px 20px"}}>
-          <Dashboard data={data} setData={setData} onNavClient={handleNavigateToClient} onNavCase={handleNavigateToCase} onNavPayment={handleNavigateToPayment}/>
+          <Dashboard data={data} setData={setData} onNavClient={handleNavigateToClient} onNavCase={handleNavigateToCase} onNavPayment={handleNavigateToPayment} onNavMaster={handleNavigateToMaster}/>
         </div>
       )}
       {activeTab==="clients"&&<ClientLedger data={data} setData={setData} navigateClientId={navigateClientId} clearNavigate={()=>setNavigateClientId(null)} onNavigateToCase={handleNavigateToCase}/>}
