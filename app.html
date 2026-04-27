@@ -9090,6 +9090,8 @@ function App(){
     localStorage.removeItem("clavis-gdrive-last-sync");
     // 明示的なログアウトは「ユーザーが能動的に切断した」のでバナーを出さない
     localStorage.removeItem("clavis-pending-reauth");
+    // 自動UP停止フラグもクリア(次回ログインで起動時自動DLフローが再評価される)
+    localStorage.removeItem("clavis-disable-auto-up");
     setShowAuthBanner(false);
     // 自動同期用の状態をリセット
     if(autoUpTimerRef.current){ clearTimeout(autoUpTimerRef.current); autoUpTimerRef.current=null; }
@@ -9126,6 +9128,8 @@ function App(){
       localStorage.setItem("clavis-gdrive-last-sync",now);
       if(result && result.modifiedTime) localStorage.setItem("clavis-gdrive-last-remote-time", result.modifiedTime);
       localStorage.setItem("clavis-first-sync-done","1");
+      // 手動UPはユーザーの明示的な意思表示 → 自動UP停止フラグを解除
+      localStorage.removeItem("clavis-disable-auto-up");
       logSyncEvent("upload","manual");
       const t=document.getElementById("toast");if(t){t.textContent="☁️ Driveにアップロードしました";t.style.opacity=1;setTimeout(()=>t.style.opacity=0,2500);}
     } catch(e) {
@@ -9161,6 +9165,8 @@ function App(){
         localStorage.setItem("clavis-note-last-modified",now); // DL時は編集時刻もリセット
         localStorage.setItem("clavis-gdrive-last-remote-time", result.modifiedTime);
         localStorage.setItem("clavis-first-sync-done","1");
+        // DL成功 = リモートとローカルが揃った状態 → 自動UP停止フラグを解除
+        localStorage.removeItem("clavis-disable-auto-up");
         if(!silent) logSyncEvent("download","manual");
         const t=document.getElementById("toast");if(t){t.textContent=silent?"☁️ Driveから自動同期しました":"☁️ Driveからダウンロードしました";t.style.opacity=1;setTimeout(()=>t.style.opacity=0,2500);}
       } else {
@@ -9204,13 +9210,19 @@ function App(){
     if(autoUpTimerRef.current) clearTimeout(autoUpTimerRef.current);
     autoUpTimerRef.current=setTimeout(async()=>{
       autoUpTimerRef.current=null;
+      // 初回confirmで「ローカルで始める」を選んだ後は、明示的な手動UP/DLまで自動UPを抑止
+      if(localStorage.getItem("clavis-disable-auto-up")==="1"){
+        logSyncEvent("skip","auto-up-disabled-by-flag");
+        return;
+      }
       try {
         // 改善②: UP直前にリモートの最新状態を確認（他端末による更新を検知）
         let preUploadFile=null;
         try { preUploadFile=await findDriveFile(); } catch(e){ /* pre-check失敗時はUP続行 */ }
         if(preUploadFile){
           const storedRemote=localStorage.getItem("clavis-gdrive-last-remote-time");
-          if(storedRemote && preUploadFile.modifiedTime !== storedRemote){
+          // storedRemote が空でも(新規端末でローカル空状態を守る)、不一致でも、リモートにファイルがある時点で必ず確認
+          if(!storedRemote || preUploadFile.modifiedTime !== storedRemote){
             // 他端末が先にUP済み → ユーザー確認
             const forceOverwrite=confirm(
               "⚠️ 他端末でDriveが更新されています\n\n"+
@@ -9278,12 +9290,15 @@ function App(){
         // 改善①: 新規端末での初回起動 → 必ず confirm（インポート直後の誤上書き防止）
         if(!firstSyncDone){
           const useRemote=confirm(
-            "☁️ Drive にデータがあります\n\n"+
+            "☁️ Drive に既存のデータが見つかりました\n\n"+
             `最終更新: ${new Date(file.modifiedTime).toLocaleString()}\n\n`+
             "この端末で初めてClavis Noteを使用しています。\n"+
             "どちらのデータで開始しますか？\n\n"+
-            "OK: Drive のデータで開く（現在のローカルデータは破棄）\n"+
-            "キャンセル: 現在のローカルデータで開始（あとで自動UPされます）"
+            "【OK】Drive のデータで開く（推奨）\n"+
+            "　→ Drive の内容をこの端末に取得します\n\n"+
+            "【キャンセル】ローカルで始める\n"+
+            "　→ Drive 上のデータは保護され、自動上書きされません\n"+
+            "　→ 手動アップロードを実行するまで自動同期は停止します"
           );
           localStorage.setItem("clavis-first-sync-done","1");
           if(useRemote){
@@ -9292,7 +9307,10 @@ function App(){
             // last-remote-time をDriveの現在時刻で記録
             localStorage.setItem("clavis-gdrive-last-remote-time", file.modifiedTime);
           } else {
-            logSyncEvent("skip","first-sync-declined");
+            // ローカルで始める選択 → 明示的な手動UPまで自動UPを物理的に抑止
+            localStorage.setItem("clavis-disable-auto-up","1");
+            logSyncEvent("skip","first-sync-declined-auto-up-disabled");
+            const t=document.getElementById("toast");if(t){t.textContent="🔒 自動同期は停止中です。手動アップロードで再開できます";t.style.opacity=1;setTimeout(()=>t.style.opacity=0,4000);}
           }
           return;
         }
