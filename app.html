@@ -2915,12 +2915,13 @@ function TabBasic({c,editMode,update}){
 }
 
 function TabResidence({c,editMode,update,office}){
+  const isMobile=useMobile();
   const days=getDays(c.residence_expiry), pdays=getDays(c.passport_expiry);
 
   return(
     <div>
       <Card title="在留カード">
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:14}}>
+        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:14}}>
           <div>
             <div style={{fontSize:10,color:"var(--text3)",fontWeight:500,marginBottom:3,letterSpacing:"0.05em"}}>在留資格</div>
             {editMode?<select value={c.residence_status||""} onChange={e=>update("residence_status",e.target.value)} style={{fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)",width:"100%"}}><option value="">選択してください</option>{["技能","家族滞在","技術・人文知識・国際業務","留学","特定技能1号","特定技能2号","技能実習1号","技能実習2号","短期滞在","技能実習3号","日本人の配偶者等","特定活動","高度専門職1号","高度専門職2号","経営・管理","永住者","永住者の配偶者等","企業内転勤","外交","公用","教授","芸術","宗教","報道","法律・会計業務","医療","研究","教育","介護","興行","文化活動","研修","定住者"].map(s=><option key={s} value={s}>{s}</option>)}</select>
@@ -2945,7 +2946,7 @@ function TabResidence({c,editMode,update,office}){
         </div>
       </Card>
       <Card title="パスポート">
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14}}>
           <Field label="番号" value={c.passport_number} editMode={editMode} field="passport_number" update={update}/>
           <div>
             <div style={{fontSize:10,color:"var(--text3)",fontWeight:500,marginBottom:3,letterSpacing:"0.05em"}}>有効期限</div>
