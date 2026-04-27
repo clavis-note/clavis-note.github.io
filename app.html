@@ -2786,6 +2786,7 @@ function ImageCropModal({src,onSave,onClose}){
 }
 
 function TabBasic({c,editMode,update}){
+  const isMobile=useMobile();
   const isGenClient=c.client_type==="general";
   const [cropSrc,setCropSrc]=React.useState(null);
   return(
@@ -2826,7 +2827,7 @@ function TabBasic({c,editMode,update}){
           {editMode&&c.photo&&<button onClick={()=>update("photo",null)} style={{fontSize:10,padding:"2px 8px",cursor:"pointer",borderRadius:4,border:"0.5px solid var(--border)",background:"transparent",color:"var(--text3)",marginTop:4}}>写真を削除</button>}
         </div>
       </div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14}}>
         <Field label={isGenClient?"氏名":"氏名（ローマ字）"} value={c.name_roman} editMode={editMode} field="name_roman" update={update}/>
         <Field label={isGenClient?"ふりがな":"氏名（カナ）"} value={c.name_kana} editMode={editMode} field="name_kana" update={update}/>
         {!isGenClient&&<Field label="国籍" value={c.nationality} editMode={editMode} field="nationality" update={update}/>}
@@ -2838,11 +2839,11 @@ function TabBasic({c,editMode,update}){
         </div>}
         <Field label="電話番号" value={c.phone} editMode={editMode} field="phone" update={update}/>
         <Field label="メールアドレス" value={c.email} editMode={editMode} field="email" update={update}/>
-        {!isGenClient&&<div style={{gridColumn:"1/-1",display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+        {!isGenClient&&<div style={{gridColumn:"1/-1",display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14}}>
           <Field label="所属会社" value={c.company_name} editMode={editMode} field="company_name" update={update}/>
           <Field label="店舗・部署" value={c.store} editMode={editMode} field="store" update={update}/>
         </div>}
-        {!isGenClient&&<div style={{gridColumn:"1/-1",display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+        {!isGenClient&&<div style={{gridColumn:"1/-1",display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14}}>
           <Field label="最終学歴の学校名" value={c.education_school} editMode={editMode} field="education_school" update={update}/>
           <Field label="卒業年月日" value={c.education_date} editMode={editMode} field="education_date" update={update} type="date"/>
         </div>}
@@ -2964,6 +2965,7 @@ function TabResidence({c,editMode,update,office}){
 }
 
 function TabDependents({c,allClients,onSelectClient}){
+  const isMobile=useMobile();
   const dependents=allClients.filter(x=>x.dependent_of===c.client_id&&!x.archived);
   if(dependents.length===0) return <div style={{fontSize:12,color:"var(--text3)",background:"var(--bg)",border:"0.5px solid var(--border)",borderRadius:10,padding:14}}>扶養家族なし</div>;
   return(
@@ -2984,7 +2986,7 @@ function TabDependents({c,allClients,onSelectClient}){
               <button onClick={()=>onSelectClient(dep)} style={{fontSize:11,padding:"3px 10px",cursor:"pointer",borderRadius:5,border:"0.5px solid var(--border2)",background:"transparent",color:"var(--text2)"}}>詳細→</button>
             </div>
           </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12}}>
             <div><div style={{fontSize:10,color:"var(--text3)",marginBottom:2}}>在留カード番号</div><div style={{fontSize:12,color:"var(--text)"}}>{dep.residence_card||"—"}</div></div>
             <div><div style={{fontSize:10,color:"var(--text3)",marginBottom:2}}>在留期限</div><div style={{fontSize:12,display:"flex",alignItems:"center",gap:6}}>{dep.residence_expiry||"—"} <AlertBadge days={days}/></div></div>
             <div><div style={{fontSize:10,color:"var(--text3)",marginBottom:2}}>パスポート番号</div><div style={{fontSize:12,color:"var(--text)"}}>{dep.passport_number||"—"}</div></div>
@@ -4901,6 +4903,7 @@ function ClientInfoModal({client,onClose}){
 // 8e. 一般案件：詳細ビュー
 // ============================================================
 function GeneralCaseDetail({c,onUpdate,onDelete,clients,payments}){
+  const isMobile=useMobile();
   const [newDocName,setNewDocName]=useState("");
   const [showClientModal,setShowClientModal]=useState(false);
   const [openPaymentModal,setOpenPaymentModal]=useState(null);
@@ -4935,13 +4938,13 @@ function GeneralCaseDetail({c,onUpdate,onDelete,clients,payments}){
             {onDelete&&<button onClick={onDelete} style={{fontSize:10,padding:"4px 10px",cursor:"pointer",borderRadius:5,border:"0.5px solid #A32D2D",background:"transparent",color:"#A32D2D"}}>🗑 削除</button>}
           </div>
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:10}}>
+        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:10,marginBottom:10}}>
           {[["受任日","accepted_date"],["申請日","applied_date"],["完了日","result_date"]].map(([label,field])=>(
             <div key={field}><div style={{fontSize:10,color:"#999",marginBottom:3}}>{label}</div>
               <input type="date" max="9999-12-31" min="1900-01-01" value={c[field]||""} onChange={e=>updateField(field,e.target.value||null)} style={{fontSize:12,padding:"4px 6px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",width:"100%"}}/></div>
           ))}
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10,marginBottom:10}}>
           <div><div style={{fontSize:10,color:"#999",marginBottom:3}}>依頼者</div>
             <input value={c.requester||""} onChange={e=>updateField("requester",e.target.value)} style={{fontSize:12,padding:"4px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",width:"100%"}}/></div>
           <div><div style={{fontSize:10,color:"#999",marginBottom:3}}>申請人</div>
@@ -4952,7 +4955,7 @@ function GeneralCaseDetail({c,onUpdate,onDelete,clients,payments}){
             <option value="">なし</option>{clients.map(cl=><option key={cl.client_id} value={cl.client_id}>{cl.name_roman||cl.name_kana||cl.client_id}</option>)}
           </select>
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
+        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:10}}>
           <div><div style={{fontSize:10,color:"#999",marginBottom:3}}>報酬</div>
             <input type="number" value={c.fee||""} onChange={e=>updateField("fee",Number(e.target.value)||0)} style={{fontSize:12,padding:"4px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",width:"100%"}}/></div>
           <div><div style={{fontSize:10,color:"#999",marginBottom:3}}>書類の枚数</div>
@@ -5210,7 +5213,7 @@ function JournalModal({entry,onClose,onSave,nextNo,clients,companies}){
           <button onClick={onClose} style={{border:"none",background:"none",fontSize:18,cursor:"pointer",color:"#999"}}>×</button>
         </div>
         <div style={{overflowY:"auto",padding:16,display:"flex",flexDirection:"column",gap:12}}>
-          <div style={{display:"grid",gridTemplateColumns:"80px 1fr 1fr",gap:10}}>
+          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"80px 1fr 1fr",gap:10}}>
             <div><div style={{fontSize:10,color:"#999",marginBottom:3}}>受任番号</div><input value={form.no} onChange={e=>up("no",e.target.value)} style={{width:"100%",fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",textAlign:"center"}}/></div>
             <div><div style={{fontSize:10,color:"#999",marginBottom:3}}>受任日</div><input type="date" max="9999-12-31" min="1900-01-01" value={form.accepted_date||""} onChange={e=>up("accepted_date",e.target.value)} style={{width:"100%",fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/></div>
             <div><div style={{fontSize:10,color:"#999",marginBottom:3}}>カテゴリー</div><select value={form.category} onChange={e=>up("category",e.target.value)} style={{width:"100%",fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}>{JOURNAL_CATEGORIES.map(c=><option key={c}>{c}</option>)}</select></div>
@@ -5221,12 +5224,12 @@ function JournalModal({entry,onClose,onSave,nextNo,clients,companies}){
           </div>
           <div style={{background:"#F8F7F5",border:"0.5px solid rgba(0,0,0,0.08)",borderRadius:8,padding:12}}>
             <div style={{fontSize:11,color:"#999",fontWeight:500,marginBottom:8}}>依頼主・申請人</div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10}}>
               <div><div style={{fontSize:10,color:"#999",marginBottom:3}}>依頼主（会社・個人）</div><div style={{display:"flex",gap:4}}><select value={form.requester_id||""} onChange={e=>{if(e.target.value)selectRequester(e.target.value);else{up("requester","");up("requester_id","");}}} style={{width:120,fontSize:11,padding:"4px 6px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)"}}><option value="">会社を選択</option>{(companies||COMPANY_DB).filter(co=>co.status!=="inactive").map(co=><option key={co.company_id} value={co.company_id}>{co.name}{co.status==="changing"?" 🔄":""}</option>)}</select><input value={form.requester} onChange={e=>{up("requester",e.target.value);up("requester_id","");}} placeholder="直接入力も可" style={{flex:1,fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)"}}/></div></div>
               <div><div style={{fontSize:10,color:"#999",marginBottom:3}}>申請人（個人名）</div><div style={{display:"flex",gap:4}}><select value={form.applicant_id||""} onChange={e=>{if(e.target.value)selectApplicant(e.target.value);else{up("applicant","");up("applicant_id","");}}} style={{width:120,fontSize:11,padding:"4px 6px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)"}}><option value="">台帳から選択</option>{clients.map(c=><option key={c.client_id} value={c.client_id}>{c.name_roman}</option>)}</select><input value={form.applicant} onChange={e=>{up("applicant",e.target.value);up("applicant_id","");}} placeholder="直接入力も可" style={{flex:1,fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)"}}/></div></div>
             </div>
           </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:10}}>
+          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"1fr 1fr 1fr 1fr",gap:10}}>
             <div><div style={{fontSize:10,color:"#999",marginBottom:3}}>ステータス</div><select value={form.status} onChange={e=>up("status",e.target.value)} style={{width:"100%",fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}>{JOURNAL_STATUS_LIST.map(s=><option key={s}>{s}</option>)}</select></div>
             <div><div style={{fontSize:10,color:"#999",marginBottom:3}}>申請日</div><input type="date" max="9999-12-31" min="1900-01-01" value={form.applied_date||""} onChange={e=>up("applied_date",e.target.value)} style={{width:"100%",fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/></div>
             <div><div style={{fontSize:10,color:"#999",marginBottom:3}}>結果日</div><input type="date" max="9999-12-31" min="1900-01-01" value={form.result_date||""} onChange={e=>up("result_date",e.target.value)} style={{width:"100%",fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/></div>
@@ -5234,13 +5237,13 @@ function JournalModal({entry,onClose,onSave,nextNo,clients,companies}){
           </div>
           {isIntl&&<div style={{background:"#F8F7F5",border:"0.5px solid rgba(0,0,0,0.08)",borderRadius:8,padding:12}}>
             <div style={{fontSize:11,color:"#999",fontWeight:500,marginBottom:8}}>入管情報</div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:10}}>
               <div><div style={{fontSize:10,color:"#999",marginBottom:3}}>新在留カード番号</div><input value={form.new_card||""} onChange={e=>up("new_card",e.target.value)} style={{width:"100%",fontSize:12,padding:"4px 6px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.12)",background:"var(--bg)"}}/></div>
               <div><div style={{fontSize:10,color:"#999",marginBottom:3}}>期限</div><input value={form.period||""} onChange={e=>up("period",e.target.value)} placeholder="1年/3年/5年" style={{width:"100%",fontSize:12,padding:"4px 6px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.12)",background:"var(--bg)"}}/></div>
               <div><div style={{fontSize:10,color:"#999",marginBottom:3}}>次回更新</div><input type="date" max="9999-12-31" min="1900-01-01" value={form.next_renewal||""} onChange={e=>up("next_renewal",e.target.value)} style={{width:"100%",fontSize:12,padding:"4px 6px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.12)",background:"var(--bg)"}}/></div>
             </div>
           </div>}
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
+          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:10}}>
             <div><div style={{fontSize:10,color:"#999",marginBottom:3}}>報酬額（税込）</div><input type="number" value={form.fee} onChange={e=>up("fee",e.target.value)} style={{width:"100%",fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",textAlign:"right"}}/></div>
             <div><div style={{fontSize:10,color:"#999",marginBottom:3}}>職務上請求番号</div><textarea value={form.official_req_no||""} onChange={e=>up("official_req_no",e.target.value)} rows={1} placeholder="複数はカンマまたは改行区切り" style={{width:"100%",fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",resize:"vertical",fontFamily:"inherit",lineHeight:1.5}}/></div>
             <div><div style={{fontSize:10,color:"#999",marginBottom:3}}>備考</div><input value={form.notes||""} onChange={e=>up("notes",e.target.value)} style={{width:"100%",fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/></div>
@@ -7138,6 +7141,7 @@ function PaymentManagement({data,setData,navigatePaymentId,clearNavigate}){
 // 10b. 事務所設定
 // ============================================================
 function MasterOffice({office,setOffice}){
+  const isMobile=useMobile();
   const o=office||{};
   const up=(k,v)=>setOffice(prev=>({...prev,[k]:v}));
   const handleImage=(field)=>(e)=>{
@@ -7163,18 +7167,18 @@ function MasterOffice({office,setOffice}){
         </div>
         <div style={{background:"var(--bg)",border:"0.5px solid var(--border)",borderRadius:12,padding:20,marginBottom:16}}>
           <div style={{fontSize:12,fontWeight:500,color:"var(--accent-text)",marginBottom:14}}>基本情報</div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:12}}>
             <div><div style={labelS}>事務所名</div><input value={o.name||""} onChange={e=>up("name",e.target.value)} style={inputS} placeholder="○○行政書士事務所"/></div>
             <div><div style={labelS}>行政書士名（請求書表示名）</div><input value={o.representative||""} onChange={e=>up("representative",e.target.value)} style={inputS} placeholder="行政書士　山田　太郎"/></div>
           </div>
-          <div style={{display:"grid",gridTemplateColumns:"120px 1fr",gap:12,marginBottom:12}}>
+          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"120px 1fr",gap:12,marginBottom:12}}>
             <div><div style={labelS}>郵便番号</div><input value={o.postal||""} onChange={e=>up("postal",e.target.value)} style={inputS} placeholder="000-0000"/></div>
             <div><div style={labelS}>住所（都道府県〜番地）</div><input value={o.address1||""} onChange={e=>up("address1",e.target.value)} style={inputS} placeholder="東京都立川市○○町1-2-3"/></div>
           </div>
           <div style={{marginBottom:12}}>
             <div style={labelS}>建物名・部屋番号（任意）</div><input value={o.address2||""} onChange={e=>up("address2",e.target.value)} style={{...inputS,width:"100%"}} placeholder="○○ビル 2F"/>
           </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12}}>
             <div><div style={labelS}>電話番号</div><input value={o.phone||""} onChange={e=>up("phone",e.target.value)} style={inputS} placeholder="03-0000-0000"/></div>
             <div><div style={labelS}>メールアドレス</div><input value={o.email||""} onChange={e=>up("email",e.target.value)} style={inputS} placeholder="example@example.com"/></div>
           </div>
@@ -7186,7 +7190,7 @@ function MasterOffice({office,setOffice}){
         </div>
         <div style={{background:"var(--bg)",border:"0.5px solid var(--border)",borderRadius:12,padding:20,marginBottom:16}}>
           <div style={{fontSize:12,fontWeight:500,color:"var(--accent-text)",marginBottom:14}}>ロゴ・印影</div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:20}}>
+          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:20}}>
             <div>
               <div style={labelS}>ロゴ画像</div>
               <div style={{display:"flex",alignItems:"center",gap:12}}>
@@ -7224,7 +7228,7 @@ function MasterOffice({office,setOffice}){
         {/* 申請取次管理 */}
         <div style={{background:"var(--bg)",border:"0.5px solid var(--border)",borderRadius:12,padding:20,marginTop:16}}>
           <div style={{fontSize:12,fontWeight:500,color:"var(--accent-text)",marginBottom:14}}>📜 申請取次管理</div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
+          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:16}}>
             <div>
               <div style={labelS}>届出済証明書 有効期限</div>
               <input type="date" value={o.credential_expiry||""} onChange={e=>up("credential_expiry",e.target.value)} style={inputS}/>
@@ -7630,7 +7634,7 @@ function MasterCompany({companies,setCompanies,clients,onNavigateToClient}){
               </div>
             </div>
             <div style={{background:"var(--bg)",border:"0.5px solid var(--border)",borderRadius:10,padding:"16px 18px"}}>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14}}>
                 {[["会社名","name"],["フリガナ","kana"],["略称（書庫の命名で使用）","short_name"],["代表者","representative"],["担当者","contact"],["電話番号","phone"],["会社ID","company_id"],["法人番号","corp_number"],["雇用保険適用事業者番号","hoken_number"]].map(([label,field])=>(
                   <div key={field}>
                     <div style={labelS}>{label}</div>
