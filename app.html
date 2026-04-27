@@ -9023,7 +9023,10 @@ function App(){
       // 子コンポーネントが既に同じタブのstateをpushしてる場合はスキップ(detail:true保護)
       const cur=window.history.state;
       if(!cur||cur.tab!==activeTab){
-        try{window.history.pushState({tab:activeTab,detail:false},'','#'+activeTab);}catch(e){}
+        // 既にサブタブ含むhashがセット済みなら保持(handleNavigateToMaster経由のサブタブ指定対応)
+        const curHash=location.hash.replace('#','').split('/');
+        const newHash=curHash[0]===activeTab?location.hash:'#'+activeTab;
+        try{window.history.pushState({tab:activeTab,detail:false},'',newHash);}catch(e){}
       }
       prevTabRef.current=activeTab;
     }
