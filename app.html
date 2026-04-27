@@ -2531,7 +2531,7 @@ function Dashboard({data,setData,onNavClient,onNavCase,onNavPayment,onNavMaster}
           <DashActiveCases cases={cases} onClickItem={c=>setModal({type:"case",data:c})}/>
           <DashPoiPoiZone apiKey={apiKey} reading={poiReading} dragOver={poiDragOver}
             onDragOver={handlePoiDragOver} onDragLeave={handlePoiDragLeave} onDrop={handlePoiDrop}
-            onPickFiles={handlePoiPickFiles} onSetup={onNavMaster}/>
+            onPickFiles={handlePoiPickFiles} onSetup={()=>onNavMaster("office")}/>
         </div>
         <div style={{display:"flex",flexDirection:"column",gap:14}}>
           <DashUnpaidList payments={confirmedPayments} cases={cases} onUpdatePayment={p=>setData(prev=>({...prev,payments:(prev.payments||[]).map(x=>x.payment_id===p.payment_id?p:x)}))} onClickItem={p=>setModal({type:"payment",data:p,cases})}/>
@@ -8976,7 +8976,12 @@ function App(){
   function handleNavigateToClient(clientId){setNavigateClientId(clientId);setActiveTab("clients");}
   function handleNavigateToCase(caseId){setNavigateCaseId(caseId);setActiveTab("cases");}
   function handleNavigateToPayment(paymentId){setNavigatePaymentId(paymentId);setActiveTab("payments");}
-  function handleNavigateToMaster(){setActiveTab("master");}
+  function handleNavigateToMaster(subtab){
+    if(subtab){
+      try{ location.hash="#master/"+subtab; }catch(e){}
+    }
+    setActiveTab("master");
+  }
   const fileRef=useRef(null);
   const prevTabRef=useRef(activeTab);
   // Google Drive自動同期用
