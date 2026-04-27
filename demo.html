@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Clavis Note - DEMO 起動中…</title>
+<style>
+  body { margin:0; padding:0; min-height:100vh; display:flex; align-items:center; justify-content:center; background:#FAF8F5; color:#1a1a1a; font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",sans-serif; }
+  .box { text-align:center; padding:32px 40px; }
+  .brand { font-size:24px; font-weight:600; margin-bottom:6px; letter-spacing:-0.02em; }
+  .brand .accent { color:#185FA5; }
+  .badge { display:inline-block; font-size:10px; padding:2px 10px; border-radius:10px; background:linear-gradient(135deg,#FF6B6B,#EE4444); color:#fff; font-weight:700; letter-spacing:0.08em; vertical-align:middle; margin-left:8px; }
+  .desc { font-size:13px; color:#666; margin-bottom:24px; line-height:1.7; }
+  .spinner { display:inline-block; width:36px; height:36px; border:3px solid #E5E3DD; border-top-color:#378ADD; border-radius:50%; animation:spin 0.8s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .err { color:#A32D2D; font-size:12px; margin-top:14px; padding:10px 14px; background:#FCEBEB; border-radius:6px; max-width:420px; }
+</style>
+</head>
+<body>
+<div class="box">
+  <div class="brand"><span class="accent">Clavis</span> Note <span class="badge">DEMO</span></div>
+  <div class="desc">サンプルデータを準備しています…<br>本番データには影響しません。</div>
+  <div class="spinner"></div>
+  <div id="err" class="err" style="display:none"></div>
+</div>
+<script>
+// ======== DEMO データ ========
+// 架空のサンプル行政書士事務所の業務データ。実在の人物・企業とは無関係。
+const TODAY = new Date().toISOString().slice(0,10);
+const ymd = (offsetDays) => { const d=new Date(); d.setDate(d.getDate()+offsetDays); return d.toISOString().slice(0,10); };
+const yearStart = (yyyy) => `${yyyy}-01-01`;
+
+const DEMO_DATA = {
+  version: 7,
+  office: {
+    name: "サンプル行政書士事務所",
+    representative: "山田 一郎",
+    postal: "190-0011",
+    address1: "東京都立川市高松町",
+    address2: "1-2-3 サンプルビル4F",
+    phone: "042-000-0000",
+    email: "info@sample-gyosei.example",
+    bank_lines: ["みずほ銀行 立川支店 普通 1234567","口座名義 サンプル行政書士事務所"],
+    credential_expiry: ymd(180),
+    api_key: "" // demoでも空。ポイポイ式は使えないが見た目は確認可能
+  },
+  clients: [
+    { client_id:"D001", client_type:"immigration", name_roman:"SAPKOTA DIPAK", name_kana:"サポコタ ディパック", nationality:"ネパール", dob:"1992-04-15", gender:"男", passport_number:"PA1234567", passport_expiry:ymd(720), entry_date:"2018-06-10", residence_card:"AB12345678CD", residence_status:"技能", residence_expiry:ymd(45), residence_period:"3年", phone:"080-0000-1001", email:"dipak@example.com", company_name:"株式会社サンプル飲食", store:"立川店", work_start_date:"2018-07-01", notes:"", address:"東京都立川市", postal_code:"190-0011", dependent_of:null, client_status:"active", relationship:null, school_name:null, photo:null, archived:false, salary_history:[], work_history:[{id:"wh1",company_name:"株式会社サンプル飲食",country:"日本",start_date:"2018-07-01",end_date:""}], drive_path:"", drive_url:"", education_school:"カトマンズ調理専門学校", education_date:"2016-03-15" },
+    { client_id:"D002", client_type:"immigration", name_roman:"BHAGAWATI SAPKOTA", name_kana:"バガワティ サポコタ", nationality:"ネパール", dob:"1995-08-22", gender:"女", passport_number:"PA7654321", passport_expiry:ymd(900), entry_date:"2019-12-15", residence_card:"EF98765432GH", residence_status:"家族滞在", residence_expiry:ymd(45), residence_period:"3年", phone:"080-0000-1002", email:"", company_name:"", store:"", work_start_date:"", notes:"D001の配偶者", address:"東京都立川市", postal_code:"190-0011", dependent_of:"D001", client_status:"active", relationship:"妻", school_name:null, photo:null, archived:false, salary_history:[], work_history:[], drive_path:"", drive_url:"", education_school:"", education_date:"" },
+    { client_id:"D003", client_type:"immigration", name_roman:"NGUYEN VAN MINH", name_kana:"グエン ヴァン ミン", nationality:"ベトナム", dob:"1990-12-03", gender:"男", passport_number:"PB2345678", passport_expiry:ymd(540), entry_date:"2017-04-01", residence_card:"IJ23456789KL", residence_status:"技術・人文知識・国際業務", residence_expiry:ymd(120), residence_period:"5年", phone:"080-0000-1003", email:"minh@example.com", company_name:"株式会社サンプルIT", store:"", work_start_date:"2017-04-15", notes:"", address:"東京都新宿区", postal_code:"160-0023", dependent_of:null, client_status:"active", relationship:null, school_name:null, photo:null, archived:false, salary_history:[], work_history:[{id:"wh2",company_name:"株式会社サンプルIT",country:"日本",start_date:"2017-04-15",end_date:""}], drive_path:"", drive_url:"", education_school:"ハノイ工科大学", education_date:"2015-06-30" },
+    { client_id:"D004", client_type:"immigration", name_roman:"LI MING", name_kana:"リ ミン", nationality:"中国", dob:"1988-03-18", gender:"男", passport_number:"PC3456789", passport_expiry:ymd(1080), entry_date:"2015-08-20", residence_card:"MN34567890OP", residence_status:"永住者", residence_expiry:ymd(2190), residence_period:"無期限", phone:"080-0000-1004", email:"li.ming@example.com", company_name:"株式会社サンプル商事", store:"本店", work_start_date:"2015-09-01", notes:"永住権取得済み（2024年）", address:"千葉県市川市", postal_code:"272-0021", dependent_of:null, client_status:"active", relationship:null, school_name:null, photo:null, archived:false, salary_history:[], work_history:[{id:"wh3",company_name:"株式会社サンプル商事",country:"日本",start_date:"2015-09-01",end_date:""}], drive_path:"", drive_url:"", education_school:"北京大学", education_date:"2012-07-10" },
+    { client_id:"D005", client_type:"immigration", name_roman:"SANTOS MARIA", name_kana:"サントス マリア", nationality:"フィリピン", dob:"1993-09-05", gender:"女", passport_number:"PD4567890", passport_expiry:ymd(450), entry_date:"2020-02-14", residence_card:"QR45678901ST", residence_status:"特定技能", residence_expiry:ymd(15), residence_period:"1年", phone:"080-0000-1005", email:"", company_name:"株式会社サンプル介護", store:"立川施設", work_start_date:"2020-03-01", notes:"⚠️期限間近（要更新申請）", address:"東京都立川市", postal_code:"190-0001", dependent_of:null, client_status:"active", relationship:null, school_name:null, photo:null, archived:false, salary_history:[], work_history:[{id:"wh4",company_name:"株式会社サンプル介護",country:"日本",start_date:"2020-03-01",end_date:""}], drive_path:"", drive_url:"", education_school:"マニラ看護学校", education_date:"2014-04-20" },
+    { client_id:"D006", client_type:"immigration", name_roman:"KIM JISOO", name_kana:"キム ジス", nationality:"韓国", dob:"1996-11-30", gender:"女", passport_number:"PE5678901", passport_expiry:ymd(300), entry_date:"2022-09-01", residence_card:"UV56789012WX", residence_status:"留学", residence_expiry:ymd(200), residence_period:"2年3月", phone:"080-0000-1006", email:"jisoo@example.com", company_name:"日本語学校サンプルアカデミー", store:"", work_start_date:"", notes:"卒業後の就職希望", address:"東京都豊島区", postal_code:"170-0013", dependent_of:null, client_status:"active", relationship:null, school_name:null, photo:null, archived:false, salary_history:[], work_history:[], drive_path:"", drive_url:"", education_school:"ソウル大学", education_date:"2022-02-28" },
+    { client_id:"D007", client_type:"immigration", name_roman:"SAHANI KRISHNA", name_kana:"サハニ クリシュナ", nationality:"ネパール", dob:"1985-07-12", gender:"男", passport_number:"PF6789012", passport_expiry:"2024-06-30", entry_date:"2010-04-20", residence_card:"YZ67890123AB", residence_status:"技能", residence_expiry:"2024-08-15", residence_period:"3年", phone:"", email:"", company_name:"", store:"", work_start_date:"", notes:"帰国済み", address:"", postal_code:"", dependent_of:null, client_status:"returned", relationship:null, school_name:null, photo:null, archived:false, salary_history:[], work_history:[], drive_path:"", drive_url:"", education_school:"", education_date:"" },
+    { client_id:"D008", client_type:"general", name_roman:"", name_kana:"", nationality:"", dob:"", gender:"", passport_number:"", passport_expiry:"", entry_date:"", residence_card:"", residence_status:"", residence_expiry:"", residence_period:"", phone:"03-0000-2001", email:"info@sample-corp.example", company_name:"株式会社サンプルコーポレーション", store:"", work_start_date:"", notes:"会社設立コンサル案件", address:"東京都港区", postal_code:"107-0052", dependent_of:null, client_status:"active", relationship:null, school_name:null, photo:null, archived:false, salary_history:[], work_history:[], drive_path:"", drive_url:"", education_school:"", education_date:"" }
+  ],
+  cases: [
+    { case_id:"DC001", no:1, category:"国際", client_id:"D001", template_id:"T03", case_title:"技能（調理）継続更新", status:"書類収集中", accepted_date:ymd(-25), applied_date:null, result_date:null, receipt_number:"", result:"", new_card:"", period:"", next_renewal:"", fee:35000, paid:0, applicant:"SAPKOTA DIPAK", applicant_id:"D001", requester:"株式会社サンプル飲食", requester_id:"", notes:"在留期限まで45日。早めに着手。", official_req_no:"", docs:[{id:"d1",name:"在留カード（表裏コピー）",group:null,status:"取得済"},{id:"d2",name:"パスポート（身分事項・査証ページコピー）",group:null,status:"取得済"},{id:"d3",name:"写真（縦4cm×横3cm）",group:null,status:"未取得"},{id:"d4",name:"課税証明書（市区町村発行）",group:null,status:"未取得"},{id:"d5",name:"法定調書合計表",group:null,status:"未取得"}], hearing_items:[{id:"h1",type:"text",label:"最終学歴の学校名",answer:"カトマンズ調理専門学校",date:""},{id:"h2",type:"date",label:"卒業年月日",answer:"",date:"2016-03-15"}], additional_requests:[], contacts:[], comm_log:[], doc_count:"" },
+    { case_id:"DC002", no:2, category:"国際", client_id:"D003", template_id:"T21", case_title:"技人国 継続更新", status:"申請中", accepted_date:ymd(-40), applied_date:ymd(-5), result_date:null, receipt_number:"東オン認12345678", result:"", new_card:"", period:"", next_renewal:"", fee:33000, paid:33000, applicant:"NGUYEN VAN MINH", applicant_id:"D003", requester:"株式会社サンプルIT", requester_id:"", notes:"", official_req_no:"", paid_date:ymd(-3), docs:[{id:"d1",name:"在留カード（表裏コピー）",group:null,status:"提出済"},{id:"d2",name:"パスポート",group:null,status:"提出済"},{id:"d3",name:"写真（縦4cm×横3cm）",group:null,status:"提出済"},{id:"d4",name:"住民票（世帯全員）",group:null,status:"提出済"},{id:"d5",name:"課税証明書",group:null,status:"提出済"},{id:"d6",name:"納税証明書",group:null,status:"提出済"},{id:"d7",name:"源泉徴収票",group:null,status:"提出済"},{id:"d8",name:"在職証明書",group:null,status:"提出済"}], hearing_items:[], additional_requests:[], contacts:[], comm_log:[], doc_count:"" },
+    { case_id:"DC003", no:3, category:"国際", client_id:"D005", template_id:"T03", case_title:"特定技能 更新申請", status:"相談中", accepted_date:ymd(-7), applied_date:null, result_date:null, receipt_number:"", result:"", new_card:"", period:"", next_renewal:"", fee:50000, paid:0, applicant:"SANTOS MARIA", applicant_id:"D005", requester:"株式会社サンプル介護", requester_id:"", notes:"在留期限まで15日！至急対応。", official_req_no:"", docs:[{id:"d1",name:"在留カード（表裏コピー）",group:null,status:"未取得"},{id:"d2",name:"パスポート",group:null,status:"未取得"},{id:"d3",name:"写真（縦4cm×横3cm）",group:null,status:"未取得"}], hearing_items:[], additional_requests:[], contacts:[], comm_log:[], doc_count:"" },
+    { case_id:"DC004", no:4, category:"国際", client_id:"D004", template_id:"T30", case_title:"永住許可申請", status:"許可", accepted_date:ymd(-380), applied_date:ymd(-200), result_date:ymd(-30), receipt_number:"東オン認99999999", result:"許可", new_card:"YES", period:"無期限", next_renewal:"", fee:165000, paid:165000, applicant:"LI MING", applicant_id:"D004", requester:"LI MING", requester_id:"", notes:"おめでとうございます！", official_req_no:"", paid_date:ymd(-25), docs:[], hearing_items:[], additional_requests:[], contacts:[], comm_log:[], doc_count:"" },
+    { case_id:"DC005", no:5, category:"国際", client_id:"D002", template_id:"T05", case_title:"家族滞在 初回担当更新", status:"書類収集中", accepted_date:ymd(-20), applied_date:null, result_date:null, receipt_number:"", result:"", new_card:"", period:"", next_renewal:"", fee:40000, paid:20000, applicant:"BHAGAWATI SAPKOTA", applicant_id:"D002", requester:"SAPKOTA DIPAK", requester_id:"", notes:"D001（夫）と同時申請", official_req_no:"", paid_date:ymd(-10), docs:[{id:"d1",name:"写真（縦4cm×横3cm）※16歳以上",group:null,status:"取得済"},{id:"d2",name:"在留カード（本人）",group:null,status:"取得済"},{id:"d3",name:"パスポート（本人）",group:null,status:"取得済"},{id:"d4",name:"在留カード（扶養者）",group:null,status:"取得済"},{id:"d5",name:"パスポート（扶養者）",group:null,status:"取得済"},{id:"d6",name:"婚姻証明書",group:"続柄証明",status:"未取得"},{id:"d7",name:"出生証明書",group:"続柄証明",status:"不要"},{id:"d8",name:"扶養者の在職証明書",group:null,status:"未取得"},{id:"d9",name:"扶養者の課税証明書",group:null,status:"未取得"}], hearing_items:[], additional_requests:[], contacts:[], comm_log:[], doc_count:"" },
+    { case_id:"DG001", no:6, category:"会社設立", client_id:"D008", template_id:null, case_title:"株式会社設立手続", status:"作業中", accepted_date:ymd(-15), applied_date:null, result_date:null, receipt_number:"", result:"", new_card:"", period:"", next_renewal:"", fee:100000, paid:50000, applicant:"", applicant_id:"", requester:"株式会社サンプルコーポレーション", requester_id:"", notes:"定款作成中", official_req_no:"", paid_date:ymd(-10), docs:[], hearing_items:[], additional_requests:[], contacts:[], comm_log:[], doc_count:"" }
+  ],
+  payments: [],
+  companies: [
+    { company_id:"CO001", name:"株式会社サンプル飲食", short_name:"サンプル飲食", pref:"東京都", status:"active" },
+    { company_id:"CO002", name:"株式会社サンプルIT", short_name:"サンプルIT", pref:"東京都", status:"active" },
+    { company_id:"CO003", name:"株式会社サンプル商事", short_name:"サンプル商事", pref:"千葉県", status:"active" },
+    { company_id:"CO004", name:"株式会社サンプル介護", short_name:"サンプル介護", pref:"東京都", status:"active" },
+    { company_id:"CO005", name:"株式会社サンプルコーポレーション", short_name:"サンプル法人", pref:"東京都", status:"active" }
+  ],
+  links: [
+    {id:"L1",name:"オンライン申請システム",url:"https://www.ras-immi.moj.go.jp/",icon:"🖥️",category:"申請"},
+    {id:"L2",name:"出入国在留管理庁",url:"https://www.moj.go.jp/isa/",icon:"🏛️",category:"入管"},
+    {id:"L3",name:"在留カード番号確認",url:"https://lapse-immi.moj.go.jp/ZEC/appl/e0/ZEC2/pages/FZECST011.aspx",icon:"💳",category:"入管"},
+    {id:"L5",name:"東京都最低賃金",url:"https://jsite.mhlw.go.jp/tokyo-roudoukyoku/news_topics/chingin_toukei/chingin.html",icon:"📊",category:"参考"},
+    {id:"L6",name:"日本行政書士会連合会",url:"https://www.gyosei.or.jp/",icon:"📜",category:"参考"}
+  ]
+};
+
+try {
+  localStorage.setItem("clavis-note-data-demo", JSON.stringify(DEMO_DATA));
+  // Drive関連のキーは空にしておく（demoでDriveに繋がない保険）
+  localStorage.removeItem("clavis-google-token");
+  // app.html?demo=1 にリダイレクト
+  location.replace("app.html?demo=1");
+} catch(e) {
+  document.getElementById("err").style.display="block";
+  document.getElementById("err").textContent = "エラー: " + (e.message||"不明");
+}
+</script>
+</body>
+</html>

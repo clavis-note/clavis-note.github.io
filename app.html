@@ -75,6 +75,10 @@ const DEFAULT_TEMPLATES = {
   T04:{label:"家族滞在 COE",hearing:[],docs:[{id:"d1",name:"写真（縦4cm×横3cm）※16歳以上",group:null},{id:"d2",name:"パスポート（本人）",group:null},{id:"d3",name:"婚姻証明書",group:"続柄証明"},{id:"d4",name:"出生証明書",group:"続柄証明"},{id:"d5",name:"結核非発病証明書",group:null},{id:"d6",name:"在留カード（扶養者）",group:null},{id:"d7",name:"パスポート（扶養者）",group:null},{id:"d8",name:"扶養者の在職証明書",group:null},{id:"d9",name:"扶養者の源泉徴収票／課税証明書",group:null}]},
   T05:{label:"家族滞在 初回担当更新",hearing:[],docs:[{id:"d1",name:"写真（縦4cm×横3cm）※16歳以上",group:null},{id:"d2",name:"在留カード（本人）",group:null},{id:"d3",name:"パスポート（本人）",group:null},{id:"d4",name:"在留カード（扶養者）",group:null},{id:"d5",name:"パスポート（扶養者）",group:null},{id:"d6",name:"婚姻証明書",group:"続柄証明"},{id:"d7",name:"出生証明書",group:"続柄証明"},{id:"d8",name:"扶養者の在職証明書",group:null},{id:"d9",name:"扶養者の課税証明書",group:null}]},
   T06:{label:"家族滞在 継続更新",hearing:[],docs:[{id:"d1",name:"写真（縦4cm×横3cm）※16歳以上",group:null},{id:"d2",name:"在留カード（本人）",group:null},{id:"d3",name:"パスポート（本人）",group:null},{id:"d4",name:"在留カード（扶養者）",group:null},{id:"d5",name:"パスポート（扶養者）",group:null},{id:"d6",name:"扶養者の在職証明書",group:null},{id:"d7",name:"扶養者の課税証明書",group:null}]},
+  T20:{label:"技術・人文知識・国際業務 COE",hearing:[{id:"h1",type:"text",label:"最終学歴の学校名"},{id:"h2",type:"date",label:"卒業年月日"},{id:"h3",type:"text",label:"過去の日本への出入国の有無"},{id:"h4",type:"text",label:"過去のCOE申請履歴"}],docs:[{id:"d1",name:"写真（縦4cm×横3cm）",group:null},{id:"d2",name:"パスポート",group:null},{id:"d3",name:"結核非発病証明書（該当国のみ）",group:null},{id:"d4",name:"履歴書",group:null},{id:"d5",name:"職務経歴書",group:null},{id:"d6",name:"卒業証明書",group:null},{id:"d7",name:"雇用理由書",group:null},{id:"d8",name:"雇用契約書",group:"招へい企業資料"},{id:"d9",name:"登記事項証明書",group:"招へい企業資料"},{id:"d10",name:"決算文書（直近）",group:"招へい企業資料"},{id:"d11",name:"法定調書合計表",group:"招へい企業資料"},{id:"d12",name:"会社案内・パンフレット",group:"招へい企業資料"}]},
+  T21:{label:"技術・人文知識・国際業務 継続更新",hearing:[],docs:[{id:"d1",name:"在留カード（表裏コピー）",group:null},{id:"d2",name:"パスポート",group:null},{id:"d3",name:"写真（縦4cm×横3cm）",group:null},{id:"d4",name:"住民票（世帯全員）",group:null},{id:"d5",name:"課税証明書",group:null},{id:"d6",name:"納税証明書",group:null},{id:"d7",name:"源泉徴収票",group:null},{id:"d8",name:"在職証明書",group:null}]},
+  T22:{label:"技術・人文知識・国際業務 転職後初更新",hearing:[],docs:[{id:"d1",name:"在留カード(表裏コピー)",group:null},{id:"d2",name:"パスポート",group:null},{id:"d3",name:"写真(縦4cm×横3cm)",group:null},{id:"d4",name:"住民票(世帯全員)",group:null},{id:"d5",name:"課税証明書",group:null},{id:"d6",name:"納税証明書",group:null},{id:"d7",name:"職務経歴書",group:null},{id:"d8",name:"退職証明書(前職)",group:null},{id:"d9",name:"雇用契約書",group:"転職先書類"},{id:"d10",name:"登記事項証明書",group:"転職先書類"},{id:"d11",name:"決算文書(直近)",group:"転職先書類"},{id:"d12",name:"法定調書合計表",group:"転職先書類"}]},
+  T30:{label:"永住許可申請",hearing:[{id:"h1",type:"date",label:"来日年月日"},{id:"h2",type:"text",label:"過去5年の海外渡航履歴"},{id:"h3",type:"text",label:"納税状況・年金加入状況"}],docs:[{id:"d1",name:"在留カード(表裏コピー)",group:null},{id:"d2",name:"パスポート",group:null},{id:"d3",name:"写真(縦4cm×横3cm)",group:null},{id:"d4",name:"申請理由書",group:null},{id:"d5",name:"住民票(世帯全員)",group:"住民・身分関係"},{id:"d6",name:"住民票記載事項証明書",group:"住民・身分関係"},{id:"d7",name:"戸籍謄本(日本人配偶者の場合)",group:"住民・身分関係"},{id:"d8",name:"課税証明書(直近5年分)",group:"納税・収入関係"},{id:"d9",name:"納税証明書(直近5年分)",group:"納税・収入関係"},{id:"d10",name:"源泉徴収票(直近)",group:"納税・収入関係"},{id:"d11",name:"年金記録(ねんきん定期便等)",group:"年金・社会保険"},{id:"d12",name:"健康保険証コピー",group:"年金・社会保険"},{id:"d13",name:"雇用契約書",group:"勤務先関係"},{id:"d14",name:"在職証明書",group:"勤務先関係"},{id:"d15",name:"身元保証書",group:"その他"},{id:"d16",name:"預貯金通帳コピー",group:"その他"}]},
 };
 const CASE_STATUS_LIST=["相談中","書類収集中","申請中","追加資料対応中","許可","不許可","完了","完了（結果待ち）","キャンセル","保留"];
 const DOC_STATUS_CYCLE={"未取得":"取得済","取得済":"提出済","提出済":"未取得","不要":"未取得"};
@@ -172,6 +176,13 @@ const FEE_MASTER = {
       "家族滞在COE_同時_リピーター":{name:"家族滞在COE・同時（リピーター）",price:20000},
       "家族滞在更新_初回":{name:"家族滞在更新（初回）",price:40000},
       "家族滞在更新_リピーター":{name:"家族滞在更新（リピーター）",price:35000},
+      "技人国COE_初回":{name:"技人国COE（初回）",price:110000},
+      "技人国COE_リピーター":{name:"技人国COE（リピーター）",price:90000},
+      "技人国更新_初回":{name:"技人国更新（初回）",price:33000},
+      "技人国更新_リピーター":{name:"技人国更新（リピーター）",price:27500},
+      "技人国_転職後初更新":{name:"技人国・転職後初更新",price:55000},
+      "永住申請_初回":{name:"永住許可申請（初回）",price:165000},
+      "永住申請_リピーター":{name:"永住許可申請（リピーター）",price:132000},
     }
   },
   general_biz: {
@@ -556,7 +567,9 @@ function logSyncEvent(action, detail){
 // ============================================================
 // 3. データストア（localStorage）
 // ============================================================
-const STORAGE_KEY = "clavis-note-data";
+// DEMO MODE: ?demo=1 でアクセスすると別ストレージキー + Drive同期OFF + バッジ表示
+const DEMO_MODE = (()=>{ try { return new URLSearchParams(location.search).get("demo")==="1"; } catch(e){ return false; } })();
+const STORAGE_KEY = DEMO_MODE ? "clavis-note-data-demo" : "clavis-note-data";
 
 function loadData(){
   try {
@@ -9015,7 +9028,9 @@ function App(){
 
   // Google Drive初期化
   // GISライブラリの読込完了を最大3秒リトライで待つ。失敗してもアプリ本体はクラッシュしない。
+  // DEMO_MODE時は初期化スキップ（ダミーデータをDriveに上げないため）
   useEffect(()=>{
+    if(DEMO_MODE) return;
     let cancelled = false;
     const init = async () => {
       let ok = false;
@@ -9161,6 +9176,8 @@ function App(){
     saveData(data);
     // 初回マウント時は自動UPもlast-modified更新もスキップ（ロード直後の誤発火防止）
     if(!hasMountedRef.current){ hasMountedRef.current=true; return; }
+    // DEMO_MODE: ローカル保存だけしてDrive処理はスキップ
+    if(DEMO_MODE) return;
     // Driveからの自動DL直後は自動UPをスキップ（無限ループ防止）
     if(skipAutoUpRef.current){ skipAutoUpRef.current=false; return; }
     // ローカル編集時刻を記録
@@ -9219,6 +9236,7 @@ function App(){
 
   // Drive起動時自動DL（ログイン確認後に1回だけ実施）
   useEffect(()=>{
+    if(DEMO_MODE) return;
     if(!gdriveSignedIn || !gdriveReady) return;
     if(initialSyncCheckedRef.current) return;
     initialSyncCheckedRef.current=true;
@@ -9471,8 +9489,9 @@ function App(){
       {/* グローバルナビ */}
       <div style={{background:"var(--bg)",borderBottom:"0.5px solid var(--border)",position:"sticky",top:showAuthBanner?(isMobile?40:48):0,zIndex:100}}>
         <div style={{display:"flex",alignItems:"center",height:52,padding:"0 16px"}}>
-        <div onClick={()=>setActiveTab("dashboard")} style={{fontSize:15,fontWeight:600,color:"var(--text)",marginRight:isMobile?8:24,letterSpacing:"-0.02em",flexShrink:0,cursor:"pointer"}}>
-          <span style={{color:"var(--accent-text)"}}>Clavis</span> Note
+        <div onClick={()=>setActiveTab("dashboard")} style={{fontSize:15,fontWeight:600,color:"var(--text)",marginRight:isMobile?8:24,letterSpacing:"-0.02em",flexShrink:0,cursor:"pointer",display:"flex",alignItems:"center",gap:8}}>
+          <span><span style={{color:"var(--accent-text)"}}>Clavis</span> Note</span>
+          {DEMO_MODE&&<span style={{fontSize:10,padding:"2px 8px",borderRadius:10,background:"linear-gradient(135deg,#FF6B6B,#EE4444)",color:"#fff",fontWeight:700,letterSpacing:"0.08em",boxShadow:"0 1px 3px rgba(238,68,68,0.3)"}}>DEMO</span>}
         </div>
         {!isMobile&&<div style={{display:"flex",gap:2,flex:1}}>
           {TABS.map(t=>(
