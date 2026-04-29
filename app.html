@@ -520,6 +520,38 @@ async function findDriveFile() {
 async function uploadToDrive(jsonData, existingFile) {
   if (!googleAccessToken) throw new Error("Not signed in");
   if (existingFile === undefined) existingFile = await findDriveFile();
+
+  // 🛑 最後の砦: ローカル極小データで既存リモートを上書きする経路を物理的にブロック
+  // (UP経路はAuto-save/手動/initial-seed/flushの4種あるが、どこから呼ばれても入口で必ずチェック)
+  const localCount = (jsonData.clients||[]).length + (jsonData.cases||[]).length + (jsonData.payments||[]).length;
+  if (localCount <= 1 && existingFile) {
+    let remoteCount = 0;
+    try {
+      const r = await fetchWithAuth(`https://www.googleapis.com/drive/v3/files/${existingFile.id}?alt=media`);
+      if (r.ok) {
+        const remoteJson = await r.json();
+        remoteCount = (remoteJson.clients||[]).length + (remoteJson.cases||[]).length + (remoteJson.payments||[]).length;
+      }
+    } catch(e) { /* リモート取得失敗時はガード機能停止(悪化させない) */ }
+    if (remoteCount >= 5) {
+      const proceed = confirm(
+        "🛑 データ消失リスク警告\n\n"+
+        `この端末のデータ: ${localCount}件\n`+
+        `Drive のデータ: ${remoteCount}件\n\n`+
+        "このままアップロードすると、Drive の既存データが\n"+
+        "ほぼ空の状態で上書きされます。\n\n"+
+        "【OK】それでも上書きする\n"+
+        "【キャンセル】中止する(推奨)\n"+
+        "　別端末で本番運用中の方は必ずキャンセルしてください"
+      );
+      if (!proceed) {
+        try { logSyncEvent("safeguard","upload-blocked-empty-vs-remote-"+localCount+"vs"+remoteCount); } catch(e){}
+        throw new Error(`upload aborted by safeguard: local=${localCount} vs remote=${remoteCount}`);
+      }
+      try { logSyncEvent("safeguard","upload-forced-empty-overwrite-"+localCount+"vs"+remoteCount); } catch(e){}
+    }
+  }
+
   const metadata = { name: DRIVE_FILE_NAME, mimeType: "application/json" };
   const form = new FormData();
   form.append("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }));
@@ -9090,6 +9122,8 @@ function App(){
     localStorage.removeItem("clavis-gdrive-last-sync");
     // 明示的なログアウトは「ユーザーが能動的に切断した」のでバナーを出さない
     localStorage.removeItem("clavis-pending-reauth");
+    // 自動UP停止フラグもクリア(次回ログインで起動時自動DLフローが再評価される)
+    localStorage.removeItem("clavis-disable-auto-up");
     setShowAuthBanner(false);
     // 自動同期用の状態をリセット
     if(autoUpTimerRef.current){ clearTimeout(autoUpTimerRef.current); autoUpTimerRef.current=null; }
@@ -9126,6 +9160,8 @@ function App(){
       localStorage.setItem("clavis-gdrive-last-sync",now);
       if(result && result.modifiedTime) localStorage.setItem("clavis-gdrive-last-remote-time", result.modifiedTime);
       localStorage.setItem("clavis-first-sync-done","1");
+      // 手動UPはユーザーの明示的な意思表示 → 自動UP停止フラグを解除
+      localStorage.removeItem("clavis-disable-auto-up");
       logSyncEvent("upload","manual");
       const t=document.getElementById("toast");if(t){t.textContent="☁️ Driveにアップロードしました";t.style.opacity=1;setTimeout(()=>t.style.opacity=0,2500);}
     } catch(e) {
@@ -9161,6 +9197,8 @@ function App(){
         localStorage.setItem("clavis-note-last-modified",now); // DL時は編集時刻もリセット
         localStorage.setItem("clavis-gdrive-last-remote-time", result.modifiedTime);
         localStorage.setItem("clavis-first-sync-done","1");
+        // DL成功 = リモートとローカルが揃った状態 → 自動UP停止フラグを解除
+        localStorage.removeItem("clavis-disable-auto-up");
         if(!silent) logSyncEvent("download","manual");
         const t=document.getElementById("toast");if(t){t.textContent=silent?"☁️ Driveから自動同期しました":"☁️ Driveからダウンロードしました";t.style.opacity=1;setTimeout(()=>t.style.opacity=0,2500);}
       } else {
@@ -9201,6 +9239,12 @@ function App(){
     }
     // Drive自動UP（debounce 5秒）— クロージャ時点でのgdriveSignedInを使用
     if(!gdriveSignedIn) return;
+    // 初回confirmで「ローカルで始める」を選んだ後は、明示的な手動UP/DLまで自動UPを抑止
+    // タイマーすら仕掛けない(visibility flush 経路で発火されないようにするため)
+    if(localStorage.getItem("clavis-disable-auto-up")==="1"){
+      logSyncEvent("skip","auto-up-disabled-by-flag");
+      return;
+    }
     if(autoUpTimerRef.current) clearTimeout(autoUpTimerRef.current);
     autoUpTimerRef.current=setTimeout(async()=>{
       autoUpTimerRef.current=null;
@@ -9210,7 +9254,8 @@ function App(){
         try { preUploadFile=await findDriveFile(); } catch(e){ /* pre-check失敗時はUP続行 */ }
         if(preUploadFile){
           const storedRemote=localStorage.getItem("clavis-gdrive-last-remote-time");
-          if(storedRemote && preUploadFile.modifiedTime !== storedRemote){
+          // storedRemote が空でも(新規端末でローカル空状態を守る)、不一致でも、リモートにファイルがある時点で必ず確認
+          if(!storedRemote || preUploadFile.modifiedTime !== storedRemote){
             // 他端末が先にUP済み → ユーザー確認
             const forceOverwrite=confirm(
               "⚠️ 他端末でDriveが更新されています\n\n"+
@@ -9259,7 +9304,27 @@ function App(){
         const file=await findDriveFile();
         const firstSyncDone=localStorage.getItem("clavis-first-sync-done")==="1";
         if(!file){
-          // リモートにファイルが無い＝初回同期。ローカルをUPして初期ファイルを作成
+          // リモートにファイルが無い＝初回同期想定。ただし findDriveFile は権限/スコープ/通信エラー
+          // 等で null を返すこともあるため、ローカルが空の状態では必ずユーザー確認を挟む
+          // (空ローカルで Drive を上書きする経路を物理的に塞ぐ)
+          const isLocalEmpty = (data.clients||[]).length===0 && (data.cases||[]).length===0 && (data.payments||[]).length===0;
+          if(isLocalEmpty){
+            const proceed=confirm(
+              "⚠️ Drive にこのアプリのデータファイルが見つかりませんでした\n\n"+
+              "このローカル端末にはまだ案件データがありません。\n"+
+              "空の状態で Drive に新規ファイルを作成してもよろしいですか？\n\n"+
+              "【OK】空データで Drive を初期化(以降この端末で蓄積)\n"+
+              "【キャンセル】何もしない(自動同期を停止)\n"+
+              "　 → 別端末で作成済みの方は必ずキャンセルしてください"
+            );
+            if(!proceed){
+              localStorage.setItem("clavis-disable-auto-up","1");
+              logSyncEvent("skip","initial-seed-empty-declined");
+              const t=document.getElementById("toast");if(t){t.textContent="🔒 自動同期は停止中です。手動アップロードで再開できます";t.style.opacity=1;setTimeout(()=>t.style.opacity=0,4000);}
+              return;
+            }
+          }
+          // ローカルにデータあり、または空でも明示OK → シードUP
           try {
             const result=await uploadToDrive(data);
             const now=new Date().toISOString();
@@ -9278,12 +9343,15 @@ function App(){
         // 改善①: 新規端末での初回起動 → 必ず confirm（インポート直後の誤上書き防止）
         if(!firstSyncDone){
           const useRemote=confirm(
-            "☁️ Drive にデータがあります\n\n"+
+            "☁️ Drive に既存のデータが見つかりました\n\n"+
             `最終更新: ${new Date(file.modifiedTime).toLocaleString()}\n\n`+
             "この端末で初めてClavis Noteを使用しています。\n"+
             "どちらのデータで開始しますか？\n\n"+
-            "OK: Drive のデータで開く（現在のローカルデータは破棄）\n"+
-            "キャンセル: 現在のローカルデータで開始（あとで自動UPされます）"
+            "【OK】Drive のデータで開く（推奨）\n"+
+            "　→ Drive の内容をこの端末に取得します\n\n"+
+            "【キャンセル】ローカルで始める\n"+
+            "　→ Drive 上のデータは保護され、自動上書きされません\n"+
+            "　→ 手動アップロードを実行するまで自動同期は停止します"
           );
           localStorage.setItem("clavis-first-sync-done","1");
           if(useRemote){
@@ -9292,7 +9360,10 @@ function App(){
             // last-remote-time をDriveの現在時刻で記録
             localStorage.setItem("clavis-gdrive-last-remote-time", file.modifiedTime);
           } else {
-            logSyncEvent("skip","first-sync-declined");
+            // ローカルで始める選択 → 明示的な手動UPまで自動UPを物理的に抑止
+            localStorage.setItem("clavis-disable-auto-up","1");
+            logSyncEvent("skip","first-sync-declined-auto-up-disabled");
+            const t=document.getElementById("toast");if(t){t.textContent="🔒 自動同期は停止中です。手動アップロードで再開できます";t.style.opacity=1;setTimeout(()=>t.style.opacity=0,4000);}
           }
           return;
         }
@@ -9353,6 +9424,13 @@ function App(){
         clearTimeout(autoUpTimerRef.current);
         autoUpTimerRef.current=null;
         if(gdriveSignedIn){
+          // 二重防壁: 初回confirmキャンセル後は flush でも UP しない
+          // (Auto-save useEffect の修正でタイマー自体仕掛からないはずだが、
+          //  万一 race condition 等でタイマーが残っていた場合のセーフティネット)
+          if(localStorage.getItem("clavis-disable-auto-up")==="1"){
+            logSyncEvent("skip","flush-disabled-by-flag");
+            return;
+          }
           // バックグラウンド送信（ベストエフォート）。タブ閉じる寸前なのでpre-checkはスキップ
           uploadToDrive(data).then((result)=>{
             const now=new Date().toISOString();
