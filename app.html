@@ -520,6 +520,38 @@ async function findDriveFile() {
 async function uploadToDrive(jsonData, existingFile) {
   if (!googleAccessToken) throw new Error("Not signed in");
   if (existingFile === undefined) existingFile = await findDriveFile();
+
+  // 🛑 最後の砦: ローカル極小データで既存リモートを上書きする経路を物理的にブロック
+  // (UP経路はAuto-save/手動/initial-seed/flushの4種あるが、どこから呼ばれても入口で必ずチェック)
+  const localCount = (jsonData.clients||[]).length + (jsonData.cases||[]).length + (jsonData.payments||[]).length;
+  if (localCount <= 1 && existingFile) {
+    let remoteCount = 0;
+    try {
+      const r = await fetchWithAuth(`https://www.googleapis.com/drive/v3/files/${existingFile.id}?alt=media`);
+      if (r.ok) {
+        const remoteJson = await r.json();
+        remoteCount = (remoteJson.clients||[]).length + (remoteJson.cases||[]).length + (remoteJson.payments||[]).length;
+      }
+    } catch(e) { /* リモート取得失敗時はガード機能停止(悪化させない) */ }
+    if (remoteCount >= 5) {
+      const proceed = confirm(
+        "🛑 データ消失リスク警告\n\n"+
+        `この端末のデータ: ${localCount}件\n`+
+        `Drive のデータ: ${remoteCount}件\n\n`+
+        "このままアップロードすると、Drive の既存データが\n"+
+        "ほぼ空の状態で上書きされます。\n\n"+
+        "【OK】それでも上書きする\n"+
+        "【キャンセル】中止する(推奨)\n"+
+        "　別端末で本番運用中の方は必ずキャンセルしてください"
+      );
+      if (!proceed) {
+        try { logSyncEvent("safeguard","upload-blocked-empty-vs-remote-"+localCount+"vs"+remoteCount); } catch(e){}
+        throw new Error(`upload aborted by safeguard: local=${localCount} vs remote=${remoteCount}`);
+      }
+      try { logSyncEvent("safeguard","upload-forced-empty-overwrite-"+localCount+"vs"+remoteCount); } catch(e){}
+    }
+  }
+
   const metadata = { name: DRIVE_FILE_NAME, mimeType: "application/json" };
   const form = new FormData();
   form.append("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }));
