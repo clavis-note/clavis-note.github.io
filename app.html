@@ -8957,6 +8957,65 @@ const TABS = [
 const FS_KEY = "clavis-note-zoom";
 const FS_OPTIONS = [{label:"小",val:"0.85"},{label:"中",val:"1"},{label:"大",val:"1.15"},{label:"特大",val:"1.3"}];
 
+// 困ったときはFAQ(バックアップメニューから開く)
+const FAQ_ITEMS = [
+  {
+    q:"新しい端末で開いたら、データが空っぽになりました",
+    a:"起動時のダイアログで「キャンセル」を選んでしまった可能性があります。\n以下の手順で復旧してください:\n\n1. このバックアップ画面の「Google Drive同期」セクションを開く\n2. 「ダウンロード」ボタンを押す\n\n→ Drive上のデータがこの端末に取得されます。Drive側のデータは保護されているので、空のまま上書きされることはありません。"
+  },
+  {
+    q:"データが古い状態に戻ってしまいました",
+    a:"「自動バックアップ(直近3件)」から復元できます。\n直近15分間の状態が3世代分残っているので、復元したい時刻を選んで「復元」ボタンを押してください。"
+  },
+  {
+    q:"同期ボタンを押しても反映されません",
+    a:"安全のため自動同期が一時停止されている可能性があります。\n「アップロード」または「ダウンロード」ボタンを1回押すと、通常運用に戻ります。"
+  },
+  {
+    q:"自動バックアップにも目当ての時刻がありません",
+    a:"Google Drive側に過去30日分・最大100世代のバックアップが保存されています。\nGoogle Drive を開いて、「clavis-note-sync.json」を右クリック →「版を管理」から過去の版を選び、ダウンロードしてください。\nダウンロードしたファイルは、このバックアップ画面の「読み込み(JSONから復元)」で取り込めます。"
+  },
+];
+
+function FaqModal({onClose, isMobile}){
+  const [expanded,setExpanded]=useState({});
+  const toggle=(i)=>setExpanded(p=>({...p,[i]:!p[i]}));
+  const mincho="'Yu Mincho','游明朝','Hiragino Mincho ProN','MS Mincho',serif";
+  return(
+    <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.45)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,padding:isMobile?12:24}}>
+      <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:14,width:"100%",maxWidth:560,maxHeight:"85vh",display:"flex",flexDirection:"column",boxShadow:"0 8px 32px rgba(0,0,0,0.18)"}}>
+        <div style={{padding:"18px 22px",borderBottom:"0.5px solid rgba(0,0,0,0.08)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div style={{fontSize:17,fontWeight:600,color:"#185FA5",fontFamily:mincho,letterSpacing:"0.03em"}}>📚 困ったときは</div>
+          <button onClick={onClose} style={{border:"none",background:"none",fontSize:18,cursor:"pointer",color:"#999",padding:4,lineHeight:1}}>✕</button>
+        </div>
+        <div style={{overflowY:"auto",flex:1}}>
+          {FAQ_ITEMS.map((item,i)=>{
+            const open=!!expanded[i];
+            return(
+              <div key={i} style={{borderBottom:"0.5px solid rgba(0,0,0,0.08)"}}>
+                <button onClick={()=>toggle(i)} style={{width:"100%",background:open?"#F4F8FC":"transparent",border:"none",padding:"14px 22px",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,textAlign:"left",transition:"background 0.15s"}}>
+                  <span style={{fontSize:14,fontWeight:500,color:"#1a1a1a",fontFamily:mincho,lineHeight:1.55,flex:1}}>
+                    <span style={{color:"#185FA5",marginRight:6,fontWeight:600}}>Q{i+1}.</span>{item.q}
+                  </span>
+                  <span style={{fontSize:18,color:"#185FA5",lineHeight:1,marginTop:2,flexShrink:0,fontWeight:300}}>{open?"−":"+"}</span>
+                </button>
+                {open&&(
+                  <div style={{padding:"0 22px 18px 22px",fontSize:13,lineHeight:1.85,color:"#444",whiteSpace:"pre-wrap"}}>
+                    {item.a}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        <div style={{padding:"12px 22px",borderTop:"0.5px solid rgba(0,0,0,0.08)",display:"flex",justifyContent:"flex-end"}}>
+          <button onClick={onClose} style={{fontSize:12,padding:"6px 18px",cursor:"pointer",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)",fontWeight:500}}>閉じる</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // データ変更を検知して「自動保存済」をフィードバック表示するインジケーター。
 // data が変わった瞬間に「保存中…」→「自動保存済」→フェードアウト、の流れで出す。
 // 実際の保存処理自体は App 側の useEffect(() => saveData(data), [data]) で走るので、
@@ -9002,6 +9061,7 @@ function App(){
   });
   const [fs,setFs]=useState(()=>localStorage.getItem(FS_KEY)||"1");
   const [showBackup,setShowBackup]=useState(false);
+  const [showFaq,setShowFaq]=useState(false);
   const [navigateClientId,setNavigateClientId]=useState(null);
   const [navigateCaseId,setNavigateCaseId]=useState(null);
   const [navigatePaymentId,setNavigatePaymentId]=useState(null);
@@ -9730,11 +9790,11 @@ function App(){
                   書き出したJSONを別のPCやスマホで読み込むと、データを移行できます。
                 </div>
 
-                {/* 規約・ポリシーリンク */}
-                <div style={{marginTop:16,paddingTop:12,borderTop:"0.5px solid rgba(0,0,0,0.08)",fontSize:10,color:"var(--text3)",textAlign:"center",lineHeight:1.8}}>
-                  <a href="terms.html" target="_blank" rel="noopener" style={{color:"var(--text2)",textDecoration:"none",marginRight:8}}>ご利用規約</a>
-                  ／
-                  <a href="privacy.html" target="_blank" rel="noopener" style={{color:"var(--text2)",textDecoration:"none",marginLeft:8}}>プライバシーポリシー</a>
+                {/* 困ったときはFAQ */}
+                <div style={{marginTop:16,paddingTop:12,borderTop:"0.5px solid rgba(0,0,0,0.08)",textAlign:"center"}}>
+                  <button onClick={()=>{setShowBackup(false);setShowFaq(true);}} style={{fontSize:11,padding:"6px 14px",borderRadius:6,border:"0.5px solid var(--accent)",background:"var(--accent-bg)",color:"var(--accent-text)",cursor:"pointer",fontWeight:500}}>
+                    📚 困ったときは
+                  </button>
                 </div>
               </div>
               </>
@@ -9785,6 +9845,8 @@ function App(){
       {SHOW_DOCS&&activeTab==="docs"&&<CompanyDocs data={data} setData={setData}/>}
       {activeTab==="master"&&<MasterRegistration data={data} setData={setData} onNavigateToClient={handleNavigateToClient}/>}
       </div>
+      {/* 困ったときはFAQモーダル */}
+      {showFaq&&<FaqModal onClose={()=>setShowFaq(false)} isMobile={isMobile}/>}
       {/* トースト通知 */}
       <div id="toast" style={{position:"fixed",bottom:24,left:"50%",transform:"translateX(-50%)",background:"#1a1a1a",color:"#fff",padding:"8px 20px",borderRadius:8,fontSize:13,fontWeight:500,opacity:0,transition:"opacity 0.3s",pointerEvents:"none",zIndex:9999}}/>
       {/* 自動保存インジケーター */}
