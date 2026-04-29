@@ -9207,14 +9207,15 @@ function App(){
     }
     // Drive自動UP（debounce 5秒）— クロージャ時点でのgdriveSignedInを使用
     if(!gdriveSignedIn) return;
+    // 初回confirmで「ローカルで始める」を選んだ後は、明示的な手動UP/DLまで自動UPを抑止
+    // タイマーすら仕掛けない(visibility flush 経路で発火されないようにするため)
+    if(localStorage.getItem("clavis-disable-auto-up")==="1"){
+      logSyncEvent("skip","auto-up-disabled-by-flag");
+      return;
+    }
     if(autoUpTimerRef.current) clearTimeout(autoUpTimerRef.current);
     autoUpTimerRef.current=setTimeout(async()=>{
       autoUpTimerRef.current=null;
-      // 初回confirmで「ローカルで始める」を選んだ後は、明示的な手動UP/DLまで自動UPを抑止
-      if(localStorage.getItem("clavis-disable-auto-up")==="1"){
-        logSyncEvent("skip","auto-up-disabled-by-flag");
-        return;
-      }
       try {
         // 改善②: UP直前にリモートの最新状態を確認（他端末による更新を検知）
         let preUploadFile=null;
@@ -9271,7 +9272,27 @@ function App(){
         const file=await findDriveFile();
         const firstSyncDone=localStorage.getItem("clavis-first-sync-done")==="1";
         if(!file){
-          // リモートにファイルが無い＝初回同期。ローカルをUPして初期ファイルを作成
+          // リモートにファイルが無い＝初回同期想定。ただし findDriveFile は権限/スコープ/通信エラー
+          // 等で null を返すこともあるため、ローカルが空の状態では必ずユーザー確認を挟む
+          // (空ローカルで Drive を上書きする経路を物理的に塞ぐ)
+          const isLocalEmpty = (data.clients||[]).length===0 && (data.cases||[]).length===0 && (data.payments||[]).length===0;
+          if(isLocalEmpty){
+            const proceed=confirm(
+              "⚠️ Drive にこのアプリのデータファイルが見つかりませんでした\n\n"+
+              "このローカル端末にはまだ案件データがありません。\n"+
+              "空の状態で Drive に新規ファイルを作成してもよろしいですか？\n\n"+
+              "【OK】空データで Drive を初期化(以降この端末で蓄積)\n"+
+              "【キャンセル】何もしない(自動同期を停止)\n"+
+              "　 → 別端末で作成済みの方は必ずキャンセルしてください"
+            );
+            if(!proceed){
+              localStorage.setItem("clavis-disable-auto-up","1");
+              logSyncEvent("skip","initial-seed-empty-declined");
+              const t=document.getElementById("toast");if(t){t.textContent="🔒 自動同期は停止中です。手動アップロードで再開できます";t.style.opacity=1;setTimeout(()=>t.style.opacity=0,4000);}
+              return;
+            }
+          }
+          // ローカルにデータあり、または空でも明示OK → シードUP
           try {
             const result=await uploadToDrive(data);
             const now=new Date().toISOString();
@@ -9371,6 +9392,13 @@ function App(){
         clearTimeout(autoUpTimerRef.current);
         autoUpTimerRef.current=null;
         if(gdriveSignedIn){
+          // 二重防壁: 初回confirmキャンセル後は flush でも UP しない
+          // (Auto-save useEffect の修正でタイマー自体仕掛からないはずだが、
+          //  万一 race condition 等でタイマーが残っていた場合のセーフティネット)
+          if(localStorage.getItem("clavis-disable-auto-up")==="1"){
+            logSyncEvent("skip","flush-disabled-by-flag");
+            return;
+          }
           // バックグラウンド送信（ベストエフォート）。タブ閉じる寸前なのでpre-checkはスキップ
           uploadToDrive(data).then((result)=>{
             const now=new Date().toISOString();
