@@ -4,97 +4,239 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>ご利用規約 - Clavis Note</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;600;700;800&family=Noto+Sans+JP:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
-:root {
-  --bg: #FAF8F5;
-  --bg2: #F2F0EB;
-  --text: #1a1a1a;
-  --text2: #666;
-  --border: rgba(0,0,0,0.12);
-  --accent: #378ADD;
-  --accent-text: #185FA5;
-}
-* { box-sizing: border-box; }
-body {
-  margin: 0;
-  background: var(--bg);
-  color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif;
-  line-height: 1.8;
-  font-size: 15px;
-}
-.container {
-  max-width: 760px;
-  margin: 0 auto;
-  padding: 48px 24px 80px;
-}
-header {
-  border-bottom: 2px solid var(--accent);
-  padding-bottom: 16px;
-  margin-bottom: 32px;
-}
-header .service {
-  color: var(--accent-text);
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-}
-h1 {
-  margin: 4px 0 0;
-  font-size: 24px;
-  font-weight: 700;
-}
-h2 {
-  margin: 40px 0 12px;
-  padding: 8px 12px;
-  background: var(--bg2);
-  border-left: 4px solid var(--accent);
-  font-size: 17px;
-  font-weight: 700;
-}
-p { margin: 8px 0; }
-ol, ul {
-  padding-left: 1.6em;
-  margin: 8px 0;
-}
-ol li, ul li {
-  margin: 4px 0;
-}
-.lead {
-  color: var(--text2);
-  font-size: 14px;
-  margin-bottom: 24px;
-}
-.note {
-  background: #FFF9E6;
-  border-left: 3px solid #E5B800;
-  padding: 8px 12px;
-  margin: 12px 0;
-  font-size: 14px;
-  color: #6B5A00;
-}
-footer {
-  margin-top: 64px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
-  color: var(--text2);
-  font-size: 13px;
-  text-align: center;
-}
-footer a {
-  color: var(--accent-text);
-  text-decoration: none;
-}
-footer a:hover { text-decoration: underline; }
+  :root {
+    --bg: #f5f4ee;
+    --bg-alt: #ebe9e0;
+    --bg-soft: #faf8f5;
+    --text: #2a2724;
+    --text-muted: #6b6760;
+    --accent: #378ADD;
+    --accent-soft: #E6F1FB;
+    --accent-deep: #2c6fb0;
+    --line: #d4d2c8;
+    --line-soft: #e5e3dd;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans JP', -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+    font-weight: 400;
+    line-height: 1.9;
+    font-size: 15px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ─── ヘッダー ─── */
+  header.site {
+    padding: 28px 24px 20px;
+    text-align: center;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  header.site .brand {
+    font-family: 'Shippori Mincho', serif;
+    font-size: 22px;
+    letter-spacing: 0.05em;
+    color: var(--text);
+    font-weight: 600;
+  }
+  header.site .brand .accent {
+    color: var(--accent);
+  }
+
+  /* ─── メイン ─── */
+  .container {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 64px 24px 80px;
+  }
+
+  /* ─── ページ見出し ─── */
+  .page-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    margin-bottom: 24px;
+    font-size: 12px;
+    letter-spacing: 0.4em;
+    color: var(--accent);
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+  .page-label::before,
+  .page-label::after {
+    content: '';
+    display: block;
+    width: 32px;
+    height: 1px;
+    background: var(--accent);
+    opacity: 0.5;
+  }
+  h1 {
+    font-family: 'Shippori Mincho', serif;
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-align: center;
+    margin: 0 0 16px;
+    color: var(--text);
+  }
+  .lead {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 14px;
+    margin: 0 0 48px;
+    letter-spacing: 0.04em;
+  }
+
+  /* ─── 条文見出し ─── */
+  h2 {
+    font-family: 'Shippori Mincho', serif;
+    margin: 48px 0 16px;
+    padding: 10px 14px;
+    background: var(--bg-soft);
+    border-left: 4px solid var(--accent);
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--text);
+  }
+  h2:first-of-type { margin-top: 0; }
+
+  /* ─── 本文 ─── */
+  p { margin: 10px 0; }
+  ol, ul {
+    padding-left: 1.6em;
+    margin: 10px 0;
+  }
+  ol li, ul li {
+    margin: 6px 0;
+  }
+  a {
+    color: var(--accent-deep);
+    text-decoration: none;
+  }
+  a:hover { text-decoration: underline; }
+
+  /* ─── 注釈 ─── */
+  .note {
+    background: var(--accent-soft);
+    border-left: 3px solid var(--accent);
+    padding: 10px 14px;
+    margin: 14px 0;
+    font-size: 13.5px;
+    color: var(--accent-deep);
+    border-radius: 0 4px 4px 0;
+  }
+
+  /* ─── お問い合わせ窓口テーブル ─── */
+  table.contact {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    background: #fff;
+    border: 1px solid var(--line-soft);
+    font-size: 14px;
+  }
+  table.contact th,
+  table.contact td {
+    padding: 12px 14px;
+    text-align: left;
+    vertical-align: top;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  table.contact th {
+    background: var(--bg-soft);
+    font-weight: 600;
+    width: 34%;
+    white-space: nowrap;
+    color: var(--text);
+  }
+  table.contact tr:last-child th,
+  table.contact tr:last-child td { border-bottom: none; }
+
+  /* ─── フッター ─── */
+  footer.site {
+    background: var(--bg-alt);
+    border-top: 1px solid var(--line);
+    padding: 48px 24px 32px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+  footer.site .footer-brand {
+    font-family: 'Shippori Mincho', serif;
+    font-size: 20px;
+    color: var(--text);
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+    font-weight: 600;
+  }
+  footer.site .footer-brand .accent {
+    color: var(--accent);
+  }
+  footer.site .footer-org {
+    color: var(--text);
+    font-size: 14px;
+    margin-bottom: 4px;
+    letter-spacing: 0.05em;
+  }
+  footer.site .footer-info {
+    color: var(--text-muted);
+    font-size: 12px;
+    margin-bottom: 24px;
+    line-height: 1.8;
+  }
+  footer.site .footer-links {
+    margin-bottom: 20px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+  }
+  footer.site .footer-links a {
+    color: var(--text-muted);
+    text-decoration: none;
+    margin: 0 12px;
+    font-size: 13px;
+    letter-spacing: 0.05em;
+  }
+  footer.site .footer-links a:hover {
+    color: var(--accent);
+    text-decoration: underline;
+  }
+  footer.site .copyright {
+    color: var(--text-muted);
+    font-size: 12px;
+    letter-spacing: 0.1em;
+  }
+
+  /* ─── レスポンシブ ─── */
+  @media (max-width: 720px) {
+    .container { padding: 48px 20px 64px; }
+    h1 { font-size: 24px; }
+    h2 { font-size: 16px; padding: 8px 12px; margin: 36px 0 12px; }
+    table.contact th { white-space: normal; width: 38%; }
+    footer.site .footer-links a {
+      display: inline-block;
+      margin: 4px 8px;
+    }
+  }
 </style>
 </head>
 <body>
-<div class="container">
-  <header>
-    <div class="service">CLAVIS NOTE</div>
-    <h1>ご利用規約</h1>
-  </header>
 
+<header class="site">
+  <div class="brand">Clavis <span class="accent">Note</span></div>
+</header>
+
+<div class="container">
+  <div class="page-label">Terms of Service</div>
+  <h1>ご利用規約</h1>
   <p class="lead">行政書士専用クラウドサービス「Clavis Note」ご利用規約</p>
 
   <h2>第1条　目的および利用資格</h2>
@@ -149,7 +291,7 @@ footer a:hover { text-decoration: underline; }
   </ol>
 
   <h2>第7条　個人情報の取扱い</h2>
-  <p>利用者のアカウント情報（氏名、メールアドレス、登録番号、決済情報等）は、「<a href="privacy.html" style="color:var(--accent-text);">プライバシーポリシー</a>」に従い適切に取扱います。</p>
+  <p>利用者のアカウント情報（氏名、メールアドレス、登録番号、決済情報等）は、「<a href="privacy.html">プライバシーポリシー</a>」に従い適切に取扱います。</p>
 
   <h2>第8条　利用料金および決済</h2>
   <p>利用料金の決済は外部決済サービスによるサブスクリプション（継続課金）方式です。機能や料金プランは運営者判断で変更となる場合があります。</p>
@@ -180,10 +322,45 @@ footer a:hover { text-decoration: underline; }
     <li>本サービスに関する紛争は、運営者所在地（東京都）を管轄する地方裁判所または簡易裁判所を第一審の専属的合意管轄裁判所とします。</li>
   </ol>
 
-  <footer>
-    <p>ながみ行政書士事務所<br>
-    <a href="index.html">Clavis Note ホームへ</a></p>
-  </footer>
+  <h2>第13条　お問い合わせ窓口</h2>
+  <table class="contact">
+    <tbody>
+      <tr>
+        <th>運営者</th>
+        <td>ながみ行政書士事務所</td>
+      </tr>
+      <tr>
+        <th>代表者</th>
+        <td>長見　恵</td>
+      </tr>
+      <tr>
+        <th>所在地</th>
+        <td>東京都立川市高松町３－１４－２　２F</td>
+      </tr>
+      <tr>
+        <th>連絡先</th>
+        <td><a href="mailto:info@clavis-note.com">info@clavis-note.com</a></td>
+      </tr>
+    </tbody>
+  </table>
 </div>
+
+<footer class="site">
+  <div class="footer-brand">Clavis <span class="accent">Note</span></div>
+  <div class="footer-org">ながみ行政書士事務所</div>
+  <div class="footer-info">
+    代表　長見　恵<br>
+    東京都立川市高松町３－１４－２　２F
+  </div>
+  <div class="footer-links">
+    <a href="/">Clavis Note ホームへ</a>
+    <a href="/privacy.html">プライバシーポリシー</a>
+    <a href="/tokushoho.html">特定商取引法表記</a>
+  </div>
+  <div class="copyright">
+    &copy; 2026 ながみ行政書士事務所
+  </div>
+</footer>
+
 </body>
 </html>

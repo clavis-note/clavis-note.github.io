@@ -4,79 +4,134 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>特定商取引法に基づく表記 - Clavis Note</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;600;700;800&family=Noto+Sans+JP:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
     --bg: #f5f4ee;
     --bg-alt: #ebe9e0;
+    --bg-soft: #faf8f5;
     --text: #2a2724;
     --text-muted: #6b6760;
-    --accent: #d97757;
+    --accent: #378ADD;
+    --accent-soft: #E6F1FB;
+    --accent-deep: #2c6fb0;
     --line: #d4d2c8;
+    --line-soft: #e5e3dd;
   }
-  * { box-sizing: border-box; }
-  html, body {
-    margin: 0;
-    padding: 0;
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
     background: var(--bg);
     color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Kaku Gothic ProN", "Noto Sans JP", Meiryo, sans-serif;
-    line-height: 1.8;
-    font-size: 16px;
+    font-family: 'Noto Sans JP', -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+    font-weight: 400;
+    line-height: 1.9;
+    font-size: 15px;
     -webkit-font-smoothing: antialiased;
   }
-  .container {
-    max-width: 720px;
-    margin: 0 auto;
-    padding: 40px 24px;
-  }
+
+  /* ─── ヘッダー ─── */
   header.site {
-    padding: 32px 24px 16px;
+    padding: 28px 24px 20px;
     text-align: center;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid var(--line-soft);
   }
   header.site .brand {
-    font-size: 18px;
-    letter-spacing: 0.15em;
-    color: var(--text-muted);
+    font-family: 'Shippori Mincho', serif;
+    font-size: 22px;
+    letter-spacing: 0.05em;
+    color: var(--text);
+    font-weight: 600;
+  }
+  header.site .brand .accent {
+    color: var(--accent);
+  }
+
+  /* ─── メイン ─── */
+  .container {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 64px 24px 80px;
+  }
+
+  /* ─── ページ見出し ─── */
+  .page-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    margin-bottom: 24px;
+    font-size: 12px;
+    letter-spacing: 0.4em;
+    color: var(--accent);
+    text-transform: uppercase;
     font-weight: 500;
   }
+  .page-label::before,
+  .page-label::after {
+    content: '';
+    display: block;
+    width: 32px;
+    height: 1px;
+    background: var(--accent);
+    opacity: 0.5;
+  }
   h1 {
-    font-size: 28px;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    margin: 0 0 32px;
+    font-family: 'Shippori Mincho', serif;
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
     text-align: center;
+    margin: 0 0 16px;
+    color: var(--text);
   }
   .lead {
     text-align: center;
     color: var(--text-muted);
-    font-size: 15px;
-    margin: 0 0 40px;
+    font-size: 14px;
+    margin: 0 0 48px;
+    letter-spacing: 0.04em;
   }
+
+  /* ─── 本文 ─── */
+  a {
+    color: var(--accent-deep);
+    text-decoration: none;
+  }
+  a:hover { text-decoration: underline; }
+
+  /* ─── 表組み ─── */
   table {
     width: 100%;
     border-collapse: collapse;
     margin: 0 0 32px;
     font-size: 14.5px;
+    background: #fff;
+    border: 1px solid var(--line-soft);
   }
   th, td {
-    border: 1px solid var(--line);
-    padding: 12px 16px;
+    padding: 14px 16px;
     text-align: left;
     vertical-align: top;
-    line-height: 1.7;
+    line-height: 1.8;
+    border-bottom: 1px solid var(--line-soft);
   }
   th {
-    background: var(--bg-alt);
+    background: var(--bg-soft);
     font-weight: 600;
     width: 35%;
     white-space: nowrap;
+    color: var(--text);
   }
+  tr:last-child th,
+  tr:last-child td { border-bottom: none; }
   td .note {
     color: var(--text-muted);
     font-size: 13px;
     display: block;
-    margin-top: 4px;
+    margin-top: 6px;
   }
   .updated {
     text-align: right;
@@ -84,23 +139,64 @@
     font-size: 13px;
     margin: 32px 0 0;
   }
+
+  /* ─── フッター ─── */
   footer.site {
+    background: var(--bg-alt);
     border-top: 1px solid var(--line);
-    padding: 32px 24px;
+    padding: 48px 24px 32px;
     text-align: center;
     color: var(--text-muted);
     font-size: 13px;
   }
-  footer.site a {
+  footer.site .footer-brand {
+    font-family: 'Shippori Mincho', serif;
+    font-size: 20px;
+    color: var(--text);
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+    font-weight: 600;
+  }
+  footer.site .footer-brand .accent {
+    color: var(--accent);
+  }
+  footer.site .footer-org {
+    color: var(--text);
+    font-size: 14px;
+    margin-bottom: 4px;
+    letter-spacing: 0.05em;
+  }
+  footer.site .footer-info {
+    color: var(--text-muted);
+    font-size: 12px;
+    margin-bottom: 24px;
+    line-height: 1.8;
+  }
+  footer.site .footer-links {
+    margin-bottom: 20px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+  }
+  footer.site .footer-links a {
     color: var(--text-muted);
     text-decoration: none;
-    margin: 0 8px;
+    margin: 0 12px;
+    font-size: 13px;
+    letter-spacing: 0.05em;
   }
-  footer.site a:hover {
+  footer.site .footer-links a:hover {
     color: var(--accent);
     text-decoration: underline;
   }
+  footer.site .copyright {
+    color: var(--text-muted);
+    font-size: 12px;
+    letter-spacing: 0.1em;
+  }
+
+  /* ─── レスポンシブ ─── */
   @media (max-width: 600px) {
+    .container { padding: 48px 20px 64px; }
     h1 { font-size: 22px; }
     th, td {
       display: block;
@@ -108,17 +204,18 @@
       border-bottom: none;
     }
     th {
-      border-bottom: none;
       padding-bottom: 4px;
+      white-space: normal;
     }
     td {
-      border-top: none;
       padding-top: 4px;
       padding-bottom: 16px;
-      border-bottom: 1px solid var(--line);
+      border-bottom: 1px solid var(--line-soft);
     }
-    table {
-      border: 1px solid var(--line);
+    tr:last-child td { border-bottom: none; }
+    footer.site .footer-links a {
+      display: inline-block;
+      margin: 4px 8px;
     }
   }
 </style>
@@ -126,10 +223,11 @@
 <body>
 
 <header class="site">
-  <div class="brand">CLAVIS NOTE</div>
+  <div class="brand">Clavis <span class="accent">Note</span></div>
 </header>
 
 <div class="container">
+  <div class="page-label">Legal Notice</div>
   <h1>特定商取引法に基づく表記</h1>
   <p class="lead">Clavis Note 特定商取引法に基づく表記</p>
 
@@ -149,7 +247,7 @@
     <tr>
       <th>連絡先</th>
       <td>
-        メール：<a href="mailto:clavis.note.info@gmail.com" style="color: var(--accent); text-decoration: none;">clavis.note.info@gmail.com</a>
+        メール：<a href="mailto:info@clavis-note.com">info@clavis-note.com</a>
         <span class="note">※お問い合わせはメールにて承ります。電話番号は請求があれば遅滞なく開示します。</span>
       </td>
     </tr>
@@ -191,7 +289,7 @@
       <td>
         本サービスはデジタルサービスの性質上、申込後のキャンセル・返金は行いません。<br>
         利用契約の解約をご希望の場合は、次回更新日（決済日）の前日までに所定の手続きを行ってください。月途中の解約による日割精算・返金は行いません。
-        <span class="note">詳細は<a href="/terms.html" style="color: var(--accent); text-decoration: none;">ご利用規約</a>第6条をご確認ください。</span>
+        <span class="note">詳細は<a href="/terms.html">ご利用規約</a>第9条をご確認ください。</span>
       </td>
     </tr>
     <tr>
@@ -214,10 +312,19 @@
 </div>
 
 <footer class="site">
-  <div>
-    <a href="/">Clavis Note ホームへ</a> ／
-    <a href="/terms.html">ご利用規約</a> ／
+  <div class="footer-brand">Clavis <span class="accent">Note</span></div>
+  <div class="footer-org">ながみ行政書士事務所</div>
+  <div class="footer-info">
+    代表　長見　恵<br>
+    東京都立川市高松町３－１４－２　２F
+  </div>
+  <div class="footer-links">
+    <a href="/">Clavis Note ホームへ</a>
+    <a href="/terms.html">ご利用規約</a>
     <a href="/privacy.html">プライバシーポリシー</a>
+  </div>
+  <div class="copyright">
+    &copy; 2026 ながみ行政書士事務所
   </div>
 </footer>
 
