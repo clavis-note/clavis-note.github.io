@@ -7266,6 +7266,8 @@ function MasterOffice({office,setOffice}){
   const isMobile=useMobile();
   const o=office||{};
   const up=(k,v)=>setOffice(prev=>({...prev,[k]:v}));
+  // ㉒タスク検証用: silent refresh の手動トリガー結果（本番リリース前に削除予定）
+  const [refreshResult,setRefreshResult]=useState(null);
   const handleImage=(field)=>(e)=>{
     const f=e.target.files?.[0]; if(!f)return;
     const reader=new FileReader();
@@ -7448,6 +7450,84 @@ function MasterOffice({office,setOffice}){
               <button onClick={()=>up("_showApiKey",!o._showApiKey)} style={{fontSize:10,padding:"6px 10px",borderRadius:5,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text2)",cursor:"pointer",whiteSpace:"nowrap"}}>{o._showApiKey?"隠す":"表示"}</button>
             </div>
             <div style={{fontSize:9,color:"var(--text3)",marginTop:6}}>※ キーはこの端末のlocalStorageにのみ保存されます。外部には送信されません（Anthropic APIへの読み取りリクエスト時のみ使用）。</div>
+          </div>
+        </div>
+        {/* ㉒タスク検証用: Silent Refresh 動作確認（本番リリース前に削除予定） */}
+        <div style={{background:"#FFF8E1",border:"0.5px dashed #C9A227",borderRadius:12,padding:20,marginTop:16}}>
+          <div style={{fontSize:12,fontWeight:600,color:"#854F0B",marginBottom:8}}>🔧 Silent Refresh テスト <span style={{fontSize:10,fontWeight:400,marginLeft:6}}>※デバッグ用・本番リリース前に削除予定</span></div>
+          <div style={{fontSize:11,color:"var(--text2)",marginBottom:12,lineHeight:1.7}}>
+            Notion ㉒タスク「silent refresh 100%失敗の根本原因調査」の検証用。<br/>
+            user gesture（実クリック）経由なら GIS の <code style={{background:"rgba(0,0,0,0.05)",padding:"1px 4px",borderRadius:3}}>requestAccessToken({"{prompt:'none'}"})</code> が動くかを確認する。動けば仮説3（implicit flow + popup UX 必須）が確定し、Code flow + PKCE への移行に進む。
+          </div>
+          <div style={{fontSize:10,color:"var(--text3)",marginBottom:12,lineHeight:1.7,padding:"10px 12px",background:"rgba(0,0,0,0.03)",borderRadius:6}}>
+            <strong>使い方:</strong><br/>
+            1. <strong>「期限切れ状態にする」</strong>を押して、保存済みトークンの期限を過去に上書き<br/>
+            2. <strong>「Silent Refresh 実行」</strong>を押す（user gesture 経由で発火）<br/>
+            3. 結果が下に表示される（同時に同期ログにも <code style={{background:"rgba(0,0,0,0.05)",padding:"1px 4px",borderRadius:3}}>auth/silent-refresh-manual-success</code> or <code style={{background:"rgba(0,0,0,0.05)",padding:"1px 4px",borderRadius:3}}>auth/silent-refresh-manual-failed</code> として記録）
+          </div>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>
+            <button
+              onClick={()=>{
+                if(!localStorage.getItem("clavis-google-token")){
+                  setRefreshResult({type:"info",msg:"⚠️ まだ Google Drive にログインしていません。先にバックアップパネル等からログインしてください。"});
+                  return;
+                }
+                const exp=Date.now()-60_000;
+                localStorage.setItem("clavis-google-token-expires",String(exp));
+                setRefreshResult({type:"info",msg:`🕒 トークン期限を ${new Date(exp).toLocaleTimeString()} に上書きしました。続けて「Silent Refresh 実行」を押してください。`});
+              }}
+              style={{fontSize:11,padding:"7px 14px",borderRadius:5,border:"0.5px solid #C9A227",background:"#FFF",color:"#854F0B",cursor:"pointer",fontWeight:500}}
+            >🕒 期限切れ状態にする</button>
+            <button
+              onClick={async ()=>{
+                setRefreshResult({type:"running",msg:"⏳ Silent Refresh 実行中…（最大10秒待機）"});
+                const t0=Date.now();
+                try{
+                  if(typeof refreshAccessTokenSilently!=="function"){
+                    throw new Error("refreshAccessTokenSilently が未定義です");
+                  }
+                  await refreshAccessTokenSilently();
+                  const elapsed=Date.now()-t0;
+                  const expRaw=localStorage.getItem("clavis-google-token-expires");
+                  const expMsg=expRaw?new Date(Number(expRaw)).toLocaleString():"不明";
+                  setRefreshResult({type:"success",msg:`✅ silent refresh 成功（所要 ${elapsed}ms）\n新トークン有効期限: ${expMsg}\n→ 仮説3（user gesture 必須）が確定。Code flow への移行に進めます。`});
+                  if(typeof logSyncEvent==="function") logSyncEvent("auth","silent-refresh-manual-success");
+                }catch(e){
+                  const elapsed=Date.now()-t0;
+                  const detail=(e&&e.message)?e.message:String(e);
+                  setRefreshResult({type:"error",msg:`❌ silent refresh 失敗（所要 ${elapsed}ms）\nエラー: ${detail}\n→ user gesture 経由でも失敗。仮説3も崩れるため追加調査が必要です。`});
+                  if(typeof logSyncEvent==="function") logSyncEvent("auth","silent-refresh-manual-failed:"+detail);
+                }
+              }}
+              style={{fontSize:11,padding:"7px 14px",borderRadius:5,border:"0.5px solid var(--accent)",background:"var(--accent-bg)",color:"var(--accent-text)",cursor:"pointer",fontWeight:600}}
+            >▶ Silent Refresh 実行</button>
+            <button
+              onClick={()=>{
+                localStorage.removeItem("clavis-google-token");
+                localStorage.removeItem("clavis-google-token-expires");
+                setRefreshResult({type:"info",msg:"🗑️ 保存済みトークンを完全削除しました（refresh 実行には先に再ログインが必要）。"});
+              }}
+              style={{fontSize:11,padding:"7px 14px",borderRadius:5,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text2)",cursor:"pointer"}}
+            >🗑️ トークン完全削除</button>
+          </div>
+          {refreshResult&&(
+            <div style={{
+              fontSize:11,
+              padding:"10px 12px",
+              borderRadius:6,
+              lineHeight:1.7,
+              whiteSpace:"pre-wrap",
+              ...(refreshResult.type==="success"?{background:"#E6F7E6",color:"#1F6F1F",border:"0.5px solid #1F6F1F"}:{}),
+              ...(refreshResult.type==="error"?{background:"#FDECEC",color:"#A02020",border:"0.5px solid #A02020"}:{}),
+              ...(refreshResult.type==="running"?{background:"#E6F1FB",color:"#185FA5",border:"0.5px solid #185FA5"}:{}),
+              ...(refreshResult.type==="info"?{background:"#FFF",color:"#854F0B",border:"0.5px solid #C9A227"}:{}),
+            }}>
+              {refreshResult.msg}
+            </div>
+          )}
+          <div style={{fontSize:9,color:"var(--text3)",marginTop:10,lineHeight:1.6}}>
+            ※ コンソールにも <code style={{background:"rgba(0,0,0,0.05)",padding:"1px 4px",borderRadius:3}}>[auth]</code> プレフィックスで詳細ログが出ます（DevTools で確認可）。<br/>
+            ※ 結果スクショと <code style={{background:"rgba(0,0,0,0.05)",padding:"1px 4px",borderRadius:3}}>localStorage["clavis-sync-log"]</code> を共有してもらえると助かります。
           </div>
         </div>
       </div>
