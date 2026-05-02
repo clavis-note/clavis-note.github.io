@@ -36,7 +36,7 @@ table { width:100%; border-collapse:collapse; }
 <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://apis.google.com/js/api.js" async defer></script>
-</head><body><div id="root"><div style="position:fixed;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#FAF8F5;font-family:-apple-system,BlinkMacSystemFont,sans-serif"><div style="display:flex;align-items:center;gap:12px;margin-bottom:16px"><span style="font-size:28px;font-weight:600;color:#185FA5">Clavis</span><span style="font-size:28px;font-weight:400;color:#1a1a1a">Note</span></div><div style="display:flex;gap:6px"><div style="width:8px;height:8px;border-radius:50%;background:#185FA5;animation:bounce 1.4s ease-in-out infinite"></div><div style="width:8px;height:8px;border-radius:50%;background:#185FA5;animation:bounce 1.4s ease-in-out 0.2s infinite"></div><div style="width:8px;height:8px;border-radius:50%;background:#185FA5;animation:bounce 1.4s ease-in-out 0.4s infinite"></div></div><style>@keyframes bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-10px)}}</style></div></div>
+</head><body><div id="root"></div><div id="loading-overlay" style="position:fixed;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#FAF8F5;font-family:-apple-system,BlinkMacSystemFont,sans-serif;z-index:9999;transition:opacity 0.4s ease"><div style="display:flex;align-items:center;gap:12px;margin-bottom:16px"><span style="font-size:28px;font-weight:600;color:#185FA5">Clavis</span><span style="font-size:28px;font-weight:400;color:#1a1a1a">Note</span></div><div style="display:flex;gap:6px"><div style="width:8px;height:8px;border-radius:50%;background:#185FA5;animation:bounce 1.4s ease-in-out infinite"></div><div style="width:8px;height:8px;border-radius:50%;background:#185FA5;animation:bounce 1.4s ease-in-out 0.2s infinite"></div><div style="width:8px;height:8px;border-radius:50%;background:#185FA5;animation:bounce 1.4s ease-in-out 0.4s infinite"></div></div><style>@keyframes bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-10px)}}</style></div>
 <script type="text/babel">
 const { useState, useEffect, useCallback, useMemo, useRef, createContext, useContext } = React;
 
@@ -9857,5 +9857,16 @@ function App(){
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+
+// Loading overlay: 起動時バウンディングドット演出を最低1.5秒表示してから fade out
+requestAnimationFrame(() => {
+  const wait = Math.max(0, 1500 - performance.now());
+  setTimeout(() => {
+    const overlay = document.getElementById("loading-overlay");
+    if (!overlay) return;
+    overlay.style.opacity = "0";
+    setTimeout(() => overlay.remove(), 400);
+  }, wait);
+});
 </script>
 </body></html>
