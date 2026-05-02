@@ -513,11 +513,14 @@ function refreshAccessTokenSilently() {
     }
     let settled = false;
     const settle = (fn, arg) => { if (settled) return; settled = true; clearTimeout(timer); fn(arg); };
-    // 10秒タイムアウト（GISが応答しない or 内部クラッシュで callback が呼ばれないケースの保険）
+    // 3秒タイムアウト：㉒タスク調査により silent refresh は 100%失敗が確定済み
+    // （token model が Chrome 上で実質的に機能停止・user gesture 経由でも timeout）
+    // 10秒待たせると起動時の体感が悪いため、失敗確定にすぐ落として再ログインバナーを早く出す
+    // 根本対応（Code flow + PKCE 移行）は Supabase 統合フェーズで合算予定
     const timer = setTimeout(() => {
-      console.warn("[auth] silent refresh timeout (no callback within 10s)");
+      console.warn("[auth] silent refresh timeout (no callback within 3s)");
       settle(reject, new Error("Silent refresh timeout"));
-    }, 10000);
+    }, 3000);
     googleTokenClient.callback = (response) => {
       try {
         if (!response){
@@ -7480,7 +7483,7 @@ function MasterOffice({office,setOffice}){
             >🕒 期限切れ状態にする</button>
             <button
               onClick={async ()=>{
-                setRefreshResult({type:"running",msg:"⏳ Silent Refresh 実行中…（最大10秒待機）"});
+                setRefreshResult({type:"running",msg:"⏳ Silent Refresh 実行中…（最大3秒待機）"});
                 const t0=Date.now();
                 try{
                   if(typeof refreshAccessTokenSilently!=="function"){
