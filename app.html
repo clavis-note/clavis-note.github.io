@@ -3571,7 +3571,8 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
               if(lastResult[src]){
                 if(ALWAYS_OVERWRITE.includes(dst)||!alreadyFilled[dst]){
                   update(dst,lastResult[src]);
-                  if(!ALWAYS_OVERWRITE.includes(dst))alreadyFilled[dst]=true;
+                  // placeholder値で埋まっただけの場合は alreadyFilled 扱いにせず、後続ファイルで上書き可能にする
+                  if(!ALWAYS_OVERWRITE.includes(dst)&&!isPlaceholderValue(lastResult[src]))alreadyFilled[dst]=true;
                 }
               }
             });
