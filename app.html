@@ -393,12 +393,14 @@ function isStoredTokenFresh(){
   return Date.now() < n;
 }
 
-// 保存済みトークンが期限切れ確定か（期限情報がある場合のみ true、不明なら false）
+// 保存済みトークンが期限切れか（期限情報が無い旧データも保守的に切れている扱い）
+// 旧版で保存された期限情報なしのトークンは、期限が読めない以上「切れている前提」で
+// 起動時に silent refresh を試行する方が、401検知前に救済できて安全。
 function isStoredTokenExpired(){
   const exp = localStorage.getItem("clavis-google-token-expires");
-  if (!exp) return false; // 期限不明 = 確定的に切れているとは言わない
+  if (!exp) return true;
   const n = Number(exp);
-  if (!isFinite(n)) return false;
+  if (!isFinite(n)) return true;
   return Date.now() >= n;
 }
 
