@@ -368,6 +368,60 @@ let googleAccessToken = null;
 let tokenRefreshPromise = null; // サイレント再認証の二重実行防止
 let initialSyncFlowInProgress = false; // 起動時同期の途中ならリフレッシュ成功トーストを抑制
 
+// トークンを localStorage に保存し、有効期限（絶対時刻ms）も記録する
+// expires_in は秒単位（GIS仕様、通常3599）。60秒の安全マージンを引く
+function saveAccessToken(response){
+  if (!response || !response.access_token) return;
+  googleAccessToken = response.access_token;
+  localStorage.setItem("clavis-google-token", response.access_token);
+  const expiresInSec = Number(response.expires_in);
+  if (isFinite(expiresInSec) && expiresInSec > 0){
+    const expiresAt = Date.now() + Math.max(0, (expiresInSec - 60)) * 1000;
+    localStorage.setItem("clavis-google-token-expires", String(expiresAt));
+  } else {
+    // expires_in が無い応答（理論上ないが防衛）→ 期限不明
+    localStorage.removeItem("clavis-google-token-expires");
+  }
+}
+
+// 保存済みトークンが期限内か（期限情報がある場合のみ判定）
+function isStoredTokenFresh(){
+  const exp = localStorage.getItem("clavis-google-token-expires");
+  if (!exp) return false;
+  const n = Number(exp);
+  if (!isFinite(n)) return false;
+  return Date.now() < n;
+}
+
+// 保存済みトークンが期限切れ確定か（期限情報がある場合のみ true、不明なら false）
+function isStoredTokenExpired(){
+  const exp = localStorage.getItem("clavis-google-token-expires");
+  if (!exp) return false; // 期限不明 = 確定的に切れているとは言わない
+  const n = Number(exp);
+  if (!isFinite(n)) return false;
+  return Date.now() >= n;
+}
+
+// GIS の core.js 内部で発生する `Cannot read properties of undefined (reading 'payload')`
+// 等の unhandled promise rejection をキャッチし、アプリ全体のエラー扱いから隔離する。
+// silent refresh 自体は callback ベースで完結しており、この rejection は副次的ノイズ。
+// 一度だけ登録するためのフラグで二重登録を防ぐ。
+if (!window.__clavisAuthRejectionHandlerRegistered){
+  window.__clavisAuthRejectionHandlerRegistered = true;
+  window.addEventListener('unhandledrejection', (event) => {
+    try {
+      const reason = event && event.reason;
+      const msg = reason && (reason.message || (typeof reason === 'string' ? reason : ''));
+      const stack = reason && reason.stack ? String(reason.stack) : '';
+      const fromGis = (stack.indexOf('core.js') !== -1) || (stack.indexOf('accounts.google.com') !== -1);
+      if (fromGis || (typeof msg === 'string' && msg.indexOf("'payload'") !== -1)){
+        console.warn("[auth] suppressed GIS-internal rejection:", msg || reason);
+        event.preventDefault();
+      }
+    } catch(e){ /* 何もしない */ }
+  });
+}
+
 function initGoogleClient() {
   return new Promise((resolve) => {
     if (typeof google === 'undefined' || !google.accounts) {
@@ -387,11 +441,11 @@ function initGoogleClient() {
         callback: (response) => {
           // デフォルトコールバック。実際のサインイン/リフレッシュ時は個別に上書き
           if (response && response.access_token) {
-            googleAccessToken = response.access_token;
-            localStorage.setItem("clavis-google-token", response.access_token);
+            saveAccessToken(response);
           }
         },
       });
+      console.log("[auth] token client initialized");
       resolve(true);
     } catch(e) {
       console.error("initGoogleClient failed:", e);
@@ -407,12 +461,19 @@ function googleSignIn() {
       return;
     }
     googleTokenClient.callback = (response) => {
-      if (response.error) {
-        reject(new Error(response.error));
+      if (!response){
+        reject(new Error("Empty response from GIS"));
         return;
       }
-      googleAccessToken = response.access_token;
-      localStorage.setItem("clavis-google-token", response.access_token);
+      if (response.error) {
+        reject(new Error(response.error_description || response.error));
+        return;
+      }
+      if (!response.access_token){
+        reject(new Error("No access token returned"));
+        return;
+      }
+      saveAccessToken(response);
       resolve(response.access_token);
     };
     try {
@@ -426,46 +487,72 @@ function googleSignOut() {
     try { google.accounts.oauth2.revoke(googleAccessToken); } catch(e){}
     googleAccessToken = null;
     localStorage.removeItem("clavis-google-token");
+    localStorage.removeItem("clavis-google-token-expires");
   }
 }
 
 // サイレント再認証（prompt: 'none'）
 // 既に承認済みのGoogleアカウントから、ユーザー操作なしで新しいaccess_tokenを取得
 // 同時に複数のAPI呼び出しが401になっても、refresh自体は1回だけ走る（promise共有）
+//
+// GIS の応答パターン（観測ベース）:
+//   1) {access_token, expires_in, scope, ...}        … 正常
+//   2) {error: "...", error_description: "..."}      … エラー（access_token なし）
+//   3) undefined / null                              … 通信失敗等の異常
+//   4) callback が呼ばれず、core.js 内部で payload undefined の TypeError が
+//      unhandled rejection として外に漏れるケース    … タイムアウトで救済
 function refreshAccessTokenSilently() {
   if (tokenRefreshPromise) return tokenRefreshPromise;
+  console.log("[auth] silent refresh start");
   tokenRefreshPromise = new Promise((resolve, reject) => {
     if (!googleTokenClient) {
       reject(new Error("Token client not initialized"));
       return;
     }
-    // 10秒タイムアウト（GISが応答しないケースの保険）
-    const timer = setTimeout(() => reject(new Error("Silent refresh timeout")), 10000);
+    let settled = false;
+    const settle = (fn, arg) => { if (settled) return; settled = true; clearTimeout(timer); fn(arg); };
+    // 10秒タイムアウト（GISが応答しない or 内部クラッシュで callback が呼ばれないケースの保険）
+    const timer = setTimeout(() => {
+      console.warn("[auth] silent refresh timeout (no callback within 10s)");
+      settle(reject, new Error("Silent refresh timeout"));
+    }, 10000);
     googleTokenClient.callback = (response) => {
-      clearTimeout(timer);
-      if (response && response.error) {
-        reject(new Error(response.error));
-        return;
+      try {
+        if (!response){
+          console.warn("[auth] silent refresh: empty response from GIS");
+          settle(reject, new Error("Empty response from GIS"));
+          return;
+        }
+        if (response.error) {
+          const detail = response.error + (response.error_description ? `: ${response.error_description}` : "");
+          console.warn("[auth] silent refresh: error response:", detail);
+          settle(reject, new Error(detail));
+          return;
+        }
+        if (!response.access_token) {
+          console.warn("[auth] silent refresh: no access_token in response", response);
+          settle(reject, new Error("No access token returned"));
+          return;
+        }
+        saveAccessToken(response);
+        console.log("[auth] silent refresh success");
+        settle(resolve, response.access_token);
+      } catch(e){
+        console.warn("[auth] silent refresh: callback threw:", e);
+        settle(reject, e instanceof Error ? e : new Error(String(e)));
       }
-      if (!response || !response.access_token) {
-        reject(new Error("No access token returned"));
-        return;
-      }
-      googleAccessToken = response.access_token;
-      localStorage.setItem("clavis-google-token", response.access_token);
-      resolve(response.access_token);
     };
     try {
       googleTokenClient.requestAccessToken({ prompt: 'none' });
     } catch(e){
-      clearTimeout(timer);
-      reject(e);
+      console.warn("[auth] silent refresh: requestAccessToken threw:", e);
+      settle(reject, e);
     }
   });
   // 成否に関わらずpromiseをクリア（次回リフレッシュに備える）
   tokenRefreshPromise.then(
     () => { tokenRefreshPromise = null; },
-    () => { tokenRefreshPromise = null; }
+    (err) => { tokenRefreshPromise = null; console.log("[auth] silent refresh failed:", err && err.message ? err.message : err); }
   );
   return tokenRefreshPromise;
 }
@@ -9128,10 +9215,12 @@ function App(){
   },[activeTab]);
 
   // 起動時: 前回のセッションで認証切れになっていた場合はバナーを即表示
+  // ただし保存トークンが残っている場合は、Drive 初期化 useEffect 内のサイレント再認証
+  // 結果に判断を委ねる（成功すればバナーは出さない＝チラつき防止）
   useEffect(()=>{
-    if(localStorage.getItem("clavis-pending-reauth")==="1"){
-      setShowAuthBanner(true);
-    }
+    if(localStorage.getItem("clavis-pending-reauth")!=="1") return;
+    if(localStorage.getItem("clavis-google-token")) return;
+    setShowAuthBanner(true);
   },[]);
 
   // Service Worker: 新版検知イベント / online-offline 監視
@@ -9179,9 +9268,40 @@ function App(){
       }
       const savedToken = localStorage.getItem("clavis-google-token");
       if (savedToken) {
-        googleAccessToken = savedToken;
-        setGdriveSignedIn(true);
-        // 初回のAPI呼び出しで401が出たら fetchWithAuth 内でサイレント再認証される
+        if (isStoredTokenExpired()){
+          // 起動時点で期限切れ確定 → サイレント再認証を試みる（成功すればバナー出さずに続行）
+          console.log("[auth] saved token expired on boot, attempting silent refresh");
+          googleAccessToken = savedToken; // refreshAccessTokenSilently の前に設定（callback override 都合）
+          try {
+            await refreshAccessTokenSilently();
+            if (cancelled) return;
+            console.log("[auth] silent refresh on boot succeeded, signed in without banner");
+            setGdriveSignedIn(true);
+            localStorage.removeItem("clavis-pending-reauth");
+            setShowAuthBanner(false);
+            logSyncEvent("auth","silent-refresh-on-boot-success");
+          } catch(e){
+            if (cancelled) return;
+            console.warn("[auth] silent refresh on boot failed:", e && e.message ? e.message : e);
+            googleAccessToken = null;
+            localStorage.removeItem("clavis-google-token");
+            localStorage.removeItem("clavis-google-token-expires");
+            localStorage.setItem("clavis-pending-reauth","1");
+            setGdriveSignedIn(false);
+            setShowAuthBanner(true);
+            logSyncEvent("auth","silent-refresh-on-boot-failed:"+((e&&e.message)||"unknown"));
+          }
+        } else {
+          // 期限内 or 期限不明 → そのままトークンを使用。期限不明（旧版保存）の場合は
+          // 初回 API 呼び出しで 401 が出たら fetchWithAuth 内でサイレント再認証される
+          googleAccessToken = savedToken;
+          setGdriveSignedIn(true);
+          if (isStoredTokenFresh()){
+            console.log("[auth] saved token is fresh, skipping silent refresh on boot");
+          } else {
+            console.log("[auth] saved token expiry unknown, will rely on 401-triggered silent refresh");
+          }
+        }
       }
     };
     init();
@@ -9255,6 +9375,7 @@ function App(){
       if(e.message.includes("401")||e.message.includes("403")){
         setGdriveSignedIn(false);
         localStorage.removeItem("clavis-google-token");
+        localStorage.removeItem("clavis-google-token-expires");
         localStorage.setItem("clavis-pending-reauth","1");
         setShowAuthBanner(true);
         logSyncEvent("error","manual-upload-auth-fail");
@@ -9295,6 +9416,7 @@ function App(){
       if(e.message.includes("401")||e.message.includes("403")){
         setGdriveSignedIn(false);
         localStorage.removeItem("clavis-google-token");
+        localStorage.removeItem("clavis-google-token-expires");
         localStorage.setItem("clavis-pending-reauth","1");
         setShowAuthBanner(true);
         logSyncEvent("error","download-auth-fail");
@@ -9368,6 +9490,7 @@ function App(){
         if(e.message && (e.message.includes("401")||e.message.includes("403"))){
           setGdriveSignedIn(false);
           localStorage.removeItem("clavis-google-token");
+          localStorage.removeItem("clavis-google-token-expires");
           localStorage.setItem("clavis-pending-reauth","1");
           setShowAuthBanner(true);
           logSyncEvent("error","auto-upload-auth-fail");
@@ -9493,6 +9616,7 @@ function App(){
         if(e.message && (e.message.includes("401")||e.message.includes("403"))){
           setGdriveSignedIn(false);
           localStorage.removeItem("clavis-google-token");
+          localStorage.removeItem("clavis-google-token-expires");
           localStorage.setItem("clavis-pending-reauth","1");
           setShowAuthBanner(true);
           logSyncEvent("error","initial-sync-auth-fail");
