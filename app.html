@@ -9071,6 +9071,8 @@ function App(){
   const [gdriveSyncing,setGdriveSyncing]=useState(false);
   const [gdriveLastSync,setGdriveLastSync]=useState(()=>localStorage.getItem("clavis-gdrive-last-sync")||null);
   const [showAuthBanner,setShowAuthBanner]=useState(false);
+  const [swUpdateReady,setSwUpdateReady]=useState(false);
+  const [isOnline,setIsOnline]=useState(typeof navigator!=="undefined"?navigator.onLine:true);
   function handleNavigateToClient(clientId){setNavigateClientId(clientId);setActiveTab("clients");}
   function handleNavigateToCase(caseId){setNavigateCaseId(caseId);setActiveTab("cases");}
   function handleNavigateToPayment(paymentId){setNavigatePaymentId(paymentId);setActiveTab("payments");}
@@ -9131,6 +9133,30 @@ function App(){
       setShowAuthBanner(true);
     }
   },[]);
+
+  // Service Worker: 新版検知イベント / online-offline 監視
+  useEffect(()=>{
+    const onUpdate=()=>setSwUpdateReady(true);
+    const onOnline=()=>setIsOnline(true);
+    const onOffline=()=>setIsOnline(false);
+    window.addEventListener("clavis-update-ready",onUpdate);
+    window.addEventListener("online",onOnline);
+    window.addEventListener("offline",onOffline);
+    return ()=>{
+      window.removeEventListener("clavis-update-ready",onUpdate);
+      window.removeEventListener("online",onOnline);
+      window.removeEventListener("offline",onOffline);
+    };
+  },[]);
+
+  // 「再読み込み」ボタン押下: SW に skipWaiting 指示 → controllerchange で自動 reload
+  const handleApplySwUpdate=()=>{
+    if(!("serviceWorker" in navigator)) { location.reload(); return; }
+    navigator.serviceWorker.getRegistration().then(reg=>{
+      if(reg && reg.waiting) reg.waiting.postMessage("SKIP_WAITING");
+      else location.reload();
+    }).catch(()=>location.reload());
+  };
 
   // Google Drive初期化
   // GISライブラリの読込完了を最大3秒リトライで待つ。失敗してもアプリ本体はクラッシュしない。
@@ -9638,8 +9664,73 @@ function App(){
           }}>✕</button>
         </div>
       )}
+      {swUpdateReady&&(
+        <div style={{
+          background:"#E6F1FB",
+          borderBottom:"1px solid #B5D4F4",
+          color:"#185FA5",
+          padding:isMobile?"8px 12px":"10px 16px",
+          display:"flex",
+          alignItems:"center",
+          gap:isMobile?8:12,
+          fontSize:isMobile?12:13,
+          minHeight:isMobile?40:48,
+          position:"sticky",
+          top:showAuthBanner?(isMobile?40:48):0,
+          zIndex:199,
+          boxShadow:"0 1px 3px rgba(0,0,0,0.06)"
+        }}>
+          <span style={{fontSize:isMobile?14:16,flexShrink:0}}>✨</span>
+          <span style={{flex:1,lineHeight:1.4}}>
+            {isMobile?"新しいバージョンがあります":"新しいバージョンがあります。再読み込みしますか？"}
+          </span>
+          <button onClick={handleApplySwUpdate} style={{
+            fontSize:isMobile?11:12,
+            padding:isMobile?"4px 10px":"5px 14px",
+            borderRadius:6,
+            border:"0.5px solid #B5D4F4",
+            background:"#fff",
+            color:"#185FA5",
+            cursor:"pointer",
+            fontWeight:500,
+            flexShrink:0
+          }}>再読み込み</button>
+          <button onClick={()=>setSwUpdateReady(false)} title="あとで" style={{
+            fontSize:16,
+            width:24,
+            height:24,
+            padding:0,
+            borderRadius:4,
+            border:"none",
+            background:"transparent",
+            color:"#185FA5",
+            cursor:"pointer",
+            flexShrink:0,
+            opacity:0.6
+          }}>✕</button>
+        </div>
+      )}
+      {!isOnline&&(
+        <div style={{
+          position:"fixed",
+          bottom:16,
+          right:16,
+          background:"rgba(26,26,26,0.85)",
+          color:"#fff",
+          padding:"6px 12px",
+          borderRadius:20,
+          fontSize:11,
+          fontWeight:500,
+          zIndex:1000,
+          boxShadow:"0 2px 8px rgba(0,0,0,0.2)",
+          display:"flex",
+          alignItems:"center",
+          gap:6,
+          pointerEvents:"none"
+        }}>📡 オフライン</div>
+      )}
       {/* グローバルナビ */}
-      <div style={{background:"var(--bg)",borderBottom:"0.5px solid var(--border)",position:"sticky",top:showAuthBanner?(isMobile?40:48):0,zIndex:100}}>
+      <div style={{background:"var(--bg)",borderBottom:"0.5px solid var(--border)",position:"sticky",top:(showAuthBanner?(isMobile?40:48):0)+(swUpdateReady?(isMobile?40:48):0),zIndex:100}}>
         <div style={{display:"flex",alignItems:"center",height:52,padding:"0 16px"}}>
         <div onClick={()=>setActiveTab("dashboard")} style={{fontSize:15,fontWeight:600,color:"var(--text)",marginRight:isMobile?8:24,letterSpacing:"-0.02em",flexShrink:0,cursor:"pointer",display:"flex",alignItems:"center",gap:8}}>
           <span><span style={{color:"var(--accent-text)"}}>Clavis</span> Note</span>
@@ -9869,5 +9960,47 @@ requestAnimationFrame(() => {
     setTimeout(() => overlay.remove(), 400);
   }, wait);
 });
+
+// Service Worker: 本番のみ登録、開発(localhost等)では登録解除して古いキャッシュを使わせない
+(function setupServiceWorker(){
+  if (!("serviceWorker" in navigator)) return;
+  const host = location.hostname;
+  const isProduction = host !== "localhost" && host !== "127.0.0.1" && !host.startsWith("192.168.") && host !== "";
+  if (!isProduction) {
+    navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => r.unregister())).catch(()=>{});
+    if ("caches" in window) caches.keys().then(keys => keys.forEach(k => caches.delete(k))).catch(()=>{});
+    return;
+  }
+  navigator.serviceWorker.register("/sw.js").then(reg => {
+    // 5分間隔 + visibility復帰時に新版チェック
+    setInterval(() => reg.update().catch(()=>{}), 5 * 60 * 1000);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") reg.update().catch(()=>{});
+    });
+    // 新SWが waiting に入ったら page にイベント発火 → React側でバナー表示
+    const notifyIfWaiting = () => {
+      if (reg.waiting && navigator.serviceWorker.controller) {
+        window.dispatchEvent(new CustomEvent("clavis-update-ready"));
+      }
+    };
+    notifyIfWaiting(); // 既に waiting 状態でロードされたケース
+    reg.addEventListener("updatefound", () => {
+      const nw = reg.installing;
+      if (!nw) return;
+      nw.addEventListener("statechange", () => {
+        if (nw.state === "installed" && navigator.serviceWorker.controller) {
+          window.dispatchEvent(new CustomEvent("clavis-update-ready"));
+        }
+      });
+    });
+  }).catch(err => console.warn("SW register failed:", err));
+  // skipWaiting → activate → controllerchange で自動 reload
+  let __swRefreshing = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (__swRefreshing) return;
+    __swRefreshing = true;
+    location.reload();
+  });
+})();
 </script>
 </body></html>
