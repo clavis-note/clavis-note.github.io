@@ -8611,9 +8611,37 @@ function MasterRegistration({data,setData,onNavigateToClient}){
     }catch(e){}
     return "company";
   });
-  // サブタブ変更時にURL hashを更新(履歴は汚さない)
+  // サブタブ変更時はpushStateで履歴を積む（バック1回で前のサブタブ→前のメインタブと段階的に戻れるように）。
+  // 初回マウント時は何もしない: Reactのeffect順序（子→親）の都合で、ここでhistoryを触ると
+  // App側のメインタブ pushState（親）より先に走り、直前のentry（前タブ）を破壊してしまう。
+  // hashにsubtabが反映されないのは許容（リロードや再表示時はuseStateの初期化でhashから復元される）。
+  // popstateからの復元時(clavis-restore-subtab)はsetTab前にskipフラグを立て、二重pushを防ぐ。
+  const isFirstSubtabRenderRef=useRef(true);
+  const skipNextSubtabPushRef=useRef(false);
   useEffect(()=>{
-    try{window.history.replaceState({tab:'master',detail:false},'','#master/'+tab);}catch(e){}
+    if(isFirstSubtabRenderRef.current){
+      isFirstSubtabRenderRef.current=false;
+      return;
+    }
+    if(skipNextSubtabPushRef.current){
+      skipNextSubtabPushRef.current=false;
+      return;
+    }
+    try{window.history.pushState({clavis:true,tab:'master',subtab:tab,detail:false},'','#master/'+tab);}catch(e){}
+  },[tab]);
+  useEffect(()=>{
+    const onRestore=(e)=>{
+      const d=e.detail;
+      if(d&&d.tab==='master'&&d.subtab&&d.subtab!==tab){
+        const validSubTabs=['office','company',...(SHOW_DOCS?['doctype']:[]),'fee','template','minwage'];
+        if(validSubTabs.includes(d.subtab)){
+          skipNextSubtabPushRef.current=true;
+          setTab(d.subtab);
+        }
+      }
+    };
+    window.addEventListener('clavis-restore-subtab',onRestore);
+    return ()=>window.removeEventListener('clavis-restore-subtab',onRestore);
   },[tab]);
   const companies=data.companies||COMPANY_DB;
   const setCompanies=useCallback(fn=>{
@@ -9182,25 +9210,57 @@ function App(){
   const hasMountedRef=useRef(false);
   const initialSyncCheckedRef=useRef(false);
 
-  // ブラウザバック対応（PWA）
+  // ブラウザバック対応（PWA / Web）
+  // 履歴管理方針:
+  //  - 起動時、historyの「底」に sentinel エントリを置く（replaceState）。その上に現在のactiveTabをpushStateで積む。
+  //    連続バックで底に到達した時、sentinelをpopstateハンドラが検知し、activeTabがdashboard以外なら
+  //    dashboardに切り戻し+再pushStateで進めることでアプリ終了をガードする（dashboardなら何もせずブラウザに任せる）。
+  //  - メインタブ切替・サブタブ切替・詳細画面表示はそれぞれpushStateで履歴を積む。バックで段階的に戻る。
+  //  - state.tab を持つentryに対しては setActiveTab、state.subtab があれば clavis-restore-subtab イベントで子に伝播。
+  const activeTabRef=useRef(activeTab);
+  useEffect(()=>{activeTabRef.current=activeTab;},[activeTab]);
   useEffect(()=>{
-    try{window.history.replaceState({tab:activeTab,detail:false},'','#'+activeTab);}catch(e){}
+    try{
+      const parts=location.hash.replace('#','').split('/');
+      const subtab=parts[0]===activeTab&&parts[1]?parts[1]:undefined;
+      const initHash='#'+activeTab+(subtab?'/'+subtab:'');
+      const stateObj={clavis:true,tab:activeTab,detail:false};
+      if(subtab) stateObj.subtab=subtab;
+      window.history.replaceState({clavis:true,sentinel:true},'',initHash);
+      window.history.pushState(stateObj,'',initHash);
+    }catch(e){}
     const handlePopState=(e)=>{
-      if(e.state&&e.state.tab){
-        setActiveTab(e.state.tab);
-        // detail:true/false に関わらず必ず close を dispatch（履歴の不整合を防ぐため）
+      const s=e.state;
+      if(s&&s.clavis&&s.sentinel){
+        // 履歴の底に到達。dashboard以外ならdashboardに切り戻し+再pushStateで進める。
+        // dashboardの場合は何もしない（ブラウザが続けて前のページに戻る or アプリ終了に任せる）。
+        if(activeTabRef.current!=='dashboard'){
+          setActiveTab('dashboard');
+          window.dispatchEvent(new CustomEvent('clavis-close-detail'));
+          try{window.history.pushState({clavis:true,tab:'dashboard',detail:false},'','#dashboard');}catch(e){}
+        }
+        return;
+      }
+      if(s&&s.tab){
+        setActiveTab(s.tab);
         window.dispatchEvent(new CustomEvent('clavis-close-detail'));
+        if(s.subtab){
+          window.dispatchEvent(new CustomEvent('clavis-restore-subtab',{detail:{tab:s.tab,subtab:s.subtab}}));
+        }
+        return;
       }
-      else{
-        try{
-          const hash=location.hash.replace('#','').split('/')[0];
-          const validTabs=['dashboard','clients','cases','journal','payments',...(SHOW_DOCS?['docs']:[]),'master'];
-          if(validTabs.includes(hash)){
-            setActiveTab(hash);
-            window.dispatchEvent(new CustomEvent('clavis-close-detail'));
+      // フォールバック: stateが無い場合はhashから推定
+      try{
+        const parts=location.hash.replace('#','').split('/');
+        const validTabs=['dashboard','clients','cases','journal','payments',...(SHOW_DOCS?['docs']:[]),'master'];
+        if(validTabs.includes(parts[0])){
+          setActiveTab(parts[0]);
+          window.dispatchEvent(new CustomEvent('clavis-close-detail'));
+          if(parts[0]==='master'&&parts[1]){
+            window.dispatchEvent(new CustomEvent('clavis-restore-subtab',{detail:{tab:'master',subtab:parts[1]}}));
           }
-        }catch(e){}
-      }
+        }
+      }catch(e){}
     };
     window.addEventListener('popstate',handlePopState);
     return ()=>window.removeEventListener('popstate',handlePopState);
@@ -9208,12 +9268,16 @@ function App(){
   useEffect(()=>{
     if(prevTabRef.current!==activeTab){
       // 子コンポーネントが既に同じタブのstateをpushしてる場合はスキップ(detail:true保護)
+      // sentinel上は必ずpushStateする（sentinelの直上にメインタブを積む構造を維持）
       const cur=window.history.state;
-      if(!cur||cur.tab!==activeTab){
+      if(!cur||!cur.tab||cur.tab!==activeTab||cur.sentinel){
         // 既にサブタブ含むhashがセット済みなら保持(handleNavigateToMaster経由のサブタブ指定対応)
         const curHash=location.hash.replace('#','').split('/');
         const newHash=curHash[0]===activeTab?location.hash:'#'+activeTab;
-        try{window.history.pushState({tab:activeTab,detail:false},'',newHash);}catch(e){}
+        const subtab=(curHash[0]===activeTab&&curHash[1])?curHash[1]:undefined;
+        const stateObj={clavis:true,tab:activeTab,detail:false};
+        if(subtab) stateObj.subtab=subtab;
+        try{window.history.pushState(stateObj,'',newHash);}catch(e){}
       }
       prevTabRef.current=activeTab;
     }
