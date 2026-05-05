@@ -3048,12 +3048,17 @@ function TabBasic({c,editMode,update,allClients}){
           <div style={{gridColumn:"1/-1"}}>
             <div style={{fontSize:10,color:"var(--text3)",fontWeight:500,marginBottom:3,letterSpacing:"0.05em"}}>扶養者</div>
             {editMode?(()=>{
-              const candidates=(allClients||[]).filter(x=>x.client_id!==c.client_id&&!x.archived&&x.client_type!=="general").sort((a,b)=>(a.name_roman||"").localeCompare(b.name_roman||""));
+              // 扶養者セレクタの候補から家族滞在（と COE家族滞在系）を除外
+              // 理由: 入管実務上、家族滞在は自身が扶養される側であり、誰かを扶養できない
+              const isDependentSide=(x)=>x.residence_status==="家族滞在"||(x.coe_phase&&x.coe_category==="family");
+              const candidates=(allClients||[]).filter(x=>x.client_id!==c.client_id&&!x.archived&&x.client_type!=="general"&&!isDependentSide(x)).sort((a,b)=>(a.name_roman||"").localeCompare(b.name_roman||""));
+              const sponsorObj=c.dependent_of?(allClients||[]).find(x=>x.client_id===c.dependent_of):null;
               const sponsorMissing=c.dependent_of&&!candidates.find(x=>x.client_id===c.dependent_of);
               return(
                 <select value={c.dependent_of||""} onChange={e=>update("dependent_of",e.target.value||null)} style={{fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)",width:"100%"}}>
                   <option value="">未選択</option>
-                  {sponsorMissing&&<option value={c.dependent_of}>（archived/未存在: {c.dependent_of}）</option>}
+                  {sponsorMissing&&sponsorObj&&<option value={c.dependent_of}>{sponsorObj.name_roman||"（無名）"}（要見直し: 扶養される側）</option>}
+                  {sponsorMissing&&!sponsorObj&&<option value={c.dependent_of}>（archived/未存在: {c.dependent_of}）</option>}
                   {candidates.map(x=><option key={x.client_id} value={x.client_id}>{x.name_roman||"（無名）"}{x.residence_status?` ・ ${x.residence_status}`:""}{x.company_name?` ・ ${x.company_name}`:""}</option>)}
                 </select>
               );
@@ -3967,10 +3972,14 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
                     <div style={{display:"flex",gap:4,marginTop:3,alignItems:"center",flexWrap:"wrap",paddingLeft:indent?20:0}}>
                       {c.client_type==="general"?<span style={{fontSize:10,padding:"1px 5px",borderRadius:3,background:"#F1EFE8",color:"#5F5E5A"}}>📄 一般</span>
                       :<>{(()=>{
-                        const coeLabel=getCOEPhaseLabel(c,data.cases);
-                        if(c.coe_phase&&coeLabel){
-                          const cb=COE_BADGE_COLORS[coeLabel]||COE_BADGE_COLORS["予定"];
-                          return <span style={{fontSize:10,padding:"1px 5px",borderRadius:3,background:cb.bg,color:cb.color,fontWeight:500}}>COE{coeLabel}</span>;
+                        if(c.coe_phase){
+                          // COE中は residence_status をフォールバック表示しない（「技能」デフォルト等が漏れるのを防ぐ）
+                          const coeLabel=getCOEPhaseLabel(c,data.cases);
+                          if(coeLabel){
+                            const cb=COE_BADGE_COLORS[coeLabel]||COE_BADGE_COLORS["予定"];
+                            return <span style={{fontSize:10,padding:"1px 5px",borderRadius:3,background:cb.bg,color:cb.color,fontWeight:500}}>COE{coeLabel}</span>;
+                          }
+                          return null; // 許可案件あり → バッジ非表示
                         }
                         return c.residence_status?<span style={{fontSize:10,padding:"1px 5px",borderRadius:3,background:stc.bg,color:stc.color,border:"0.5px solid "+stc.border}}>{c.residence_status}</span>:null;
                       })()}
