@@ -9280,6 +9280,50 @@ function AutoSaveIndicator({data}){
   );
 }
 
+// Drive同期の競合確認モーダル（ネイティブ confirm() の代替）
+// info: {title, description, localTime, remoteTime, localLabel?, remoteLabel?}
+// onResolve("local" | "remote" | "cancel")
+function ConflictConfirmModal({info,onResolve}){
+  if(!info) return null;
+  const fmt=(t)=>{
+    if(!t) return "—";
+    const d=new Date(t);
+    if(isNaN(d.getTime())) return "—";
+    const ago=Math.max(0,(Date.now()-d.getTime())/1000);
+    let rel;
+    if(ago<60) rel="たった今";
+    else if(ago<3600) rel=Math.floor(ago/60)+"分前";
+    else if(ago<86400) rel=Math.floor(ago/3600)+"時間前";
+    else rel=Math.floor(ago/86400)+"日前";
+    return rel+"（"+d.toLocaleString()+"）";
+  };
+  const localLabel=info.localLabel||"ローカル（この端末）";
+  const remoteLabel=info.remoteLabel||"Drive（クラウド）";
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={(e)=>{if(e.target===e.currentTarget) onResolve("cancel");}}>
+      <div style={{background:"var(--bg)",border:"0.5px solid rgba(0,0,0,0.15)",borderRadius:12,maxWidth:480,width:"100%",boxShadow:"0 8px 24px rgba(0,0,0,0.2)",overflow:"hidden"}}>
+        <div style={{padding:"14px 18px",borderBottom:"0.5px solid #EF9F27",background:"#FAEEDA"}}>
+          <div style={{fontSize:13,fontWeight:600,color:"#854F0B"}}>⚠️ {info.title}</div>
+        </div>
+        <div style={{padding:"14px 18px"}}>
+          {info.description&&<div style={{fontSize:12,color:"var(--text2)",marginBottom:12,lineHeight:1.5}}>{info.description}</div>}
+          <div style={{display:"grid",gridTemplateColumns:"auto 1fr",gap:"6px 12px",background:"var(--bg2)",border:"0.5px solid rgba(0,0,0,0.1)",borderRadius:8,padding:"10px 12px",marginBottom:14}}>
+            <div style={{fontSize:11,color:"var(--text3)"}}>{localLabel}</div>
+            <div style={{fontSize:12,color:"var(--text)",fontWeight:500}}>{fmt(info.localTime)}</div>
+            <div style={{fontSize:11,color:"var(--text3)"}}>{remoteLabel}</div>
+            <div style={{fontSize:12,color:"var(--text)",fontWeight:500}}>{fmt(info.remoteTime)}</div>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            <button onClick={()=>onResolve("local")} style={{padding:"10px 14px",borderRadius:8,border:"0.5px solid #185FA5",background:"#E6F1FB",color:"#185FA5",fontSize:12,fontWeight:500,cursor:"pointer",textAlign:"left",lineHeight:1.4}}>📤 今入力した内容で、Driveのバックアップデータを上書きする</button>
+            <button onClick={()=>onResolve("remote")} style={{padding:"10px 14px",borderRadius:8,border:"0.5px solid #185FA5",background:"#E6F1FB",color:"#185FA5",fontSize:12,fontWeight:500,cursor:"pointer",textAlign:"left",lineHeight:1.4}}>📥 先にDriveのデータをダウンロードしてから作業を続ける</button>
+            <button onClick={()=>onResolve("cancel")} style={{padding:"10px 14px",borderRadius:8,border:"0.5px solid rgba(0,0,0,0.15)",background:"transparent",color:"var(--text2)",fontSize:12,fontWeight:500,cursor:"pointer",textAlign:"left",lineHeight:1.4}}>✕ キャンセル（何もしない・同期スキップ）</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function App(){
   const [data,setData]=useState(getInitialData);
   const [isMobile,setIsMobile]=useState(()=>window.innerWidth<768||/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent));
@@ -9304,6 +9348,20 @@ function App(){
   const [gdriveSyncing,setGdriveSyncing]=useState(false);
   const [gdriveLastSync,setGdriveLastSync]=useState(()=>localStorage.getItem("clavis-gdrive-last-sync")||null);
   const [showAuthBanner,setShowAuthBanner]=useState(false);
+  const [conflictModalInfo,setConflictModalInfo]=useState(null);
+  const conflictResolverRef=useRef(null);
+  function showConflictModal(info){
+    return new Promise(resolve=>{
+      conflictResolverRef.current=resolve;
+      setConflictModalInfo(info);
+    });
+  }
+  function handleConflictResolve(choice){
+    const r=conflictResolverRef.current;
+    conflictResolverRef.current=null;
+    setConflictModalInfo(null);
+    if(r) r(choice);
+  }
   const [swUpdateReady,setSwUpdateReady]=useState(false);
   const [isOnline,setIsOnline]=useState(typeof navigator!=="undefined"?navigator.onLine:true);
   function handleNavigateToClient(clientId){setNavigateClientId(clientId);setActiveTab("clients");}
@@ -9647,16 +9705,23 @@ function App(){
           const storedRemote=localStorage.getItem("clavis-gdrive-last-remote-time");
           // storedRemote が空でも(新規端末でローカル空状態を守る)、不一致でも、リモートにファイルがある時点で必ず確認
           if(!storedRemote || preUploadFile.modifiedTime !== storedRemote){
-            // 他端末が先にUP済み → ユーザー確認
-            const forceOverwrite=confirm(
-              "⚠️ 他端末でDriveが更新されています\n\n"+
-              `リモート最終更新: ${new Date(preUploadFile.modifiedTime).toLocaleString()}\n\n`+
-              "OK: このまま上書きする（他端末の変更は失われます）\n"+
-              "キャンセル: アップロード中止（先にダウンロード推奨）"
-            );
-            if(!forceOverwrite){
+            // 他端末が先にUP済み → カスタムモーダルでユーザー確認
+            const localMod=localStorage.getItem("clavis-note-last-modified");
+            const choice=await showConflictModal({
+              title:"アップロード前に、他端末がDriveを更新しています",
+              description:"このままアップロードすると、他端末の変更が失われます。どう進めますか？",
+              localTime: localMod || new Date().toISOString(),
+              remoteTime: preUploadFile.modifiedTime
+            });
+            if(choice==="cancel"){
               logSyncEvent("conflict","pre-upload-aborted");
               const t=document.getElementById("toast");if(t){t.textContent="⚠️ 自動UP中止: 他端末の変更を確認してください";t.style.opacity=1;setTimeout(()=>t.style.opacity=0,3500);}
+              return;
+            }
+            if(choice==="remote"){
+              logSyncEvent("conflict","pre-upload-switched-to-download");
+              await handleGdriveDownload(true);
+              localStorage.setItem("clavis-gdrive-last-remote-time", preUploadFile.modifiedTime);
               return;
             }
             logSyncEvent("conflict","pre-upload-forced-overwrite");
@@ -9771,22 +9836,22 @@ function App(){
         const lastModTime=lastMod?new Date(lastMod).getTime():0;
         const hasLocalChanges=lastModTime>lastSyncTime;
         if(hasLocalChanges){
-          // 競合 → 確認ダイアログ
-          const useRemote=confirm(
-            "⚠️ 同期の確認\n\n"+
-            "他の端末で更新されたデータが見つかりましたが、\n"+
-            "この端末にも未同期の編集があります。\n\n"+
-            `リモート最終更新: ${new Date(file.modifiedTime).toLocaleString()}\n`+
-            (lastMod?`ローカル最終編集: ${new Date(lastMod).toLocaleString()}\n`:"")+
-            "\nOK: リモートのデータを取得（この端末の変更は破棄）\n"+
-            "キャンセル: この端末を保持（あとで自動アップロードされます）"
-          );
-          if(useRemote){
+          // 競合 → カスタムモーダル
+          const choice=await showConflictModal({
+            title:"同期の競合が発生しました",
+            description:"Drive上のデータが他端末で更新され、この端末にも未同期の編集があります。どう進めますか？",
+            localTime: lastMod,
+            remoteTime: file.modifiedTime
+          });
+          if(choice==="remote"){
             logSyncEvent("download","conflict-resolved-remote");
             await handleGdriveDownload(true);
             localStorage.setItem("clavis-gdrive-last-remote-time", file.modifiedTime);
+          } else if(choice==="local"){
+            logSyncEvent("upload","conflict-resolved-local");
+            await handleGdriveUpload();
           } else {
-            logSyncEvent("skip","conflict-resolved-local");
+            logSyncEvent("skip","conflict-resolved-cancel");
           }
         } else {
           // 競合なし → 自動DL（サイレント）
@@ -9923,6 +9988,7 @@ function App(){
   return(
     <MobileContext.Provider value={isMobile}>
     <div style={{minHeight:"100vh",background:"#eeede8",zoom:isMobile?"1":fs,"--header-h":showStepper?"86px":"52px"}}>
+      <ConflictConfirmModal info={conflictModalInfo} onResolve={handleConflictResolve}/>
       {/* 認証切れバナー（最上部、ヘッダーの上） */}
       {showAuthBanner&&(
         <div style={{
