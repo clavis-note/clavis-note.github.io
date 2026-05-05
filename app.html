@@ -3384,12 +3384,13 @@ function TabWorkHistory({c,editMode,update,companies}){
   const btnS={fontSize:11,padding:"4px 10px",borderRadius:5,cursor:"pointer",border:"0.5px solid var(--border)",background:"transparent",color:"var(--text2)"};
 
   function resetWork(){setWf({});setAddingWork(false);setEditWorkId(null);}
-  function startAddWork(){setWf({company_name:"",country:"日本",start_date:"",end_date:"",job_title:"",is_outside_qualification:false,init_monthly_salary:"",init_weekly_hours:40,init_employment_type:"正社員",init_pref:clientPref||"東京都"});setAddingWork(true);setEditWorkId(null);}
+  function startAddWork(){setWf({company_name:"",country:"日本",start_date:"",end_date:"",job_title:"",is_outside_qualification:false,init_monthly_salary:"",init_hourly_wage:"",init_weekly_hours:40,init_employment_type:"正社員",init_pref:clientPref||"東京都"});setAddingWork(true);setEditWorkId(null);}
   function startEditWork(w){setWf({...w});setEditWorkId(w.id);setAddingWork(false);}
   function saveWork(){
     if(!wf.company_name||!wf.start_date)return;
     const w2={...wf};
     delete w2.init_monthly_salary;
+    delete w2.init_hourly_wage;
     delete w2.init_weekly_hours;
     delete w2.init_employment_type;
     delete w2.init_pref;
@@ -3401,19 +3402,21 @@ function TabWorkHistory({c,editMode,update,companies}){
       const newId="W"+Date.now();
       const newWork={...w2,id:newId};
       update("work_history",[...c.work_history,newWork]);
-      // 給与情報が入力されていれば同時登録
-      if(wf.init_monthly_salary&&Number(wf.init_monthly_salary)>0){
-        const monthly=Number(wf.init_monthly_salary)||0;
+      // 給与情報（月給 or 時給のいずれか）が入力されていれば同時登録
+      const initMonthly=Number(wf.init_monthly_salary)||0;
+      const initHourly=Number(wf.init_hourly_wage)||0;
+      if(initMonthly>0||initHourly>0){
         const weeklyH=Number(wf.init_weekly_hours)||40;
         const pref=wf.init_pref||"東京都";
-        const hourlyForCheck=calcHourlyFromMonthly(monthly,weeklyH);
+        const autoHourly=calcHourlyFromMonthly(initMonthly,weeklyH);
+        const hourlyForCheck=autoHourly||initHourly;
         const minCheck=checkMinWage(hourlyForCheck,pref,loadMinWages());
         const newSalary={
           id:"S"+Date.now(),
           work_id:newId,
           effective_date:newWork.start_date,
-          monthly_salary:monthly,
-          hourly_wage:0,
+          monthly_salary:initMonthly,
+          hourly_wage:autoHourly||initHourly,
           weekly_hours:weeklyH,
           employment_type:wf.init_employment_type||"正社員",
           pref:pref,
@@ -3476,18 +3479,42 @@ function TabWorkHistory({c,editMode,update,companies}){
           資格外活動（家族滞在等のバイト）
         </label>
       </div>
-      {!editWorkId&&(
+      {!editWorkId&&(()=>{
+        const wfPref=wf.init_pref||"";
+        const wfAutoHourly=calcHourlyFromMonthly(Number(wf.init_monthly_salary)||0,Number(wf.init_weekly_hours)||0);
+        const wfHourlyForCheck=wfAutoHourly||Number(wf.init_hourly_wage)||0;
+        const wfMinWages=loadMinWages();
+        const wfMinCheck=checkMinWage(wfHourlyForCheck,wfPref,wfMinWages);
+        const wfPrefWage=getMinWageForPref(wfPref,wfMinWages);
+        return(
         <div style={{background:"#FEFAF3",border:"0.5px solid #EF9F27",borderRadius:6,padding:10,marginBottom:8}}>
           <div style={{fontSize:10,fontWeight:500,color:"#854F0B",marginBottom:6}}>💴 給与情報を同時登録（任意）</div>
-          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 80px 100px 100px",gap:6}}>
+          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 80px 90px 100px",gap:6}}>
             <div><div style={{fontSize:9,color:"var(--text3)",marginBottom:2}}>月給</div><input type="number" value={wf.init_monthly_salary||""} onChange={e=>setWf(p=>({...p,init_monthly_salary:e.target.value}))} placeholder="例: 200000" style={{...inputS,fontSize:11,textAlign:"right"}}/></div>
+            <div><div style={{fontSize:9,color:"var(--text3)",marginBottom:2}}>時給（月給なしの場合）</div><input type="number" value={wf.init_hourly_wage||""} onChange={e=>setWf(p=>({...p,init_hourly_wage:e.target.value}))} placeholder={wfAutoHourly?"自動: ¥"+wfAutoHourly:""} style={{...inputS,fontSize:11,textAlign:"right"}}/></div>
             <div><div style={{fontSize:9,color:"var(--text3)",marginBottom:2}}>週時間</div><input type="number" value={wf.init_weekly_hours||""} onChange={e=>setWf(p=>({...p,init_weekly_hours:e.target.value}))} style={{...inputS,fontSize:11,textAlign:"right"}}/></div>
             <div><div style={{fontSize:9,color:"var(--text3)",marginBottom:2}}>雇用形態</div><select value={wf.init_employment_type||"正社員"} onChange={e=>setWf(p=>({...p,init_employment_type:e.target.value}))} style={{...inputS,fontSize:11}}><option>正社員</option><option>パート</option><option>アルバイト</option></select></div>
             <div><div style={{fontSize:9,color:"var(--text3)",marginBottom:2}}>勤務地</div><select value={wf.init_pref||"東京都"} onChange={e=>setWf(p=>({...p,init_pref:e.target.value}))} style={{...inputS,fontSize:11}}>{loadMinWages().map(w=><option key={w.pref} value={w.pref}>{w.pref}</option>)}</select></div>
           </div>
-          <div style={{fontSize:9,color:"var(--text3)",marginTop:6}}>※ 月給を入れて保存すると、職歴と一緒に給与履歴にも自動登録されます。空欄なら職歴のみ登録。</div>
+          {wfHourlyForCheck>0&&(
+            <div style={{display:"flex",gap:10,alignItems:"center",padding:"6px 8px",borderRadius:5,background:wfMinCheck===false?"#FCEBEB":wfMinCheck===true?"#EAF3DE":"#F5F5F3",marginTop:6,flexWrap:"wrap"}}>
+              <span style={{fontSize:11,color:"var(--text)"}}>{wfAutoHourly?"時給換算":"時給"}: <strong>¥{wfHourlyForCheck.toLocaleString()}</strong></span>
+              {wfAutoHourly&&<span style={{fontSize:10,color:"var(--text3)"}}>({fmt(Number(wf.init_monthly_salary))}÷週{wf.init_weekly_hours}h)</span>}
+              {wfPref&&wfPrefWage?(
+                <>
+                  <span style={{fontSize:10,color:"var(--text2)"}}>{wfPref}最賃: ¥{wfPrefWage.toLocaleString()}</span>
+                  <span style={{fontSize:10,padding:"1px 6px",borderRadius:3,fontWeight:500,background:wfMinCheck?"#EAF3DE":"#FCEBEB",color:wfMinCheck?"#3B6D11":"#A32D2D"}}>{wfMinCheck?"最賃OK":"⚠ 最賃割れ"}</span>
+                  {wfMinCheck===false&&<span style={{fontSize:10,color:"#A32D2D"}}>差額 ¥{(wfPrefWage-wfHourlyForCheck).toLocaleString()}/h</span>}
+                </>
+              ):(
+                <span style={{fontSize:10,padding:"1px 6px",borderRadius:3,fontWeight:500,background:"#FAEEDA",color:"#854F0B"}}>⚠ 照合不能（勤務地が未設定）</span>
+              )}
+            </div>
+          )}
+          <div style={{fontSize:9,color:"var(--text3)",marginTop:6}}>※ 月給または時給を入れて保存すると、職歴と一緒に給与履歴にも自動登録されます。空欄なら職歴のみ登録。</div>
         </div>
-      )}
+        );
+      })()}
       <div style={{display:"flex",gap:6,justifyContent:"flex-end"}}>
         <button onClick={resetWork} style={btnS}>キャンセル</button>
         <button onClick={saveWork} disabled={!wf.company_name||!wf.start_date} style={{...btnS,background:"var(--accent-bg)",color:"var(--accent-text)",borderColor:"var(--accent)",opacity:(!wf.company_name||!wf.start_date)?0.4:1}}>保存</button>
