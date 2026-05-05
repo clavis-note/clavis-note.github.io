@@ -3050,7 +3050,8 @@ function TabBasic({c,editMode,update,allClients}){
             {editMode?(()=>{
               // 扶養者セレクタの候補から家族滞在（と COE家族滞在系）を除外
               // 理由: 入管実務上、家族滞在は自身が扶養される側であり、誰かを扶養できない
-              const isDependentSide=(x)=>x.residence_status==="家族滞在"||(x.coe_phase&&x.coe_category==="family");
+              // includes判定: 旧データに "家族滞在（COE申請中）" のような表記が含まれるケースに対応
+              const isDependentSide=(x)=>(x.residence_status||"").includes("家族滞在")||(x.coe_phase&&x.coe_category==="family");
               const candidates=(allClients||[]).filter(x=>x.client_id!==c.client_id&&!x.archived&&x.client_type!=="general"&&!isDependentSide(x)).sort((a,b)=>(a.name_roman||"").localeCompare(b.name_roman||""));
               const sponsorObj=c.dependent_of?(allClients||[]).find(x=>x.client_id===c.dependent_of):null;
               const sponsorMissing=c.dependent_of&&!candidates.find(x=>x.client_id===c.dependent_of);
