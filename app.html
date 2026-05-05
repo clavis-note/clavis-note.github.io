@@ -63,7 +63,8 @@ const PAY_STATUS_COLORS = {
   "未請求":{bg:"#F1EFE8",color:"#5F5E5A"},"請求済":{bg:"#E6F1FB",color:"#185FA5"},
   "入金済":{bg:"#EAF3DE",color:"#3B6D11"},"一部入金":{bg:"#FAEEDA",color:"#854F0B"},
 };
-const CLIENT_STATUS = { "active":{label:"在籍",bg:"#EAF3DE",color:"#3B6D11"}, "incoming":{label:"入社予定",bg:"#E6F1FB",color:"#185FA5"}, "returned":{label:"帰国済み",bg:"#FAEEDA",color:"#854F0B"}, "resigned":{label:"退職",bg:"#FCEBEB",color:"#A32D2D"}, "none":{label:"ー",bg:"#F1EFE8",color:"#5F5E5A"} };
+const CLIENT_STATUS = { "active":{label:"在籍",bg:"#EAF3DE",color:"#3B6D11"}, "incoming":{label:"入社予定",bg:"#E6F1FB",color:"#185FA5"}, "resigned":{label:"退職",bg:"#FCEBEB",color:"#A32D2D"}, "preschool":{label:"未就学児",bg:"#FBE6F1",color:"#A5186E"}, "student":{label:"就学中",bg:"#EEEDFE",color:"#534AB7"}, "homemaker":{label:"主婦・主夫",bg:"#DBF4EE",color:"#0F6E56"}, "returned":{label:"帰国済み",bg:"#FAEEDA",color:"#854F0B"}, "unknown":{label:"不明",bg:"#F1EFE8",color:"#5F5E5A"}, "none":{label:"ー（旧）",bg:"#F1EFE8",color:"#5F5E5A"} };
+const COE_BADGE_COLORS = { "予定":{bg:"#E6F1FB",color:"#185FA5"}, "準備中":{bg:"#FAEEDA",color:"#854F0B"}, "申請中":{bg:"#EEEDFE",color:"#534AB7"} };
 const AVATAR_COLORS = ["#185FA5","#0F6E56","#534AB7","#854F0B","#993C1D","#3B6D11"];
 
 // 案件管理用定数
@@ -2909,7 +2910,7 @@ function ImageCropModal({src,onSave,onClose}){
   );
 }
 
-function TabBasic({c,editMode,update}){
+function TabBasic({c,editMode,update,allClients}){
   const isMobile=useMobile();
   const isGenClient=c.client_type==="general";
   const [cropSrc,setCropSrc]=React.useState(null);
@@ -3005,11 +3006,37 @@ function TabBasic({c,editMode,update}){
           <div style={{fontSize:10,color:"var(--text3)",fontWeight:500,marginBottom:3,letterSpacing:"0.05em"}}>ステータス</div>
           {editMode?(
             <select value={c.client_status||"active"} onChange={e=>update("client_status",e.target.value)} style={{fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)",width:"100%"}}>
-              <option value="active">在籍</option><option value="incoming">入社予定</option><option value="resigned">退職</option><option value="returned">帰国済み</option><option value="none">ー</option>
+              <option value="active">在籍</option>
+              <option value="incoming">入社予定</option>
+              <option value="resigned">退職</option>
+              <option value="preschool">未就学児</option>
+              <option value="student">就学中</option>
+              <option value="homemaker">主婦・主夫</option>
+              <option value="returned">帰国済み</option>
+              <option value="unknown">不明</option>
+              {c.client_status==="none"&&<option value="none">ー（旧・要振り直し）</option>}
             </select>
           ):<span style={{fontSize:11,padding:"2px 8px",borderRadius:4,background:(CLIENT_STATUS[c.client_status||"active"]||CLIENT_STATUS.active).bg,color:(CLIENT_STATUS[c.client_status||"active"]||CLIENT_STATUS.active).color,fontWeight:500}}>{(CLIENT_STATUS[c.client_status||"active"]||CLIENT_STATUS.active).label}</span>}
         </div>}
-        {c.residence_status==="家族滞在"&&(
+        {!isGenClient&&<div>
+          <div style={{fontSize:10,color:"var(--text3)",fontWeight:500,marginBottom:3,letterSpacing:"0.05em"}}>COE申請中</div>
+          {editMode?(
+            <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+              <label style={{fontSize:12,display:"flex",alignItems:"center",gap:5,cursor:"pointer",color:"var(--text)"}}>
+                <input type="checkbox" checked={!!c.coe_phase} onChange={e=>update("coe_phase",e.target.checked)}/>
+                COE
+              </label>
+              {c.coe_phase&&(
+                <select value={c.coe_category||""} onChange={e=>update("coe_category",e.target.value||null)} style={{fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)",flex:1,minWidth:140}}>
+                  <option value="">種別を選択</option>
+                  <option value="family">家族滞在系</option>
+                  <option value="work">就労系</option>
+                </select>
+              )}
+            </div>
+          ):(c.coe_phase?<span style={{fontSize:11,padding:"2px 8px",borderRadius:4,background:"#EEEDFE",color:"#534AB7",fontWeight:500}}>COE{c.coe_category==="family"?"・家族滞在系":c.coe_category==="work"?"・就労系":""}</span>:<span style={{fontSize:13,color:"var(--text3)"}}>—</span>)}
+        </div>}
+        {(c.residence_status==="家族滞在"||(c.coe_phase&&c.coe_category==="family"))&&(
           <div>
             <div style={{fontSize:10,color:"var(--text3)",fontWeight:500,marginBottom:3,letterSpacing:"0.05em"}}>続柄</div>
             {editMode?<select value={c.relationship||""} onChange={e=>update("relationship",e.target.value||null)} style={{fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)",width:"100%"}}>
@@ -3017,7 +3044,26 @@ function TabBasic({c,editMode,update}){
             </select>:<span style={{fontSize:13,color:c.relationship?"var(--text)":"var(--text3)"}}>{c.relationship||"—"}</span>}
           </div>
         )}
-        {c.residence_status==="家族滞在"&&c.relationship==="子"&&<Field label="学校名" value={c.school_name} editMode={editMode} field="school_name" update={update}/>}
+        {(c.residence_status==="家族滞在"||(c.coe_phase&&c.coe_category==="family"))&&(
+          <div style={{gridColumn:"1/-1"}}>
+            <div style={{fontSize:10,color:"var(--text3)",fontWeight:500,marginBottom:3,letterSpacing:"0.05em"}}>扶養者</div>
+            {editMode?(()=>{
+              const candidates=(allClients||[]).filter(x=>x.client_id!==c.client_id&&!x.archived&&x.client_type!=="general").sort((a,b)=>(a.name_roman||"").localeCompare(b.name_roman||""));
+              const sponsorMissing=c.dependent_of&&!candidates.find(x=>x.client_id===c.dependent_of);
+              return(
+                <select value={c.dependent_of||""} onChange={e=>update("dependent_of",e.target.value||null)} style={{fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)",width:"100%"}}>
+                  <option value="">未選択</option>
+                  {sponsorMissing&&<option value={c.dependent_of}>（archived/未存在: {c.dependent_of}）</option>}
+                  {candidates.map(x=><option key={x.client_id} value={x.client_id}>{x.name_roman||"（無名）"}{x.residence_status?` ・ ${x.residence_status}`:""}{x.company_name?` ・ ${x.company_name}`:""}</option>)}
+                </select>
+              );
+            })():(()=>{
+              const sp=c.dependent_of?(allClients||[]).find(x=>x.client_id===c.dependent_of):null;
+              return sp?<span style={{fontSize:13,color:"var(--text)"}}>{sp.name_roman}{sp.residence_status?` ・ ${sp.residence_status}`:""}</span>:<span style={{fontSize:13,color:"var(--text3)"}}>未設定</span>;
+            })()}
+          </div>
+        )}
+        {(c.residence_status==="家族滞在"||(c.coe_phase&&c.coe_category==="family"))&&c.relationship==="子"&&<Field label="学校名" value={c.school_name} editMode={editMode} field="school_name" update={update}/>}
         <div style={{gridColumn:"1/-1"}}>
           <div style={{fontSize:10,color:"var(--text3)",fontWeight:500,marginBottom:3,letterSpacing:"0.05em"}}>📁 Googleドライブ</div>
           {editMode?(
@@ -3332,7 +3378,7 @@ function TabWorkHistory({c,editMode,update,companies}){
   const btnS={fontSize:11,padding:"4px 10px",borderRadius:5,cursor:"pointer",border:"0.5px solid var(--border)",background:"transparent",color:"var(--text2)"};
 
   function resetWork(){setWf({});setAddingWork(false);setEditWorkId(null);}
-  function startAddWork(){setWf({company_name:"",country:"日本",start_date:"",end_date:"",job_title:"",init_monthly_salary:"",init_weekly_hours:40,init_employment_type:"正社員",init_pref:clientPref||"東京都"});setAddingWork(true);setEditWorkId(null);}
+  function startAddWork(){setWf({company_name:"",country:"日本",start_date:"",end_date:"",job_title:"",is_outside_qualification:false,init_monthly_salary:"",init_weekly_hours:40,init_employment_type:"正社員",init_pref:clientPref||"東京都"});setAddingWork(true);setEditWorkId(null);}
   function startEditWork(w){setWf({...w});setEditWorkId(w.id);setAddingWork(false);}
   function saveWork(){
     if(!wf.company_name||!wf.start_date)return;
@@ -3417,6 +3463,12 @@ function TabWorkHistory({c,editMode,update,companies}){
         <div><div style={{fontSize:10,color:"var(--text3)",marginBottom:2}}>開始日</div><input type="date" max="9999-12-31" min="1900-01-01" value={wf.start_date||""} onChange={e=>setWf(p=>({...p,start_date:e.target.value}))} style={inputS}/></div>
         <div><div style={{fontSize:10,color:"var(--text3)",marginBottom:2}}>終了日（空欄=在職中）</div><input type="date" max="9999-12-31" min="1900-01-01" value={wf.end_date||""} onChange={e=>setWf(p=>({...p,end_date:e.target.value}))} style={inputS}/></div>
         <div><div style={{fontSize:10,color:"var(--text3)",marginBottom:2}}>職種</div><IMEInput value={wf.job_title||""} onChange={v=>setWf(p=>({...p,job_title:v}))} placeholder="調理師" style={inputS}/></div>
+      </div>
+      <div style={{marginBottom:8}}>
+        <label style={{fontSize:11,display:"flex",alignItems:"center",gap:5,cursor:"pointer",color:"var(--text2)"}}>
+          <input type="checkbox" checked={!!wf.is_outside_qualification} onChange={e=>setWf(p=>({...p,is_outside_qualification:e.target.checked}))}/>
+          資格外活動（家族滞在等のバイト）
+        </label>
       </div>
       {!editWorkId&&(
         <div style={{background:"#FEFAF3",border:"0.5px solid #EF9F27",borderRadius:6,padding:10,marginBottom:8}}>
@@ -3511,6 +3563,7 @@ function TabWorkHistory({c,editMode,update,companies}){
                   </div>
                   <div style={{fontSize:11,color:"var(--text2)",marginTop:2}}>
                     {w.job_title} · {w.start_date} 〜 {w.end_date||"現在"} ({fmtMonths(calcMonths(w.start_date,w.end_date))}) <span style={{display:"inline-block",fontSize:10,padding:"1px 5px",borderRadius:3,marginLeft:4,background:(w.country||"日本")==="日本"?"#DBEAFE":"#FEF3C7",color:(w.country||"日本")==="日本"?"#1E40AF":"#92400E"}}>{(w.country||"日本")==="日本"?"🇯🇵 日本":"🌏 "+w.country}</span>
+                    {w.is_outside_qualification&&<span style={{display:"inline-block",fontSize:10,padding:"1px 5px",borderRadius:3,marginLeft:4,background:"#FAEEDA",color:"#854F0B",fontWeight:500}}>資格外活動</span>}
                   </div>
                 </div>
               </div>
@@ -3762,6 +3815,11 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
           updated.work_history=[...wh,{id:"W"+Date.now(),company_name:updated.company_name,country:"日本",start_date:updated.work_start_date,end_date:null,job_title:"調理師"}];
         }
       }
+      // COE自動OFF: 在留資格と在留期限が両方埋まったら、COEチェックを自動的に外す（確認なし）
+      if(updated.coe_phase && updated.residence_status && updated.residence_expiry){
+        updated.coe_phase=false;
+        updated.coe_category=null;
+      }
       return updated;
     }));
   }
@@ -3790,6 +3848,7 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
       residence_status:"技能", residence_expiry:"", phone:"", email:"",
       company_name:"", store:"", work_start_date:"", notes:"", address:"", postal_code:"",
       dependent_of:null, client_status:"active", relationship:null, school_name:null,
+      coe_phase:false, coe_category:null,
       photo:null, archived:false, salary_history:[], work_history:[],
       drive_path:"", drive_url:"",
       education_school:"", education_date:""
@@ -3814,11 +3873,22 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
   // Keep selected in sync with clients
   const cur=clients.find(c=>c.client_id===selected?.client_id)||null;
   const depsForAlert=(c)=>clients.filter(x=>x.dependent_of===c.client_id&&!x.archived);
+  // COE準備中・申請中・予定 を案件ステータスから動的算出
+  // 1) 申請中/追加資料対応中 → 申請中  2) 相談中/書類収集中 → 準備中
+  // 3) 上記なしで 許可/完了（許可） がある → null（バッジ非表示）  4) 案件なし or 上記いずれにも該当しない → 予定
+  function getCOEPhaseLabel(client,allCases){
+    if(!client||!client.coe_phase) return null;
+    const myCases=(allCases||[]).filter(cs=>cs.client_id===client.client_id||cs.applicant_id===client.client_id);
+    if(myCases.some(cs=>cs.status==="申請中"||cs.status==="追加資料対応中")) return "申請中";
+    if(myCases.some(cs=>cs.status==="相談中"||cs.status==="書類収集中")) return "準備中";
+    if(myCases.some(cs=>cs.status==="許可"||cs.status==="完了（許可）")) return null;
+    return "予定";
+  }
 
   function getTabs(c){
     if(!c)return["基本情報","在留・パスポート","案件履歴","職歴・給与"];
     if(c.client_type==="general") return["基本情報","案件履歴"];
-    if(c.residence_status==="家族滞在") return["基本情報","扶養者","在留・パスポート","案件履歴","職歴・給与"];
+    if(c.residence_status==="家族滞在"||(c.coe_phase&&c.coe_category==="family")) return["基本情報","扶養者","在留・パスポート","案件履歴","職歴・給与"];
     const deps=clients.filter(x=>x.dependent_of===c.client_id&&!x.archived);
     if(deps.length>0) return["基本情報","扶養家族","在留・パスポート","案件履歴","職歴・給与"];
     return["基本情報","在留・パスポート","案件履歴","職歴・給与"];
@@ -3896,10 +3966,15 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
                     </div>
                     <div style={{display:"flex",gap:4,marginTop:3,alignItems:"center",flexWrap:"wrap",paddingLeft:indent?20:0}}>
                       {c.client_type==="general"?<span style={{fontSize:10,padding:"1px 5px",borderRadius:3,background:"#F1EFE8",color:"#5F5E5A"}}>📄 一般</span>
-                      :<><span style={{fontSize:10,padding:"1px 5px",borderRadius:3,background:stc.bg,color:stc.color,border:"0.5px solid "+stc.border}}>{c.residence_status}</span>
-                      {c.client_status==="incoming"&&<span style={{fontSize:10,padding:"1px 5px",borderRadius:3,background:"#E6F1FB",color:"#185FA5"}}>入社予定</span>}
-                      {c.client_status==="returned"&&<span style={{fontSize:10,padding:"1px 5px",borderRadius:3,background:"#FAEEDA",color:"#854F0B"}}>帰国済み</span>}
-                      {c.client_status==="resigned"&&<span style={{fontSize:10,padding:"1px 5px",borderRadius:3,background:"#FCEBEB",color:"#A32D2D"}}>退職</span>}
+                      :<>{(()=>{
+                        const coeLabel=getCOEPhaseLabel(c,data.cases);
+                        if(c.coe_phase&&coeLabel){
+                          const cb=COE_BADGE_COLORS[coeLabel]||COE_BADGE_COLORS["予定"];
+                          return <span style={{fontSize:10,padding:"1px 5px",borderRadius:3,background:cb.bg,color:cb.color,fontWeight:500}}>COE{coeLabel}</span>;
+                        }
+                        return c.residence_status?<span style={{fontSize:10,padding:"1px 5px",borderRadius:3,background:stc.bg,color:stc.color,border:"0.5px solid "+stc.border}}>{c.residence_status}</span>:null;
+                      })()}
+                      {["incoming","returned","resigned","preschool","student","homemaker"].includes(c.client_status)&&(()=>{const cs=CLIENT_STATUS[c.client_status];return cs?<span style={{fontSize:10,padding:"1px 5px",borderRadius:3,background:cs.bg,color:cs.color}}>{cs.label}</span>:null;})()}
                       {c.client_status!=="returned"&&displayExpiry&&<span style={{fontSize:10,color:displayDays!==null&&displayDays<=90?"#A32D2D":"var(--text3)"}}>{tokurei.isTokurei?"特例〜":""}{ displayExpiry.replace(/-/g,"/")}</span>}
                       {c.client_status!=="returned"&&<AlertBadge days={days} tokurei={tokurei}/>}
                       {c.client_status!=="returned"&&c.passport_expiry&&(()=>{const pd=getDays(c.passport_expiry);return pd!==null&&pd<=0?<span style={{fontSize:10,padding:"1px 5px",borderRadius:3,background:"#FCEBEB",color:"#A32D2D",fontWeight:500}}>🛂 期限切</span>:null;})()}</>}
@@ -4000,7 +4075,7 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
               ))}
             </div>
             <div style={{flex:1,overflowY:"auto",padding:18}}>
-              {tab==="基本情報"&&<TabBasic c={cur} editMode={true} update={update}/>}
+              {tab==="基本情報"&&<TabBasic c={cur} editMode={true} update={update} allClients={clients}/>}
               {tab==="在留・パスポート"&&<TabResidence c={cur} editMode={true} update={update} office={data.office}/>}
               {tab==="扶養者"&&<TabSponsor c={cur} allClients={clients} onSelectClient={handleSelectClient}/>}
               {tab==="扶養家族"&&<TabDependents c={cur} allClients={clients} onSelectClient={handleSelectClient}/>}
