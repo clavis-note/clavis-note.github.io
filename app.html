@@ -4156,7 +4156,8 @@ function NewCaseModal({onClose,onSave,clients,nextNo,templates,companies}){
     if(tid==="_order")return false;
     if(!selClient)return false;
     if(!t||typeof t.label!=="string")return false;
-    return selClient.residence_status==="家族滞在"?t.label.startsWith("家族滞在"):!t.label.startsWith("家族滞在");
+    const isFamily=selClient.residence_status==="家族滞在"||(selClient.coe_phase&&selClient.coe_category==="family");
+    return isFamily?t.label.startsWith("家族滞在"):!t.label.startsWith("家族滞在");
   });
   function handleSave(){
     if(!clientId||!templateId||!title)return;
