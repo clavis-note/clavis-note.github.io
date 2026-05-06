@@ -9698,6 +9698,9 @@ function App(){
     localStorage.removeItem("clavis-pending-reauth");
     // 自動UP停止フラグもクリア(次回ログインで起動時自動DLフローが再評価される)
     localStorage.removeItem("clavis-disable-auto-up");
+    // 意図的ログアウトの目印 → 再ログイン後の初回同期で1回だけ3択モーダルを出す
+    // (セッションタイムアウト・サイレント再認証・手動再認証ではこのフラグを立てない)
+    localStorage.setItem("clavis-intentional-signout","1");
     setShowAuthBanner(false);
     // 自動同期用の状態をリセット
     if(autoUpTimerRef.current){ clearTimeout(autoUpTimerRef.current); autoUpTimerRef.current=null; }
@@ -9832,6 +9835,13 @@ function App(){
           const storedRemote=localStorage.getItem("clavis-gdrive-last-remote-time");
           // storedRemote が空でも(新規端末でローカル空状態を守る)、不一致でも、リモートにファイルがある時点で必ず確認
           if(!storedRemote || preUploadFile.modifiedTime !== storedRemote){
+            // 意図的ログアウト→再ログイン直後の初回サイクルは、initial sync 側のモーダルが
+            // 担当する。pre-upload 側でも出すと二重に出てしまうのでスキップ
+            // (通常は initial sync が先に走ってフラグが消えるが、race condition の保険)
+            if(localStorage.getItem("clavis-intentional-signout")==="1"){
+              logSyncEvent("skip","pre-upload-skipped-intentional-resignin");
+              return;
+            }
             // 他端末が先にUP済み → カスタムモーダルでユーザー確認
             const localMod=localStorage.getItem("clavis-note-last-modified");
             const choice=await showConflictModal({
@@ -9887,6 +9897,39 @@ function App(){
       try {
         const file=await findDriveFile();
         const firstSyncDone=localStorage.getItem("clavis-first-sync-done")==="1";
+        const intentionalReSignIn=localStorage.getItem("clavis-intentional-signout")==="1";
+        // 意図的ログアウト→再ログイン直後の初回同期は、既存の競合判定をスキップして
+        // 3択モーダルだけ1回出す。リモートにファイルが無い場合は通常の初回フローに任せる
+        if(file && intentionalReSignIn){
+          logSyncEvent("conflict","intentional-resignin-modal-shown");
+          const localMod=localStorage.getItem("clavis-note-last-modified");
+          const choice=await showConflictModal({
+            title:"再ログイン後の同期方向を選んでください",
+            description:"ログアウト前の編集とDriveのデータが食い違う可能性があります。どちらで進めますか？",
+            localTime: localMod || new Date().toISOString(),
+            remoteTime: file.modifiedTime
+          });
+          if(choice==="remote"){
+            logSyncEvent("download","intentional-resignin-remote");
+            await handleGdriveDownload(true);
+            localStorage.setItem("clavis-gdrive-last-remote-time", file.modifiedTime);
+          } else if(choice==="local"){
+            logSyncEvent("upload","intentional-resignin-local");
+            await handleGdriveUpload();
+          } else {
+            logSyncEvent("skip","intentional-resignin-cancel");
+            // 同期スキップしてもDriveのファイルは存在するので first-sync 済み扱い
+            // (次回からは通常の競合判定ロジックに戻す)
+            localStorage.setItem("clavis-gdrive-last-remote-time", file.modifiedTime);
+          }
+          localStorage.setItem("clavis-first-sync-done","1");
+          localStorage.removeItem("clavis-intentional-signout");
+          return;
+        }
+        // 意図的ログアウト後にリモートが空のケース：フラグだけ消して通常フローへ
+        if(!file && intentionalReSignIn){
+          localStorage.removeItem("clavis-intentional-signout");
+        }
         if(!file){
           // リモートにファイルが無い＝初回同期想定。ただし findDriveFile は権限/スコープ/通信エラー
           // 等で null を返すこともあるため、ローカルが空の状態では必ずユーザー確認を挟む
