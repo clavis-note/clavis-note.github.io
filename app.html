@@ -122,24 +122,26 @@ function getSystemAlerts(office){
     }
   }
   // 研修日程アラート（申込期間の事前通知）
-  const schedule=o.training_schedule||DEFAULT_TRAINING_SCHEDULE;
-  const today=new Date(new Date().toDateString());
-  if(schedule&&schedule.sessions){
-    // 更新 or 新規どちらを表示するか（特例措置：どちらでもOK）
-    const isRenewal=o.credential_expiry; // 有効期限登録あり=更新対象
-    schedule.sessions.forEach(s=>{
-      const eStart=new Date(s.enroll_start);
-      const eEnd=new Date(s.enroll_end);
-      const daysToStart=Math.ceil((eStart-today)/86400000);
-      const daysToEnd=Math.ceil((eEnd-today)/86400000);
-      // 申込期間の30日前から、終了日まで表示
-      if(daysToStart<=30&&daysToEnd>=0){
-        const inPeriod=daysToStart<=0&&daysToEnd>=0;
-        const icon=inPeriod?"🔔":"📅";
-        const status=inPeriod?`申込受付中（〜${s.enroll_end}）`:`申込開始まで${daysToStart}日`;
-        alerts.push({id:`sys-train-${s.no}`,icon,label:`研修 第${s.no}回 ${s.type}`,due:inPeriod?s.enroll_end:s.enroll_start,days:inPeriod?daysToEnd:daysToStart,note:`${status}｜受講料 ¥${s.cost.toLocaleString()}`});
-      }
-    });
+  // 届出済証明書(credential_expiry)未登録時はそもそも申請取次の対象外とみなして抑止する。
+  // ＝シークレットタブ・初期状態では研修アラートを出さない（常表示の解消）
+  if(o.credential_expiry){
+    const schedule=o.training_schedule||DEFAULT_TRAINING_SCHEDULE;
+    const today=new Date(new Date().toDateString());
+    if(schedule&&schedule.sessions){
+      schedule.sessions.forEach(s=>{
+        const eStart=new Date(s.enroll_start);
+        const eEnd=new Date(s.enroll_end);
+        const daysToStart=Math.ceil((eStart-today)/86400000);
+        const daysToEnd=Math.ceil((eEnd-today)/86400000);
+        // 申込期間の30日前から、終了日まで表示
+        if(daysToStart<=30&&daysToEnd>=0){
+          const inPeriod=daysToStart<=0&&daysToEnd>=0;
+          const icon=inPeriod?"🔔":"📅";
+          const status=inPeriod?`申込受付中（〜${s.enroll_end}）`:`申込開始まで${daysToStart}日`;
+          alerts.push({id:`sys-train-${s.no}`,icon,label:`研修 第${s.no}回 ${s.type}`,due:inPeriod?s.enroll_end:s.enroll_start,days:inPeriod?daysToEnd:daysToStart,note:`${status}｜受講料 ¥${s.cost.toLocaleString()}`});
+        }
+      });
+    }
   }
   return alerts;
 }
