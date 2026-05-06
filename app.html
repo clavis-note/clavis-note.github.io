@@ -129,6 +129,9 @@ function getSystemAlerts(office){
     const today=new Date(new Date().toDateString());
     if(schedule&&schedule.sessions){
       schedule.sessions.forEach(s=>{
+        // Clavis Note利用者は基本的に既届出＝更新対象なので、実務研修会（更新）のみ通知。
+        // 事務研修会（新規）は研修日程モーダル側に資料として残す
+        if(!s.type||!s.type.includes("更新")) return;
         const eStart=new Date(s.enroll_start);
         const eEnd=new Date(s.enroll_end);
         const daysToStart=Math.ceil((eStart-today)/86400000);
