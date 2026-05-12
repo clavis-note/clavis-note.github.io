@@ -3,7 +3,7 @@
 
 // CACHE_VERSION はデプロイ毎に手動で上げるか、ビルド時置換するのが理想だが、
 // 現状は本ファイルのcommit hash相当の文字列を直書き。新版時はここを書き換える。
-const CACHE_VERSION = 'v13-2026-05-12-drive-status-mobile-tip';
+const CACHE_VERSION = 'v14-2026-05-12-api-custom-domain';
 const CACHE_NAME = 'clavis-note-' + CACHE_VERSION;
 
 // 起動に必要な最小資産（pre-cache）。CDN資産は runtime cache に任せる
@@ -18,11 +18,8 @@ const PRE_CACHE = [
 ];
 
 // 以下のオリジン/パスは SW でキャッシュしない（API・認証など動的なもの）
-// ※ api.clavis-note.com のカスタムドメインDNS移行完了までの暫定 fallback で
-//   workers.dev ホストを直叩きしている。DNS反映後に api.clavis-note.com に戻す。
 const NO_CACHE_HOSTS = [
-  'clavis-api.clavis-note.workers.dev', // Clavis Workers（暫定エンドポイント）
-  'api.clavis-note.com',                // 本番カスタムドメイン（DNS反映後の戻し先）
+  'api.clavis-note.com',                // Clavis Workers（本番カスタムドメイン）
   'oauth2.googleapis.com',              // Google OAuth トークン
 ];
 const NO_CACHE_PATH_KEYWORDS = [
