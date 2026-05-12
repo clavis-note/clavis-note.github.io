@@ -1098,7 +1098,7 @@ async function readDocument(fileBase64, mediaType, apiKey){
 - work_historyが読み取れない場合はnullに
 - face_regionは在留カードの顔写真エリアを0〜1の比率で。顔写真がない書類の場合はnullに`}
   ];
-  const resp=await fetch("https://api.clavis-note.com/v1/messages",{
+  const resp=await fetch("https://clavis-api.clavis-note.workers.dev/v1/messages",{
     method:"POST",
     headers:{"Content-Type":"application/json","X-Clavis-License":apiKey,"X-Clavis-Feature":"poipoi","anthropic-version":"2023-06-01"},
     body:JSON.stringify({
@@ -1133,7 +1133,7 @@ async function translateText(text, targetLang, apiKey){
 
 【原文】
 ${text}`;
-  const resp = await fetch("https://api.clavis-note.com/v1/messages",{
+  const resp = await fetch("https://clavis-api.clavis-note.workers.dev/v1/messages",{
     method:"POST",
     headers:{"Content-Type":"application/json","X-Clavis-License":apiKey,"X-Clavis-Feature":"translate","anthropic-version":"2023-06-01"},
     body:JSON.stringify({
@@ -2505,7 +2505,7 @@ async function readFileViaAI(file, apiKey){
       const ws=wb.Sheets[sn];
       allText+=`\n【シート: ${sn}】\n`+XLSX.utils.sheet_to_csv(ws,{FS:"\t"});
     });
-    const resp=await fetch("https://api.clavis-note.com/v1/messages",{
+    const resp=await fetch("https://clavis-api.clavis-note.workers.dev/v1/messages",{
       method:"POST",
       headers:{"Content-Type":"application/json","X-Clavis-License":apiKey,"X-Clavis-Feature":"poipoi","anthropic-version":"2023-06-01"},
       body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:2048,
