@@ -3813,9 +3813,10 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
   },[]);
 
   // ポイポイ式：ファイル処理の共通関数（ボタン・D&D両方から呼ばれる）
-  // 書類ごとに extracted の identity（在留カード番号・パスポート・氏名）から
-  // 対象クライアントをルーティングし、一致が無ければ新規作成する。
-  // 単一書類×既存クライアントは「既存に統合」、複数書類は人ごとに振り分け。
+  // 【1人分厳格モード】
+  //   行政書士の実務では複数ファイル束はほぼ100%「1人分の書類」。
+  //   別人混入は事故 → 構造的に拒否（自動振り分けはしない）。
+  //   identityファイル間で人物が異なれば全ファイル破棄＋警告で停止。
   const processPoipoiFiles=async(files)=>{
     if(!files||files.length===0)return;
     const apiKey=(data.office||{}).license_key;
@@ -3823,20 +3824,40 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
 
     const PLACEHOLDER_PATTERNS=["未定","未登録","未記入","不明","N/A","未記載"];
     const isPlaceholderValue=(v)=>typeof v==="string" && PLACEHOLDER_PATTERNS.some(p=>v.includes(p));
+    const hasIdentity=(e)=>!!((e.name_roman && !isPlaceholderValue(e.name_roman)) || e.residence_card || e.passport_number);
+    const normCard=(v)=>String(v||"").replace(/[\s-]+/g,"").toUpperCase();
 
-    // 現在選択中クライアントの最新状態（バッチ中ルーティングのヒント）
-    const liveSelected=selected?clients.find(c=>c.client_id===selected.client_id):null;
-    const selectedHasIdentity=liveSelected && liveSelected.name_roman && !isPlaceholderValue(liveSelected.name_roman);
+    // identity 抽出データ a と b が「同じ人物」かを判定。
+    // 在留カード番号 > パスポート番号 > 氏名（正規化＋姓名逆転＋ソート一致）の順で評価。
+    // どちらも識別子が読めない場合は寛容に「同じ」扱いとする。
+    const sameIdentity=(a,b)=>{
+      const aCard=a.residence_card?normCard(a.residence_card):"";
+      const bCard=b.residence_card?normCard(b.residence_card):"";
+      if(aCard && bCard) return aCard===bCard;
+      const aPp=(a.passport_number||"").trim().toUpperCase();
+      const bPp=(b.passport_number||"").trim().toUpperCase();
+      if(aPp && bPp) return aPp===bPp;
+      if(a.name_roman && b.name_roman){
+        const na=normName(a.name_roman);
+        const nb=normName(b.name_roman);
+        if(na===nb) return true;
+        const partsA=a.name_roman.trim().split(/\s+/);
+        const partsB=b.name_roman.trim().split(/\s+/);
+        if(partsA.length===2 && normName(partsA[1]+" "+partsA[0])===nb) return true;
+        // ソート一致（語順違い吸収）
+        const sortedA=partsA.slice().sort().join(" ").toUpperCase();
+        const sortedB=partsB.slice().sort().join(" ").toUpperCase();
+        return sortedA===sortedB;
+      }
+      return true; // 判定不能 → 寛容に同一扱い
+    };
 
     setPoiReading(true);setPoiError(null);setPoiResult(null);
     const t=document.getElementById("toast");
-    let totalFilled=[];
-    let lastResult=null;
-    let processedCount=0;
-    let lastTargetId=null;
-    let snapshot=clients; // バッチ中の最新クライアント状態を追跡
 
     try{
+      // === Phase 1: 全ファイルをまずAI読取（コミット前に抽出だけ確定させる） ===
+      const extractions=[]; // [{file, extracted}]
       for(let fi=0;fi<files.length;fi++){
         const f=files[fi];
         if(t&&files.length>1){t.textContent=`📷 読取中… (${fi+1}/${files.length}) ${f.name}`;t.style.opacity=1;}
@@ -3848,73 +3869,119 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
           if(t){t.textContent=`⚠️ ${f.name}: ${err.message||"読取失敗"}`;t.style.opacity=1;setTimeout(()=>t.style.opacity=0,3000);}
           continue;
         }
-        if(!extracted)continue;
-        lastResult=extracted;
+        if(!extracted) continue;
+        extractions.push({file:f, extracted});
+      }
+      if(extractions.length===0) return;
 
-        // ルーティング先決定
-        let targetId=null;
-        let isNewlyCreated=false;
-        const matches=findMatchingClients(extracted,snapshot);
-        const hasIdentity=extracted.name_roman||extracted.residence_card||extracted.passport_number;
-
-        if(matches.length>=1){
-          // 既存クライアントに一致 → そこへマージ
-          targetId=matches[0].client_id;
-        }else if(hasIdentity){
-          // identity あり・既存マッチなし → 新規作成
-          // ただし「最初のファイル」かつ「現在選択中の空クライアント」があればそれを再利用
-          if(fi===0 && liveSelected && !selectedHasIdentity){
-            targetId=liveSelected.client_id;
-          }else{
-            const newC=createClientFromExtracted(extracted);
-            snapshot=[newC,...snapshot];
-            setClients(prev=>[newC,...prev]);
-            targetId=newC.client_id;
-            isNewlyCreated=true;
+      // === Phase 2: 別人混入検出（identityファイル間でグルーピング） ===
+      const identityExts=extractions.filter(e=>hasIdentity(e.extracted));
+      if(identityExts.length>=2){
+        const groups=[]; // [[{file,extracted},...], ...]
+        for(const ie of identityExts){
+          let matched=null;
+          for(const g of groups){
+            if(sameIdentity(g[0].extracted, ie.extracted)){ matched=g; break; }
           }
-        }else{
-          // identity なし（職務履歴書のみ等）→ 直前ターゲット or 現在選択クライアント
-          targetId=lastTargetId||(liveSelected?liveSelected.client_id:null);
+          if(matched) matched.push(ie);
+          else groups.push([ie]);
         }
-
-        if(!targetId)continue;
-
-        if(!isNewlyCreated){
-          // mergeExtractedToClient で先勝ち・後勝ちルールを適用しつつマージ
-          snapshot=snapshot.map(c=>c.client_id===targetId?mergeExtractedToClient(c,extracted):c);
-          setClients(prev=>prev.map(c=>c.client_id===targetId?mergeExtractedToClient(c,extracted):c));
+        if(groups.length>=2){
+          // 別人混入 → 全ファイル破棄、commit一切なし
+          const lines=groups.map(g=>{
+            const rep=g[0].extracted;
+            const card=rep.residence_card||"(在留カード番号不明)";
+            const name=rep.name_roman||"(名前不明)";
+            return `・${card} → ${name}`;
+          }).join("\n");
+          alert(
+            "⚠️ 複数人の書類が含まれているようです\n\n" +
+            "検出された人物：\n" + lines + "\n\n" +
+            "ポイポイ式は1人分の書類束を想定しています。\n" +
+            "お手数ですが、1人ずつ分けて投入してください。"
+          );
+          if(t){t.textContent="⚠️ 別人混入のため処理を中止しました";t.style.opacity=1;setTimeout(()=>t.style.opacity=0,3000);}
+          return;
         }
-        lastTargetId=targetId;
-        processedCount++;
-
-        const filled=Object.entries(extracted)
-          .filter(([k,v])=>v!==null&&v!==""&&k!=="work_history"&&k!=="company_info"&&k!=="face_region"&&k!=="card_orientation")
-          .map(([k])=>k);
-        totalFilled=[...totalFilled,...filled];
       }
 
-      // バッチ完了後：最終ターゲットを選択中クライアントに（複数人作成時は最後の人にフォーカス）
-      if(lastTargetId && lastTargetId!==selected?.client_id){
-        const last=snapshot.find(c=>c.client_id===lastTargetId);
-        if(last){
-          setSelected(last);
+      // === Phase 3: ターゲットクライアント決定（1人分前提） ===
+      const liveSelected=selected?clients.find(c=>c.client_id===selected.client_id):null;
+      const selectedHasIdentity=liveSelected && liveSelected.name_roman && !isPlaceholderValue(liveSelected.name_roman);
+
+      // 既存クライアントとのマッチング：いずれかの identity ファイルからマッチを探す
+      let matchedClient=null;
+      for(const ie of identityExts){
+        const m=findMatchingClients(ie.extracted, clients);
+        if(m.length>0){ matchedClient=m[0]; break; }
+      }
+
+      let targetId=null;
+      let createdClient=null;
+
+      if(matchedClient){
+        // 既存クライアントへマージ
+        targetId=matchedClient.client_id;
+      }else if(identityExts.length>0){
+        // 新規 or 空の selected を再利用
+        if(liveSelected && !selectedHasIdentity){
+          targetId=liveSelected.client_id;
+        }else{
+          createdClient=createClientFromExtracted(identityExts[0].extracted);
+          targetId=createdClient.client_id;
+        }
+      }else{
+        // パターンE: non-identity のみ → 現在選択中クライアントに紐付け
+        if(liveSelected){
+          targetId=liveSelected.client_id;
+        }else{
+          if(t){t.textContent="⚠️ 対象クライアントが選択されていません";t.style.opacity=1;setTimeout(()=>t.style.opacity=0,3000);}
+          return;
+        }
+      }
+
+      // === Phase 4: 単一 setClients でまとめてマージ反映 ===
+      // createdClient の場合は第1identityで初期化済みなので二重マージしない
+      const skipFirst=createdClient?identityExts[0]:null;
+      const mergesToApply=extractions.filter(e=>e!==skipFirst);
+
+      setClients(prev=>{
+        let result=createdClient?[createdClient, ...prev]:prev;
+        for(const e of mergesToApply){
+          result=result.map(c=>c.client_id===targetId?mergeExtractedToClient(c, e.extracted):c);
+        }
+        return result;
+      });
+
+      // 選択クライアント切替（必要時）
+      if(targetId!==selected?.client_id){
+        const baseClient=createdClient || clients.find(c=>c.client_id===targetId);
+        if(baseClient){
+          let snap=baseClient;
+          for(const e of mergesToApply){
+            snap=mergeExtractedToClient(snap, e.extracted);
+          }
+          setSelected(snap);
           setTab("基本情報");
           if(isMobile) setShowDetail(true);
         }
       }
 
-      const uniqueFilled=[...new Set(totalFilled)];
-      setPoiResult({filled:uniqueFilled,result:lastResult});
+      // === Phase 5: トースト・結果表示 ===
+      const allFilled=extractions.flatMap(e=>Object.entries(e.extracted)
+        .filter(([k,v])=>v!==null && v!=="" && !["work_history","company_info","face_region","card_orientation"].includes(k))
+        .map(([k])=>k));
+      const uniqueFilled=[...new Set(allFilled)];
+      setPoiResult({filled:uniqueFilled, result:extractions[extractions.length-1].extracted});
       if(t){
-        t.textContent= processedCount>1
-          ? `📷 ${processedCount}件の書類を処理しました（${uniqueFilled.length}項目）`
+        t.textContent= extractions.length>1
+          ? `📷 ${extractions.length}件の書類を1人分として処理しました（${uniqueFilled.length}項目）`
           : `📷 書類を読み取りました（${uniqueFilled.length}項目）`;
         t.style.opacity=1;setTimeout(()=>t.style.opacity=0,2500);
       }
     }catch(e){
       console.error("ポイポイ式エラー:",e);
       setPoiError(e.message||"読み取りに失敗しました");
-      if(processedCount>0&&t){t.textContent=`⚠️ ${processedCount}件読取済・エラー発生: ${e.message}`;t.style.opacity=1;setTimeout(()=>t.style.opacity=0,4000);}
     }finally{setPoiReading(false);}
   };
 
@@ -4298,7 +4365,8 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
               <a onClick={handlePoiOverlayPick} style={{color:"#185FA5",cursor:"pointer",textDecoration:"underline",fontWeight:500}}>ファイルを選択</a>
             </div>
             <div style={{fontSize:11,color:"var(--text3)",lineHeight:1.6,marginBottom:18}}>
-              複数枚まとめてドロップOK。書類ごとに人を自動振り分けします。
+              1人分の書類束（在留カード+パスポート+職務履歴書など）を一括投入できます。<br/>
+              別人の書類が混ざっていた場合は警告で停止します。
             </div>
             <button onClick={()=>setShowPoiOverlay(false)} style={{fontSize:12,padding:"6px 20px",borderRadius:6,border:"0.5px solid var(--border)",background:"transparent",color:"var(--text2)",cursor:"pointer"}}>キャンセル</button>
           </div>
