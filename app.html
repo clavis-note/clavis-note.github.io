@@ -10611,6 +10611,7 @@ function App(){
             ))}
           </div>}
           {/* Drive連携ステータスインジケーター（連携中はクリック不可、未連携時のみ再認証ボタンとして機能） */}
+          {/* モバイルは title 属性のホバーが効かないので、タップで同内容をトースト表示する */}
           {gdriveReady&&(()=>{
             const lastSyncDate=gdriveLastSync?new Date(gdriveLastSync):null;
             const ago=lastSyncDate?Math.max(0,Math.round((Date.now()-lastSyncDate.getTime())/60000)):null;
@@ -10619,15 +10620,16 @@ function App(){
             const title=gdriveSyncing?"Drive 同期中…":isOk?(gdriveLastSync?`Drive連携中（前回同期：${agoLabel}）`:"Drive連携中（まだ同期されていません）"):"Drive未連携 — タップで再連携";
             const label=gdriveSyncing?"同期中":isOk?(gdriveLastSync?agoLabel:"未同期"):"未連携";
             const icon=gdriveSyncing?"🔄":isOk?"✅":"⚠️";
+            const showSyncTip=()=>{const t=document.getElementById("toast");if(t){t.textContent=title;t.style.opacity=1;setTimeout(()=>t.style.opacity=0,2500);}};
             const Tag=isOk?"div":"button";
-            const tagProps=isOk?{}:{onClick:handleGdriveSignIn};
+            const tagProps=isOk?(isMobile?{onClick:showSyncTip}:{}):{onClick:handleGdriveSignIn};
             return(
               <Tag {...tagProps} title={title}
                 style={{fontSize:11,padding:"4px 10px",borderRadius:6,
                   border:isOk?"0.5px solid #B5D4F4":"0.5px solid #E8B866",
                   background:isOk?"#E6F1FB":"#FFF4E0",
                   color:isOk?"#185FA5":"#6B4C1A",
-                  cursor:isOk?"default":"pointer",display:"flex",alignItems:"center",gap:4,whiteSpace:"nowrap",fontWeight:500,userSelect:"none"}}>
+                  cursor:isOk?(isMobile?"pointer":"default"):"pointer",display:"flex",alignItems:"center",gap:4,whiteSpace:"nowrap",fontWeight:500,userSelect:"none"}}>
                 <span>{icon}</span>{!isMobile&&<span>Drive {label}</span>}
               </Tag>
             );
