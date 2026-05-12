@@ -2578,7 +2578,8 @@ function Dashboard({data,setData,onNavClient,onNavCase,onNavPayment,onNavMaster}
   // ポイポイエリア state
   const [poiReading,setPoiReading]=useState(false);
   const [poiDragOver,setPoiDragOver]=useState(false);
-  const [poiCandidates,setPoiCandidates]=useState(null); // {extracted, candidates:[clients]}
+  // 多重マッチ時のモーダル用。{extractions:[{file,extracted}...], candidates:[clients]}
+  const [poiCandidates,setPoiCandidates]=useState(null);
 
   const apiKey=(data.office||{}).license_key;
 
@@ -2587,52 +2588,135 @@ function Dashboard({data,setData,onNavClient,onNavCase,onNavPayment,onNavMaster}
     if(t){ t.textContent=msg; t.style.opacity=1; setTimeout(()=>t.style.opacity=0, ms); }
   }
 
-  // 抽出データを使って新規/マージ/候補表示の処理を確定
-  function applyExtractedToClient(extracted, clientId){
-    if(clientId){
-      // 既存マージ
-      const existing=clients.find(c=>c.client_id===clientId);
-      if(!existing) return null;
-      const merged=mergeExtractedToClient(existing, extracted);
-      setData(prev=>({...prev, clients:prev.clients.map(c=>c.client_id===clientId?merged:c)}));
-      return clientId;
-    } else {
-      // 新規作成
-      const newClient=createClientFromExtracted(extracted);
-      setData(prev=>({...prev, clients:[newClient, ...prev.clients]}));
-      return newClient.client_id;
-    }
+  // 抽出データ配列を一括で1人のクライアントへ反映するヘルパー（厳格モード共通）
+  function commitExtractionsToClient(extractions, targetClientId){
+    setData(prev=>({
+      ...prev,
+      clients: prev.clients.map(c=>{
+        if(c.client_id!==targetClientId) return c;
+        let merged=c;
+        for(const e of extractions){ merged=mergeExtractedToClient(merged, e.extracted); }
+        return merged;
+      })
+    }));
+  }
+  function commitExtractionsAsNew(extractions){
+    if(extractions.length===0) return null;
+    const base=createClientFromExtracted(extractions[0].extracted);
+    let merged=base;
+    for(let i=1;i<extractions.length;i++){ merged=mergeExtractedToClient(merged, extractions[i].extracted); }
+    setData(prev=>({...prev, clients:[merged, ...prev.clients]}));
+    return merged.client_id;
   }
 
+  // 【1人分厳格モード】複数ファイル投入時も別人混入は警告で停止する。
+  // 詳細は ClientLedger.processPoipoiFiles の同じロジックを参照。
   async function handlePoipoiFiles(files){
     if(!files || files.length===0) return;
     if(!apiKey){ showToast("ライセンスキーが設定されていません", 3000); return; }
+
+    const PLACEHOLDER_PATTERNS=["未定","未登録","未記入","不明","N/A","未記載"];
+    const isPlaceholderValue=(v)=>typeof v==="string" && PLACEHOLDER_PATTERNS.some(p=>v.includes(p));
+    const hasIdentity=(e)=>!!((e.name_roman && !isPlaceholderValue(e.name_roman)) || e.residence_card || e.passport_number);
+    const normCard=(v)=>String(v||"").replace(/[\s-]+/g,"").toUpperCase();
+    const sameIdentity=(a,b)=>{
+      const aCard=a.residence_card?normCard(a.residence_card):"";
+      const bCard=b.residence_card?normCard(b.residence_card):"";
+      if(aCard && bCard) return aCard===bCard;
+      const aPp=(a.passport_number||"").trim().toUpperCase();
+      const bPp=(b.passport_number||"").trim().toUpperCase();
+      if(aPp && bPp) return aPp===bPp;
+      if(a.name_roman && b.name_roman){
+        const na=normName(a.name_roman);
+        const nb=normName(b.name_roman);
+        if(na===nb) return true;
+        const partsA=a.name_roman.trim().split(/\s+/);
+        const partsB=b.name_roman.trim().split(/\s+/);
+        if(partsA.length===2 && normName(partsA[1]+" "+partsA[0])===nb) return true;
+        const sortedA=partsA.slice().sort().join(" ").toUpperCase();
+        const sortedB=partsB.slice().sort().join(" ").toUpperCase();
+        return sortedA===sortedB;
+      }
+      return true;
+    };
+
     setPoiReading(true);
     try {
-      // 1ファイルずつ処理（複数の場合は順次）
+      // Phase 1: 全ファイル読取
+      const extractions=[];
       for(let i=0;i<files.length;i++){
         const f=files[i];
         if(files.length>1) showToast(`📷 読取中… (${i+1}/${files.length}) ${f.name}`, 8000);
-        const extracted=await readFileViaAI(f, apiKey);
-        if(!extracted){ showToast(`⚠️ ${f.name}: 読み取れませんでした`, 3000); continue; }
-        const matches=findMatchingClients(extracted, clients);
-        if(matches.length===0){
-          // 新規作成 → ジャンプ
-          const newId=applyExtractedToClient(extracted, null);
-          showToast("✨ 新規クライアントを作成しました");
-          if(onNavClient) onNavClient(newId);
-          break; // 1件処理したらループ抜ける（複数ファイル時は最後のジャンプ先を一意に）
-        } else if(matches.length===1){
-          // 自動マージ → ジャンプ
-          const id=applyExtractedToClient(extracted, matches[0].client_id);
-          showToast(`☁️ ${matches[0].name_roman||"既存クライアント"} に統合しました`);
-          if(onNavClient) onNavClient(id);
-          break;
-        } else {
-          // 複数マッチ → モーダル表示
-          setPoiCandidates({extracted, candidates:matches});
-          break;
+        try{
+          const extracted=await readFileViaAI(f, apiKey);
+          if(extracted) extractions.push({file:f, extracted});
+        }catch(err){
+          console.error(`Dashboard ポイポイ ${f.name} 読取エラー:`, err);
+          showToast(`⚠️ ${f.name}: ${err.message||"読取失敗"}`, 3000);
         }
+      }
+      if(extractions.length===0){
+        showToast("⚠️ 読み取れませんでした", 3000);
+        return;
+      }
+
+      // Phase 2: 別人混入検出
+      const identityExts=extractions.filter(e=>hasIdentity(e.extracted));
+      if(identityExts.length>=2){
+        const groups=[];
+        for(const ie of identityExts){
+          let matched=null;
+          for(const g of groups){
+            if(sameIdentity(g[0].extracted, ie.extracted)){ matched=g; break; }
+          }
+          if(matched) matched.push(ie);
+          else groups.push([ie]);
+        }
+        if(groups.length>=2){
+          const lines=groups.map(g=>{
+            const rep=g[0].extracted;
+            const card=rep.residence_card||"(在留カード番号不明)";
+            const name=rep.name_roman||"(名前不明)";
+            return `・${card} → ${name}`;
+          }).join("\n");
+          alert(
+            "⚠️ 複数人の書類が含まれているようです\n\n" +
+            "検出された人物：\n" + lines + "\n\n" +
+            "ポイポイ式は1人分の書類束を想定しています。\n" +
+            "お手数ですが、1人ずつ分けて投入してください。"
+          );
+          showToast("⚠️ 別人混入のため処理を中止しました", 3000);
+          return;
+        }
+      }
+
+      // Phase 3: identity なしのみは Dashboard 経由では新規作成できない（紐付け先がない）
+      if(identityExts.length===0){
+        showToast("⚠️ 在留カード等の識別情報が読み取れませんでした", 3500);
+        return;
+      }
+
+      // Phase 4: 既存クライアントマッチング（identityファイル群から探索）
+      let matches=[];
+      for(const ie of identityExts){
+        const m=findMatchingClients(ie.extracted, clients);
+        if(m.length>0){ matches=m; break; }
+      }
+
+      if(matches.length===0){
+        // 新規作成 → 全extractionsをマージ
+        const newId=commitExtractionsAsNew(extractions);
+        showToast(extractions.length>1?`✨ 新規クライアントを作成しました（${extractions.length}件分マージ）`:"✨ 新規クライアントを作成しました");
+        if(onNavClient && newId) onNavClient(newId);
+      } else if(matches.length===1){
+        // 自動マージ
+        const targetId=matches[0].client_id;
+        commitExtractionsToClient(extractions, targetId);
+        showToast(`☁️ ${matches[0].name_roman||"既存クライアント"} に統合しました${extractions.length>1?`（${extractions.length}件分）`:""}`);
+        if(onNavClient) onNavClient(targetId);
+      } else {
+        // 多重マッチ → モーダル表示（解決時に全extractionsをまとめてマージ）
+        setPoiCandidates({extractions, candidates:matches});
       }
     } catch(e){
       console.error("Dashboard ポイポイ式エラー:", e);
@@ -2657,18 +2741,20 @@ function Dashboard({data,setData,onNavClient,onNavCase,onNavPayment,onNavMaster}
   }
   function handlePoiCandidateSelect(clientId){
     if(!poiCandidates) return;
-    const id=applyExtractedToClient(poiCandidates.extracted, clientId);
+    const exts=poiCandidates.extractions||[];
+    commitExtractionsToClient(exts, clientId);
     const target=clients.find(c=>c.client_id===clientId);
-    showToast(`☁️ ${target?.name_roman||"既存クライアント"} に統合しました`);
+    showToast(`☁️ ${target?.name_roman||"既存クライアント"} に統合しました${exts.length>1?`（${exts.length}件分）`:""}`);
     setPoiCandidates(null);
-    if(onNavClient) onNavClient(id);
+    if(onNavClient) onNavClient(clientId);
   }
   function handlePoiCandidateNew(){
     if(!poiCandidates) return;
-    const id=applyExtractedToClient(poiCandidates.extracted, null);
-    showToast("✨ 新規クライアントを作成しました");
+    const exts=poiCandidates.extractions||[];
+    const newId=commitExtractionsAsNew(exts);
+    showToast(exts.length>1?`✨ 新規クライアントを作成しました（${exts.length}件分マージ）`:"✨ 新規クライアントを作成しました");
     setPoiCandidates(null);
-    if(onNavClient) onNavClient(id);
+    if(onNavClient && newId) onNavClient(newId);
   }
 
   const alerts=[];
