@@ -3,7 +3,7 @@
 
 // CACHE_VERSION はデプロイ毎に手動で上げるか、ビルド時置換するのが理想だが、
 // 現状は本ファイルのcommit hash相当の文字列を直書き。新版時はここを書き換える。
-const CACHE_VERSION = 'v8-2026-05-06-training-alert-renewal-only';
+const CACHE_VERSION = 'v9-2026-05-12-poipoi-fix-license-key-drive-ui';
 const CACHE_NAME = 'clavis-note-' + CACHE_VERSION;
 
 // 起動に必要な最小資産（pre-cache）。CDN資産は runtime cache に任せる
@@ -19,7 +19,7 @@ const PRE_CACHE = [
 
 // 以下のオリジン/パスは SW でキャッシュしない（API・認証など動的なもの）
 const NO_CACHE_HOSTS = [
-  'api.anthropic.com',         // Claude API（ポイポイ式・Docs解析）
+  'api.clavis-note.com',       // Clavis Workers（ポイポイ式・翻訳の中継先）
   'oauth2.googleapis.com',     // Google OAuth トークン
 ];
 const NO_CACHE_PATH_KEYWORDS = [

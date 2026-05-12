@@ -113,6 +113,17 @@ const DEFAULT_TRAINING_SCHEDULE = {
 function getSystemAlerts(office){
   const alerts=[];
   const o=office||{};
+  // ライセンスキー未設定アラート（ポイポイ式・翻訳が使えない状態を起動時に気付ける）
+  if(!o.license_key || !String(o.license_key).trim()){
+    alerts.push({
+      id:"sys-license",
+      icon:"🔑",
+      label:"ライセンスキーが未設定です",
+      due:null,
+      days:null,
+      note:"設定後、ポイポイ式（在留カード等の自動読み取り）がご利用いただけます。"
+    });
+  }
   // 届出済証明書の有効期限アラート
   if(o.credential_expiry){
     const days=getDays(o.credential_expiry);
@@ -1087,9 +1098,9 @@ async function readDocument(fileBase64, mediaType, apiKey){
 - work_historyが読み取れない場合はnullに
 - face_regionは在留カードの顔写真エリアを0〜1の比率で。顔写真がない書類の場合はnullに`}
   ];
-  const resp=await fetch("https://api.anthropic.com/v1/messages",{
+  const resp=await fetch("https://api.clavis-note.com/v1/messages",{
     method:"POST",
-    headers:{"Content-Type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+    headers:{"Content-Type":"application/json","X-Clavis-License":apiKey,"X-Clavis-Feature":"poipoi","anthropic-version":"2023-06-01"},
     body:JSON.stringify({
       model:"claude-sonnet-4-20250514",
       max_tokens:2048,
@@ -1122,9 +1133,9 @@ async function translateText(text, targetLang, apiKey){
 
 【原文】
 ${text}`;
-  const resp = await fetch("https://api.anthropic.com/v1/messages",{
+  const resp = await fetch("https://api.clavis-note.com/v1/messages",{
     method:"POST",
-    headers:{"Content-Type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+    headers:{"Content-Type":"application/json","X-Clavis-License":apiKey,"X-Clavis-Feature":"translate","anthropic-version":"2023-06-01"},
     body:JSON.stringify({
       model:"claude-sonnet-4-20250514",
       max_tokens:1024,
@@ -1964,8 +1975,8 @@ function ProspectDetailModal({prospect,clients,onUpdate,onDelete,onGenerate,onPr
   }
 
   async function handleTranslate(){
-    const apiKey=(office||{}).api_key;
-    if(!apiKey){alert("APIキーが未設定です。\nマスター管理 → 🏠事務所設定 → 🤖AI設定 から設定してください。");return;}
+    const apiKey=(office||{}).license_key;
+    if(!apiKey){alert("ライセンスキーが未設定です。\nマスター登録 → 🏠事務所設定 → 🤖AI設定 から設定してください。");return;}
     const text=p.estimate_note;
     if(!text||!text.trim()){alert("備考欄に翻訳する内容を入力してください。");return;}
     const source=extractOriginalText(text);
@@ -2436,6 +2447,19 @@ function mergeExtractedToClient(existing, extracted){
     }));
     merged.work_history = [...(existing.work_history||[]), ...newEntries];
   }
+  // company_name + work_start_date が両方揃ったら、在職中エントリを保証（ClientLedger.update と同等）
+  if(merged.company_name && merged.work_start_date && merged.work_start_date!=="未定"){
+    const wh = merged.work_history||[];
+    const currentWork = wh.find(w=>w.company_name===merged.company_name && !w.end_date);
+    if(!currentWork){
+      merged.work_history = [...wh, {id:"W"+Date.now()+"-poi", company_name:merged.company_name, country:"日本", start_date:merged.work_start_date, end_date:null, job_title:"調理師"}];
+    }
+  }
+  // 在留資格・在留期限が両方揃ったら COE フェーズを自動OFF
+  if(merged.coe_phase && merged.residence_status && merged.residence_expiry){
+    merged.coe_phase = false;
+    merged.coe_category = null;
+  }
   return merged;
 }
 
@@ -2481,9 +2505,9 @@ async function readFileViaAI(file, apiKey){
       const ws=wb.Sheets[sn];
       allText+=`\n【シート: ${sn}】\n`+XLSX.utils.sheet_to_csv(ws,{FS:"\t"});
     });
-    const resp=await fetch("https://api.anthropic.com/v1/messages",{
+    const resp=await fetch("https://api.clavis-note.com/v1/messages",{
       method:"POST",
-      headers:{"Content-Type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+      headers:{"Content-Type":"application/json","X-Clavis-License":apiKey,"X-Clavis-Feature":"poipoi","anthropic-version":"2023-06-01"},
       body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:2048,
         messages:[{role:"user",content:`以下はExcelファイル「${file.name}」の内容です。在留申請書や入管関連書類から読み取れる情報をすべてJSON形式で返してください。余計なテキストは一切不要です。\n\n以下のフィールドを持つJSONを返してください。読み取れない項目はnullにしてください。\n{"name_roman":"ローマ字氏名","name_kana":"カタカナ氏名","nationality":"国籍","date_of_birth":"YYYY-MM-DD","gender":"男 or 女","phone":"電話番号","email":"メールアドレス","postal_code":"郵便番号（ハイフンなし7桁）","address":"住所","residence_status":"在留資格","residence_expiry":"YYYY-MM-DD","residence_card":"在留カード番号","passport_number":"パスポート番号","passport_expiry":"YYYY-MM-DD","company_name":"勤務先","store":"支店名","work_start_date":"YYYY-MM-DD","work_history":[{"company":"勤務先名","country":"国名","start":"YYYY-MM","end":"YYYY-MM"}]}\n\n【データ】\n${allText}`}]
       })
@@ -2518,10 +2542,10 @@ function DashPoiPoiZone({apiKey, reading, dragOver, onDragOver, onDragLeave, onD
         <div>
           <div style={{fontSize:12,color:"var(--text2)",marginBottom:10,lineHeight:1.7}}>
             在留カード・パスポート・雇用契約書などを投げ込むだけで内容を自動で読み取り、クライアント台帳に登録します。<br/>
-            <span style={{color:"#854F0B"}}>まずAPIキーを設定してください。</span>
+            <span style={{color:"#854F0B"}}>まずライセンスキーを設定してください。</span>
           </div>
           <button onClick={onSetup} style={{fontSize:12,padding:"7px 14px",cursor:"pointer",borderRadius:6,border:"0.5px solid #EF9F27",background:"#fff",color:"#854F0B",fontWeight:500}}>
-            🔑 APIキーを設定する →
+            🔑 ライセンスキーを設定する →
           </button>
         </div>
       ):(
@@ -2556,7 +2580,7 @@ function Dashboard({data,setData,onNavClient,onNavCase,onNavPayment,onNavMaster}
   const [poiDragOver,setPoiDragOver]=useState(false);
   const [poiCandidates,setPoiCandidates]=useState(null); // {extracted, candidates:[clients]}
 
-  const apiKey=(data.office||{}).api_key;
+  const apiKey=(data.office||{}).license_key;
 
   function showToast(msg, ms=2500){
     const t=document.getElementById("toast");
@@ -2582,7 +2606,7 @@ function Dashboard({data,setData,onNavClient,onNavCase,onNavPayment,onNavMaster}
 
   async function handlePoipoiFiles(files){
     if(!files || files.length===0) return;
-    if(!apiKey){ showToast("APIキーが設定されていません", 3000); return; }
+    if(!apiKey){ showToast("ライセンスキーが設定されていません", 3000); return; }
     setPoiReading(true);
     try {
       // 1ファイルずつ処理（複数の場合は順次）
@@ -2662,7 +2686,12 @@ function Dashboard({data,setData,onNavClient,onNavCase,onNavPayment,onNavMaster}
       }
     }
   });
-  alerts.sort((a,b)=>(a.days??999)-(b.days??999));
+  // ライセンスキー未設定はAI機能ブロッカーなので常に最上段
+  alerts.sort((a,b)=>{
+    if(a.id==="sys-license") return -1;
+    if(b.id==="sys-license") return 1;
+    return (a.days??999)-(b.days??999);
+  });
 
   const activeCaseCount=cases.filter(c=>!["許可","不許可","完了","完了（許可）","完了（不許可）","完了（結果待ち）","キャンセル","取下","取下げ","取下予定","済","保留"].includes(c.status)).length;
   const thisYear=new Date().getFullYear().toString();
@@ -2738,7 +2767,8 @@ function Dashboard({data,setData,onNavClient,onNavCase,onNavPayment,onNavMaster}
       <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14}}>
         <div style={{display:"flex",flexDirection:"column",gap:14}}>
           <DashAlertCard alerts={alerts} onClickItem={a=>{
-            if(a.id&&a.id.startsWith("sys-train")) setModal({type:"training",data:a,office:data.office});
+            if(a.id==="sys-license") onNavMaster("office");
+            else if(a.id&&a.id.startsWith("sys-train")) setModal({type:"training",data:a,office:data.office});
             else if(a.id&&a.id.startsWith("sys-cred")) setModal({type:"credential",data:a,office:data.office});
             else if(a.client) setModal({type:"client",data:a});
           }}/>
@@ -3763,6 +3793,8 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
   const [poiError,setPoiError]=useState(null);
   const [poiResult,setPoiResult]=useState(null);
   const [poiDragOver,setPoiDragOver]=useState(false);
+  const [showPoiOverlay,setShowPoiOverlay]=useState(false);
+  const [poiOverlayDragOver,setPoiOverlayDragOver]=useState(false);
   const [showClientMenu,setShowClientMenu]=useState(false);
 
   // ブラウザバック対応: 詳細画面が開いた瞬間にpushState、戻るで閉じる
@@ -3781,109 +3813,132 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
   },[]);
 
   // ポイポイ式：ファイル処理の共通関数（ボタン・D&D両方から呼ばれる）
+  // 書類ごとに extracted の identity（在留カード番号・パスポート・氏名）から
+  // 対象クライアントをルーティングし、一致が無ければ新規作成する。
+  // 単一書類×既存クライアントは「既存に統合」、複数書類は人ごとに振り分け。
   const processPoipoiFiles=async(files)=>{
     if(!files||files.length===0)return;
-    const apiKey=(data.office||{}).api_key;
-    if(!apiKey){alert("APIキーが設定されていません。\nマスター管理 → 🏠事務所設定 → 🤖AI設定 から設定してください。");return;}
-      setPoiReading(true);setPoiError(null);setPoiResult(null);
-      let totalFilled=[];
-      let lastResult=null;
-      let processedCount=0;
-      const t=document.getElementById("toast");
-      // 先勝ち管理：現在選択中クライアントの既存値をチェック
-      // プレースホルダー文字列（「未定」「未登録」等）は既存値と見なさない
-      const PLACEHOLDER_PATTERNS=["未定","未登録","未記入","不明","N/A","未記載"];
-      const isPlaceholderValue=(v)=>{
-        if(!v||typeof v!=="string")return false;
-        return PLACEHOLDER_PATTERNS.some(p=>v.includes(p));
-      };
-      const alreadyFilled={};
-      const ed0=(clients.find(c=>c.client_id===selected?.client_id))||{};
-      let localWorkHistory=Array.isArray(ed0.work_history)?[...ed0.work_history]:[];
-      const MERGE_FIELDS=["name_roman","name_kana","nationality","dob","gender","phone","email","postal_code","address","residence_status","residence_expiry","residence_card","passport_number","passport_expiry","company_name","store","work_start_date"];
-      MERGE_FIELDS.forEach(f=>{if(ed0[f]&&!isPlaceholderValue(ed0[f])) alreadyFilled[f]=true;});
-      try{
-        for(let fi=0;fi<files.length;fi++){
-          const f=files[fi];
-          if(t&&files.length>1){t.textContent=`📷 読取中… (${fi+1}/${files.length}) ${f.name}`;t.style.opacity=1;}
-          // Excel判定
-          const isExcel=/\.(xlsx|xls|csv)$/i.test(f.name)||f.type==="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"||f.type==="application/vnd.ms-excel"||f.type==="text/csv";
-          let base64,mediaType;
-          if(isExcel&&window.XLSX){
-            // SheetJSでExcelをテキスト化→テキストとしてAPI送信
-            const ab=await f.arrayBuffer();
-            const wb=XLSX.read(ab,{type:"array"});
-            let allText="";
-            wb.SheetNames.forEach(sn=>{
-              const ws=wb.Sheets[sn];
-              allText+=`\n【シート: ${sn}】\n`+XLSX.utils.sheet_to_csv(ws,{FS:"\t"});
-            });
-            // テキストとして送る（画像でもPDFでもなく）
-            const resp=await fetch("https://api.anthropic.com/v1/messages",{
-              method:"POST",
-              headers:{"Content-Type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
-              body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:2048,
-                messages:[{role:"user",content:`以下はExcelファイル「${f.name}」の内容です。在留申請書や入管関連書類から読み取れる情報をすべてJSON形式で返してください。余計なテキストは一切不要です。\n\n以下のフィールドを持つJSONを返してください。読み取れない項目はnullにしてください。\n{"name_roman":"ローマ字氏名","name_kana":"カタカナ氏名","nationality":"国籍","date_of_birth":"YYYY-MM-DD","gender":"男 or 女","phone":"電話番号","email":"メールアドレス","postal_code":"郵便番号（ハイフンなし7桁）","address":"住所","residence_status":"在留資格","residence_expiry":"YYYY-MM-DD","residence_card":"在留カード番号","passport_number":"パスポート番号","passport_expiry":"YYYY-MM-DD","company_name":"勤務先","store":"支店名","work_start_date":"YYYY-MM-DD","work_history":[{"company":"勤務先名","country":"国名","start":"YYYY-MM","end":"YYYY-MM"}],"company_info":{"corporate_number":"法人番号","employment_insurance_number":"雇用保険適用事業所番号","capital":"資本金","annual_revenue":"年間売上高","employee_count":"従業員数","foreign_employee_count":"外国人職員数","address":"所在地","phone":"電話番号"}}\n\n【データ】\n${allText}`}]
-              })
-            });
-            if(!resp.ok){const e=await resp.text();throw new Error(`API Error ${resp.status}: ${e}`);}
-            const rd=await resp.json();
-            const txt=rd.content.map(b=>b.text||"").join("");
-            const jm=txt.match(/\{[\s\S]*\}/);
-            if(!jm) throw new Error(`${f.name}: 読み取り結果を解析できませんでした`);
-            lastResult=JSON.parse(jm[0]);
-          } else {
-            base64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(",")[1]);r.onerror=rej;r.readAsDataURL(f);});
-            const isPDF=f.type==="application/pdf"||f.name.toLowerCase().endsWith(".pdf");
-            mediaType=isPDF?"application/pdf":(f.type||"image/jpeg");
-            if(!isPDF&&!mediaType.startsWith("image/")) mediaType="image/jpeg";
-            lastResult=await readDocument(base64,mediaType,apiKey);
-          }
-          // 結果をマージ（フィールド分類：在留・パスポート関連は常に後勝ち、その他は先勝ち）
-          if(lastResult){
-            // 在留・パスポート関連は常に最新で上書き（カード更新時に反映されるように）
-            // 住所・電話・名前等は先勝ち（本国住所で上書きされないように）
-            const ALWAYS_OVERWRITE=["residence_status","residence_period","residence_expiry","residence_card","passport_number","passport_expiry"];
-            const FIELD_MAP={"name_roman":"name_roman","name_kana":"name_kana","nationality":"nationality","date_of_birth":"dob","gender":"gender","phone":"phone","email":"email","postal_code":"postal_code","address":"address","residence_status":"residence_status","residence_period":"residence_period","residence_expiry":"residence_expiry","residence_card":"residence_card","passport_number":"passport_number","passport_expiry":"passport_expiry","company_name":"company_name","store":"store","work_start_date":"work_start_date"};
-            Object.entries(FIELD_MAP).forEach(([src,dst])=>{
-              if(lastResult[src]){
-                if(ALWAYS_OVERWRITE.includes(dst)||!alreadyFilled[dst]){
-                  update(dst,lastResult[src]);
-                  // placeholder値で埋まっただけの場合は alreadyFilled 扱いにせず、後続ファイルで上書き可能にする
-                  if(!ALWAYS_OVERWRITE.includes(dst)&&!isPlaceholderValue(lastResult[src]))alreadyFilled[dst]=true;
-                }
-              }
-            });
-            // 職歴だけは累積（ローカル変数で追跡して正しく追加）
-            if(lastResult.work_history&&Array.isArray(lastResult.work_history)&&lastResult.work_history.length>0){
-              const newEntries=lastResult.work_history.map((w,i)=>({
-                id:"wh-poi-"+Date.now()+"-"+fi+"-"+i,company_name:w.company||"",country:w.country||"",
-                start_date:w.start?w.start+"-01":"",end_date:w.end?w.end+"-01":"",
-              }));
-              localWorkHistory=[...localWorkHistory,...newEntries];
-              update("work_history",localWorkHistory);
-            }
+    const apiKey=(data.office||{}).license_key;
+    if(!apiKey){alert("ライセンスキーが設定されていません。\nマスター登録 → 🏠事務所設定 → 🤖AI設定 から設定してください。");return;}
 
-            const filled=Object.entries(lastResult).filter(([k,v])=>v!==null&&k!=="work_history"&&k!=="company_info").map(([k])=>k);
-            totalFilled=[...totalFilled,...filled];
-            processedCount++;
-          }
+    const PLACEHOLDER_PATTERNS=["未定","未登録","未記入","不明","N/A","未記載"];
+    const isPlaceholderValue=(v)=>typeof v==="string" && PLACEHOLDER_PATTERNS.some(p=>v.includes(p));
+
+    // 現在選択中クライアントの最新状態（バッチ中ルーティングのヒント）
+    const liveSelected=selected?clients.find(c=>c.client_id===selected.client_id):null;
+    const selectedHasIdentity=liveSelected && liveSelected.name_roman && !isPlaceholderValue(liveSelected.name_roman);
+
+    setPoiReading(true);setPoiError(null);setPoiResult(null);
+    const t=document.getElementById("toast");
+    let totalFilled=[];
+    let lastResult=null;
+    let processedCount=0;
+    let lastTargetId=null;
+    let snapshot=clients; // バッチ中の最新クライアント状態を追跡
+
+    try{
+      for(let fi=0;fi<files.length;fi++){
+        const f=files[fi];
+        if(t&&files.length>1){t.textContent=`📷 読取中… (${fi+1}/${files.length}) ${f.name}`;t.style.opacity=1;}
+        let extracted=null;
+        try{
+          extracted=await readFileViaAI(f,apiKey);
+        }catch(err){
+          console.error(`ポイポイ式 ${f.name} 読取エラー:`,err);
+          if(t){t.textContent=`⚠️ ${f.name}: ${err.message||"読取失敗"}`;t.style.opacity=1;setTimeout(()=>t.style.opacity=0,3000);}
+          continue;
         }
-        const uniqueFilled=[...new Set(totalFilled)];
-        setPoiResult({filled:uniqueFilled,result:lastResult});
-        if(t){t.textContent=files.length>1?`📷 ${files.length}件の書類を読み取りました！（${uniqueFilled.length}項目）`:`📷 書類を読み取りました！（${uniqueFilled.length}項目）`;t.style.opacity=1;setTimeout(()=>t.style.opacity=0,2500);}
-      }catch(e){
-        console.error("ポイポイ式エラー:",e);
-        setPoiError(e.message||"読み取りに失敗しました");
-        if(processedCount>0&&t){t.textContent=`⚠️ ${processedCount}件読取済・エラー発生: ${e.message}`;t.style.opacity=1;setTimeout(()=>t.style.opacity=0,4000);}
-      }finally{setPoiReading(false);}
+        if(!extracted)continue;
+        lastResult=extracted;
+
+        // ルーティング先決定
+        let targetId=null;
+        let isNewlyCreated=false;
+        const matches=findMatchingClients(extracted,snapshot);
+        const hasIdentity=extracted.name_roman||extracted.residence_card||extracted.passport_number;
+
+        if(matches.length>=1){
+          // 既存クライアントに一致 → そこへマージ
+          targetId=matches[0].client_id;
+        }else if(hasIdentity){
+          // identity あり・既存マッチなし → 新規作成
+          // ただし「最初のファイル」かつ「現在選択中の空クライアント」があればそれを再利用
+          if(fi===0 && liveSelected && !selectedHasIdentity){
+            targetId=liveSelected.client_id;
+          }else{
+            const newC=createClientFromExtracted(extracted);
+            snapshot=[newC,...snapshot];
+            setClients(prev=>[newC,...prev]);
+            targetId=newC.client_id;
+            isNewlyCreated=true;
+          }
+        }else{
+          // identity なし（職務履歴書のみ等）→ 直前ターゲット or 現在選択クライアント
+          targetId=lastTargetId||(liveSelected?liveSelected.client_id:null);
+        }
+
+        if(!targetId)continue;
+
+        if(!isNewlyCreated){
+          // mergeExtractedToClient で先勝ち・後勝ちルールを適用しつつマージ
+          snapshot=snapshot.map(c=>c.client_id===targetId?mergeExtractedToClient(c,extracted):c);
+          setClients(prev=>prev.map(c=>c.client_id===targetId?mergeExtractedToClient(c,extracted):c));
+        }
+        lastTargetId=targetId;
+        processedCount++;
+
+        const filled=Object.entries(extracted)
+          .filter(([k,v])=>v!==null&&v!==""&&k!=="work_history"&&k!=="company_info"&&k!=="face_region"&&k!=="card_orientation")
+          .map(([k])=>k);
+        totalFilled=[...totalFilled,...filled];
+      }
+
+      // バッチ完了後：最終ターゲットを選択中クライアントに（複数人作成時は最後の人にフォーカス）
+      if(lastTargetId && lastTargetId!==selected?.client_id){
+        const last=snapshot.find(c=>c.client_id===lastTargetId);
+        if(last){
+          setSelected(last);
+          setTab("基本情報");
+          if(isMobile) setShowDetail(true);
+        }
+      }
+
+      const uniqueFilled=[...new Set(totalFilled)];
+      setPoiResult({filled:uniqueFilled,result:lastResult});
+      if(t){
+        t.textContent= processedCount>1
+          ? `📷 ${processedCount}件の書類を処理しました（${uniqueFilled.length}項目）`
+          : `📷 書類を読み取りました（${uniqueFilled.length}項目）`;
+        t.style.opacity=1;setTimeout(()=>t.style.opacity=0,2500);
+      }
+    }catch(e){
+      console.error("ポイポイ式エラー:",e);
+      setPoiError(e.message||"読み取りに失敗しました");
+      if(processedCount>0&&t){t.textContent=`⚠️ ${processedCount}件読取済・エラー発生: ${e.message}`;t.style.opacity=1;setTimeout(()=>t.style.opacity=0,4000);}
+    }finally{setPoiReading(false);}
   };
 
-  // ポイポイ式：ボタンクリック（ファイル選択ダイアログ）
-  const handlePoipoi=()=>{
+  // ポイポイ式：ボタンクリック → オーバーレイD&Dゾーンを開く
+  const handlePoipoi=()=>{ setShowPoiOverlay(true); };
+
+  // オーバーレイ内「ファイルを選択」リンクからOSダイアログを開く
+  const handlePoiOverlayPick=()=>{
     const inp=document.createElement("input");inp.type="file";inp.accept="image/*,.pdf,.xlsx,.xls,.csv";inp.capture="environment";inp.multiple=true;
-    inp.onchange=async(ev)=>{const files=Array.from(ev.target.files||[]);await processPoipoiFiles(files);};
+    inp.onchange=async(ev)=>{
+      const files=Array.from(ev.target.files||[]);
+      setShowPoiOverlay(false);
+      await processPoipoiFiles(files);
+    };
     inp.click();
+  };
+
+  // オーバーレイ内 D&D
+  const handlePoiOverlayDrop=async(e)=>{
+    e.preventDefault();e.stopPropagation();
+    setPoiOverlayDragOver(false);
+    const files=Array.from(e.dataTransfer.files||[]);
+    setShowPoiOverlay(false);
+    if(files.length>0) await processPoipoiFiles(files);
   };
 
   // ポイポイ式：ドラッグ&ドロップ
@@ -3958,12 +4013,16 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
   }
   function archiveClient(){setClients(prev=>prev.map(c=>c.client_id===selected.client_id?{...c,archived:!c.archived}:c));}
   // 名前未入力のまま放置された「新規作成」クライアントを、他に移るタイミングで削除するヘルパー
+  // selected は古いスナップショットになり得るので、必ず clients から live を引いて判定する。
+  // （ポイポイ式で update() を介して name_roman が埋まっていても selected には反映されないため）
   function discardEmptyIfNew(){
-    if(selected && !selected.name_roman && selected.client_id && selected.client_id.startsWith("C")){
-      // 「C」プレフィックス＋当該クライアントの履歴・案件が無ければ空の新規と判定して削除
-      const hasCases=data.cases.some(c=>c.client_id===selected.client_id);
-      if(!hasCases){
-        setClients(prev=>prev.filter(x=>x.client_id!==selected.client_id));
+    if(selected && selected.client_id && selected.client_id.startsWith("C")){
+      const live=clients.find(c=>c.client_id===selected.client_id);
+      if(live && !live.name_roman){
+        const hasCases=data.cases.some(c=>c.client_id===selected.client_id);
+        if(!hasCases){
+          setClients(prev=>prev.filter(x=>x.client_id!==selected.client_id));
+        }
       }
     }
   }
@@ -4222,6 +4281,29 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
           </>
         )}
       </div>
+      {/* ポイポイ式オーバーレイ：D&Dゾーン + ファイル選択リンク */}
+      {showPoiOverlay&&(
+        <div onClick={()=>setShowPoiOverlay(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.45)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9200,padding:16}}>
+          <div onClick={e=>e.stopPropagation()}
+            onDragOver={e=>{e.preventDefault();e.stopPropagation();if(!poiReading)setPoiOverlayDragOver(true);}}
+            onDragLeave={e=>{e.preventDefault();e.stopPropagation();setPoiOverlayDragOver(false);}}
+            onDrop={handlePoiOverlayDrop}
+            style={{borderRadius:14,padding:"32px 28px",maxWidth:460,width:"100%",border:`2px dashed ${poiOverlayDragOver?"#EF9F27":"rgba(239,159,39,0.6)"}`,textAlign:"center",boxShadow:"0 8px 32px rgba(0,0,0,0.2)",transition:"background 0.15s, border-color 0.15s",background:poiOverlayDragOver?"rgba(254,250,243,0.95)":"#fff"}}>
+            <div style={{fontSize:40,marginBottom:10,opacity:poiReading?0.4:1}}>📷</div>
+            <div style={{fontSize:16,fontWeight:600,marginBottom:6,color:"#185FA5"}}>ポイポイ式</div>
+            <div style={{fontSize:13,color:"var(--text2)",marginBottom:18,lineHeight:1.7}}>
+              在留カード・パスポート・雇用契約書などを<br/>
+              <strong style={{color:"#854F0B"}}>ここにドロップ</strong>
+              {" "}または{" "}
+              <a onClick={handlePoiOverlayPick} style={{color:"#185FA5",cursor:"pointer",textDecoration:"underline",fontWeight:500}}>ファイルを選択</a>
+            </div>
+            <div style={{fontSize:11,color:"var(--text3)",lineHeight:1.6,marginBottom:18}}>
+              複数枚まとめてドロップOK。書類ごとに人を自動振り分けします。
+            </div>
+            <button onClick={()=>setShowPoiOverlay(false)} style={{fontSize:12,padding:"6px 20px",borderRadius:6,border:"0.5px solid var(--border)",background:"transparent",color:"var(--text2)",cursor:"pointer"}}>キャンセル</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -6731,9 +6813,9 @@ function PaymentDetail({p,cases,clients,office,onUpdate,onDelete,onSplit,onItemS
 
   function update(field,val){onUpdate({...p,[field]:val});}
   async function handleTranslateMemo(field,targetLang){
-    const apiKey=(office||{}).api_key;
+    const apiKey=(office||{}).license_key;
     if(!apiKey){
-      alert("APIキーが設定されていません。\nマスター管理 → 🏠事務所設定 → 🤖AI設定 から設定してください。");
+      alert("ライセンスキーが設定されていません。\nマスター登録 → 🏠事務所設定 → 🤖AI設定 から設定してください。");
       return;
     }
     const text=p[field];
@@ -7655,15 +7737,16 @@ function MasterOffice({office,setOffice}){
         <div style={{background:"var(--bg)",border:"0.5px solid var(--border)",borderRadius:12,padding:20,marginTop:16}}>
           <div style={{fontSize:12,fontWeight:500,color:"var(--accent-text)",marginBottom:14}}>🤖 AI設定（ポイポイ式）</div>
           <div style={{fontSize:11,color:"var(--text2)",marginBottom:12,lineHeight:1.6}}>
-            在留カード読み取り機能に使用します。Anthropicの<a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener" style={{color:"var(--accent-text)"}}>APIコンソール</a>からキーを取得してください。
+            Clavis Note 契約時に発行されたライセンスキーを入力してください。<br/>
+            ポイポイ式（書類自動読取）・備考欄翻訳など、AI機能の利用に必要です。
           </div>
           <div>
-            <div style={labelS}>Anthropic APIキー</div>
+            <div style={labelS}>ライセンスキー</div>
             <div style={{display:"flex",gap:8,alignItems:"center"}}>
-              <input type={o._showApiKey?"text":"password"} value={o.api_key||""} onChange={e=>up("api_key",e.target.value)} style={{...inputS,flex:1,fontFamily:"monospace",fontSize:12}} placeholder="sk-ant-api03-..."/>
-              <button onClick={()=>up("_showApiKey",!o._showApiKey)} style={{fontSize:10,padding:"6px 10px",borderRadius:5,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text2)",cursor:"pointer",whiteSpace:"nowrap"}}>{o._showApiKey?"隠す":"表示"}</button>
+              <input type={o._showLicenseKey?"text":"password"} value={o.license_key||""} onChange={e=>up("license_key",e.target.value)} style={{...inputS,flex:1,fontFamily:"monospace",fontSize:12}} placeholder="clv_live_..."/>
+              <button onClick={()=>up("_showLicenseKey",!o._showLicenseKey)} style={{fontSize:10,padding:"6px 10px",borderRadius:5,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text2)",cursor:"pointer",whiteSpace:"nowrap"}}>{o._showLicenseKey?"隠す":"表示"}</button>
             </div>
-            <div style={{fontSize:9,color:"var(--text3)",marginTop:6}}>※ キーはこの端末のlocalStorageにのみ保存されます。外部には送信されません（Anthropic APIへの読み取りリクエスト時のみ使用）。</div>
+            <div style={{fontSize:9,color:"var(--text3)",marginTop:6}}>※ ライセンスキーはこの端末のlocalStorageにのみ保存されます。AIリクエスト時に Clavis サーバーへ認証ヘッダーとして送信されます。</div>
           </div>
         </div>
       </div>
@@ -9439,6 +9522,7 @@ function App(){
   });
   const [fs,setFs]=useState(()=>localStorage.getItem(FS_KEY)||"1");
   const [showBackup,setShowBackup]=useState(false);
+  const [showBackupAdvanced,setShowBackupAdvanced]=useState(false);
   const [showFaq,setShowFaq]=useState(false);
   const [navigateClientId,setNavigateClientId]=useState(null);
   const [navigateCaseId,setNavigateCaseId]=useState(null);
@@ -9714,19 +9798,71 @@ function App(){
     const t=document.getElementById("toast");if(t){t.textContent="ログアウトしました";t.style.opacity=1;setTimeout(()=>t.style.opacity=0,2500);}
   }
 
+  // 同期ログの内部用語を人間語へ変換。
+  // 戻り値が null のエントリは表示画面で省く（auth系のノイズ等）。
+  // 内部ログ自体（localStorage "clavis-sync-log"）はそのまま保持し、表示層だけフィルタする。
+  function translateSyncLogEntry(action, detail){
+    const d=String(detail||"");
+    if(action==="upload"){
+      if(d==="auto")return "自動同期しました";
+      if(d==="manual")return "手動で同期しました";
+      if(d==="flush-on-hide")return "アプリを閉じる際に同期しました";
+      if(d==="initial-seed")return "初回データを Drive に保存しました";
+      if(d.startsWith("intentional-resignin"))return "再ログイン後にローカルデータをアップロードしました";
+      if(d.startsWith("conflict-resolved"))return "競合解消：ローカルデータで上書きしました";
+      return "Drive にアップロードしました";
+    }
+    if(action==="download"){
+      if(d==="manual")return "手動で Drive からダウンロードしました";
+      if(d==="initial-silent")return "起動時に最新データを取得しました";
+      if(d==="first-sync-accepted")return "初回連携：Drive のデータを取り込みました";
+      if(d.startsWith("intentional-resignin"))return "再ログイン後に Drive のデータを取り込みました";
+      if(d.startsWith("conflict-resolved"))return "競合解消：Drive のデータを取り込みました";
+      return "Drive からダウンロードしました";
+    }
+    if(action==="auth"){
+      // silent-refresh系は表示しない（運用ノイズ）
+      return null;
+    }
+    if(action==="signout"){
+      return d==="manual"?"Drive 連携を解除しました":"Drive 連携が解除されました";
+    }
+    if(action==="conflict"){
+      if(d.startsWith("pre-upload"))return "他端末の更新が検知されたため同期を保留しました";
+      if(d==="intentional-resignin-modal-shown")return "再ログイン後の確認画面を表示しました";
+      return "競合を検知しました";
+    }
+    if(action==="error"){
+      // ユーザー向けには詳細を隠して概要だけ
+      if(d.includes("auth-fail"))return "⚠️ Drive 認証が切れました。再ログインが必要です";
+      return "⚠️ 同期に失敗しました（詳細は開発者ツールで確認できます）";
+    }
+    if(action==="safeguard"){
+      if(d.startsWith("upload-blocked"))return "空データでの上書きを防止しました";
+      return null;
+    }
+    // skip 系は基本ノイズ
+    return null;
+  }
+
   function handleShowSyncLog(){
     try {
       const raw=localStorage.getItem("clavis-sync-log")||"[]";
       const log=JSON.parse(raw);
       console.table(log);
-      if(log.length===0){ alert("同期ログはまだありません。"); return; }
-      const latest=log.slice(-20).reverse().map(e=>{
-        const ts=new Date(e.timestamp).toLocaleString();
-        return `${ts}  [${e.action}]  ${e.detail}`;
-      }).join("\n");
-      alert(`📋 同期履歴（最新20件 / 全${log.length}件）\n\n${latest}\n\n※ 全履歴と詳細（User-Agent含む）は、F12 → Console でご確認いただけます（console.tableで出力済）`);
+      if(log.length===0){ alert("同期履歴はまだありません。"); return; }
+      // 表示用に翻訳＆ノイズ除去
+      const visible=log.slice().reverse().map(e=>{
+        const msg=translateSyncLogEntry(e.action,e.detail);
+        if(!msg) return null;
+        const ts=new Date(e.timestamp);
+        const tsLabel=`${ts.getMonth()+1}/${ts.getDate()} ${String(ts.getHours()).padStart(2,"0")}:${String(ts.getMinutes()).padStart(2,"0")}`;
+        return `${tsLabel}  ${msg}`;
+      }).filter(Boolean).slice(0,30);
+      if(visible.length===0){ alert("📋 同期履歴\n\n表示できる履歴がありません。\n\n（内部ログは F12 → Console から確認できます）"); return; }
+      alert(`📋 同期履歴（最新${visible.length}件）\n\n${visible.join("\n")}\n\n※ 詳細な内部ログは F12 → Console で確認できます（console.tableで出力済）`);
     } catch(e){
-      alert("ログの読み込みに失敗しました: "+e.message);
+      alert("履歴の読み込みに失敗しました: "+e.message);
     }
   }
 
@@ -10320,7 +10456,7 @@ function App(){
               </button>
             ))}
           </div>}
-          {/* Drive連携ステータス（常時表示） */}
+          {/* Drive連携ステータスインジケーター（連携中はクリック不可、未連携時のみ再認証ボタンとして機能） */}
           {gdriveReady&&(()=>{
             const lastSyncDate=gdriveLastSync?new Date(gdriveLastSync):null;
             const ago=lastSyncDate?Math.max(0,Math.round((Date.now()-lastSyncDate.getTime())/60000)):null;
@@ -10329,15 +10465,17 @@ function App(){
             const title=gdriveSyncing?"Drive 同期中…":isOk?(gdriveLastSync?`Drive連携中（前回同期：${agoLabel}）`:"Drive連携中（まだ同期されていません）"):"Drive未連携 — タップで再連携";
             const label=gdriveSyncing?"同期中":isOk?(gdriveLastSync?agoLabel:"未同期"):"未連携";
             const icon=gdriveSyncing?"🔄":isOk?"✅":"⚠️";
+            const Tag=isOk?"div":"button";
+            const tagProps=isOk?{}:{onClick:handleGdriveSignIn};
             return(
-              <button onClick={isOk?()=>setShowBackup(p=>!p):handleGdriveSignIn} title={title}
+              <Tag {...tagProps} title={title}
                 style={{fontSize:11,padding:"4px 10px",borderRadius:6,
                   border:isOk?"0.5px solid #B5D4F4":"0.5px solid #E8B866",
                   background:isOk?"#E6F1FB":"#FFF4E0",
                   color:isOk?"#185FA5":"#6B4C1A",
-                  cursor:"pointer",display:"flex",alignItems:"center",gap:4,whiteSpace:"nowrap",fontWeight:500}}>
+                  cursor:isOk?"default":"pointer",display:"flex",alignItems:"center",gap:4,whiteSpace:"nowrap",fontWeight:500,userSelect:"none"}}>
                 <span>{icon}</span>{!isMobile&&<span>Drive {label}</span>}
-              </button>
+              </Tag>
             );
           })()}
           {/* バックアップ */}
@@ -10349,108 +10487,113 @@ function App(){
             {showBackup&&(
               <>
               <div style={{position:"fixed",inset:0,zIndex:199}} onClick={()=>setShowBackup(false)}/>
-              <div style={{position:"absolute",right:0,top:"calc(100% + 6px)",background:"var(--bg)",border:"0.5px solid rgba(0,0,0,0.15)",borderRadius:10,boxShadow:"0 4px 20px rgba(0,0,0,0.12)",padding:16,width:280,zIndex:200,maxHeight:"70vh",overflowY:"auto"}}>
-                <div style={{fontSize:12,fontWeight:500,color:"var(--text)",marginBottom:12}}>💾 バックアップ</div>
-                <button onClick={handleExport}
-                  style={{width:"100%",fontSize:12,padding:"8px 12px",borderRadius:7,border:"0.5px solid var(--accent)",background:"var(--accent-bg)",color:"var(--accent-text)",cursor:"pointer",fontWeight:500,marginBottom:8,textAlign:"left"}}>
-                  📤 書き出し（JSONダウンロード）
-                </button>
-                <button onClick={()=>fileRef.current?.click()}
-                  style={{width:"100%",fontSize:12,padding:"8px 12px",borderRadius:7,border:"0.5px solid rgba(0,0,0,0.15)",background:"transparent",color:"var(--text2)",cursor:"pointer",textAlign:"left"}}>
-                  📥 読み込み（JSONから復元）
-                </button>
-                <input ref={fileRef} type="file" accept=".json" onChange={handleImport} style={{display:"none"}}/>
-
-                {/* Google Drive同期 */}
-                <div style={{borderTop:"1px solid var(--border)",marginTop:14,paddingTop:14}}>
-                  <div style={{fontSize:11,fontWeight:500,color:"var(--text2)",marginBottom:10,display:"flex",alignItems:"center",gap:6}}>
-                    <span style={{fontSize:14}}>☁️</span> Google Drive同期
-                  </div>
-                  {!gdriveReady?(
-                    <div style={{fontSize:10,color:"var(--text3)"}}>Google API読み込み中...</div>
-                  ):!gdriveSignedIn?(
+              <div style={{position:"absolute",right:0,top:"calc(100% + 6px)",background:"var(--bg)",border:"0.5px solid rgba(0,0,0,0.15)",borderRadius:10,boxShadow:"0 4px 20px rgba(0,0,0,0.12)",padding:16,width:300,zIndex:200,maxHeight:"70vh",overflowY:"auto"}}>
+                {/* 【主】Drive自動同期 */}
+                <div style={{fontSize:12,fontWeight:500,color:"var(--text)",marginBottom:10,display:"flex",alignItems:"center",gap:6}}>
+                  <span style={{fontSize:14}}>☁️</span> Google Drive 自動同期
+                </div>
+                {!gdriveReady?(
+                  <div style={{fontSize:10,color:"var(--text3)",padding:"4px 0"}}>Google API読み込み中...</div>
+                ):!gdriveSignedIn?(
+                  <>
+                    <div style={{fontSize:11,color:"var(--text2)",marginBottom:8,lineHeight:1.6}}>
+                      Driveと連携すると、PC・スマホ間でデータが自動共有されます。
+                    </div>
                     <button onClick={handleGdriveSignIn}
                       style={{width:"100%",fontSize:12,padding:"8px 12px",borderRadius:7,border:"0.5px solid #4285F4",background:"#4285F4",color:"#fff",cursor:"pointer",fontWeight:500,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
                       Googleでログイン
                     </button>
-                  ):(
-                    <>
-                      <div style={{display:"flex",gap:6,marginBottom:8}}>
-                        <button onClick={handleGdriveUpload} disabled={gdriveSyncing}
-                          style={{flex:1,fontSize:11,padding:"8px 10px",borderRadius:7,border:"0.5px solid var(--accent)",background:"var(--accent-bg)",color:"var(--accent-text)",cursor:gdriveSyncing?"wait":"pointer",fontWeight:500}}>
-                          {gdriveSyncing?"同期中...":"⬆️ アップロード"}
-                        </button>
-                        <button onClick={handleGdriveDownload} disabled={gdriveSyncing}
-                          style={{flex:1,fontSize:11,padding:"8px 10px",borderRadius:7,border:"0.5px solid var(--border)",background:"transparent",color:"var(--text2)",cursor:gdriveSyncing?"wait":"pointer"}}>
-                          ⬇️ ダウンロード
-                        </button>
-                      </div>
-                      {gdriveLastSync&&(
-                        <div style={{fontSize:9,color:"var(--text3)",marginBottom:6}}>
-                          最終同期: {new Date(gdriveLastSync).toLocaleString()}
-                        </div>
+                  </>
+                ):(
+                  <>
+                    <div style={{background:"#EAF3DE",border:"0.5px solid rgba(46,139,87,0.3)",borderRadius:7,padding:"8px 10px",marginBottom:8,fontSize:11,lineHeight:1.6,color:"#2E5C20"}}>
+                      <div style={{fontWeight:500,marginBottom:2}}>✅ 連携中</div>
+                      {gdriveLastSync?(
+                        <div style={{fontSize:10,color:"#4A6B3A"}}>最終同期: {new Date(gdriveLastSync).toLocaleString()}</div>
+                      ):(
+                        <div style={{fontSize:10,color:"#4A6B3A"}}>まだ同期されていません</div>
                       )}
-                      <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                        <button onClick={handleGdriveSignOut}
-                          style={{fontSize:10,padding:"4px 8px",borderRadius:5,border:"none",background:"transparent",color:"var(--text3)",cursor:"pointer",textDecoration:"underline"}}>
-                          ログアウト
-                        </button>
-                        <button onClick={handleShowSyncLog}
-                          style={{fontSize:10,padding:"4px 8px",borderRadius:5,border:"none",background:"transparent",color:"var(--text3)",cursor:"pointer",textDecoration:"underline"}}>
-                          📋 同期履歴
-                        </button>
-                      </div>
-                    </>
-                  )}
-                  <div style={{fontSize:9,color:"var(--text3)",marginTop:8,lineHeight:1.5}}>
-                    ✨ 自動同期: 起動時にDriveから最新データ取得、編集5秒後に自動アップロード<br/>
-                    ※ PC・スマホ・タブレット間で自動共有されます
-                  </div>
-                </div>
-
-                {/* 自動バックアップ */}
-                {(()=>{
-                  const bks=getAutoBackups();
-                  return(<div style={{marginTop:14,borderTop:"0.5px solid rgba(0,0,0,0.1)",paddingTop:12}}>
-                    <div style={{fontSize:11,fontWeight:500,color:"var(--text2)",marginBottom:8}}>🔄 自動バックアップ（直近3件）</div>
-                    {bks.length===0?(<div style={{fontSize:10,color:"var(--text3)",lineHeight:1.6}}>まだ自動バックアップはありません。<br/>データ変更後、5分経過で自動作成されます。</div>):(
-                    <>{bks.map(bk=>{
-                      const d=new Date(bk.timestamp);
-                      const label=`${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,"0")}`;
-                      const ago=Math.round((Date.now()-d.getTime())/60000);
-                      const agoLabel=ago<60?`${ago}分前`:ago<1440?`${Math.round(ago/60)}時間前`:`${Math.round(ago/1440)}日前`;
-                      return(
-                        <div key={bk.gen} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:"0.5px solid rgba(0,0,0,0.05)"}}>
-                          <div>
-                            <div style={{fontSize:12,color:"var(--text)"}}>{label}</div>
-                            <div style={{fontSize:10,color:"var(--text3)"}}>{agoLabel}</div>
-                          </div>
-                          <button onClick={()=>{
-                            if(confirm(`${label}のバックアップに復元しますか？\n現在のデータは上書きされます。`)){
-                              const restored=restoreAutoBackup(bk.gen);
-                              if(restored){setData(migrateData(restored));setShowBackup(false);
-                                const t=document.getElementById("toast");if(t){t.textContent="✅ バックアップから復元しました";t.style.opacity=1;setTimeout(()=>t.style.opacity=0,2500);}
-                              }else{alert("復元に失敗しました");}
-                            }
-                          }} style={{fontSize:11,padding:"4px 10px",borderRadius:5,border:"0.5px solid #2E8B57",background:"#EBF8EF",color:"#2E8B57",cursor:"pointer",fontWeight:500}}>
-                            復元
-                          </button>
-                        </div>
-                      );
-                    })}</>)}
-                    <div style={{fontSize:10,color:"var(--text3)",marginTop:8,lineHeight:1.6}}>
-                      データ変更時に自動保存されます（5分間隔）。
                     </div>
-                  </div>);
-                })()}
+                    <button onClick={handleGdriveUpload} disabled={gdriveSyncing}
+                      style={{width:"100%",fontSize:12,padding:"8px 12px",borderRadius:7,border:"0.5px solid var(--accent)",background:"var(--accent-bg)",color:"var(--accent-text)",cursor:gdriveSyncing?"wait":"pointer",fontWeight:500,marginBottom:8}}>
+                      {gdriveSyncing?"同期中...":"🔄 今すぐ同期"}
+                    </button>
+                    <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:4}}>
+                      <button onClick={handleShowSyncLog}
+                        style={{fontSize:10,padding:"4px 8px",borderRadius:5,border:"none",background:"transparent",color:"var(--text3)",cursor:"pointer",textDecoration:"underline"}}>
+                        📋 同期履歴
+                      </button>
+                      <button onClick={handleGdriveSignOut}
+                        style={{fontSize:10,padding:"4px 8px",borderRadius:5,border:"none",background:"transparent",color:"var(--text3)",cursor:"pointer",textDecoration:"underline"}}>
+                        ログアウト
+                      </button>
+                    </div>
+                    <div style={{fontSize:10,color:"var(--text3)",lineHeight:1.5,marginTop:2}}>
+                      ✨ 編集5秒後に自動アップロード、起動時に Drive から最新データを取得します。
+                    </div>
+                  </>
+                )}
 
-                <div style={{fontSize:10,color:"var(--text3)",marginTop:10,lineHeight:1.6}}>
-                  書き出したJSONを別のPCやスマホで読み込むと、データを移行できます。
+                {/* 【副】詳細・手動バックアップ（折りたたみ） */}
+                <div style={{marginTop:14,borderTop:"0.5px solid rgba(0,0,0,0.1)",paddingTop:12}}>
+                  <button onClick={()=>setShowBackupAdvanced(p=>!p)}
+                    style={{width:"100%",fontSize:11,padding:"6px 8px",borderRadius:5,border:"none",background:"transparent",color:"var(--text2)",cursor:"pointer",textAlign:"left",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                    <span>詳細・手動バックアップ（緊急時用）</span>
+                    <span style={{fontSize:10}}>{showBackupAdvanced?"▲":"▼"}</span>
+                  </button>
+                  {showBackupAdvanced&&(
+                    <div style={{marginTop:8,padding:"4px 0"}}>
+                      <div style={{fontSize:10,color:"var(--text3)",lineHeight:1.6,marginBottom:8}}>
+                        Drive連携が使えない場合や、別環境に手動でデータを移したいときに使います。
+                      </div>
+                      <button onClick={handleExport}
+                        style={{width:"100%",fontSize:12,padding:"7px 10px",borderRadius:6,border:"0.5px solid rgba(0,0,0,0.15)",background:"transparent",color:"var(--text)",cursor:"pointer",fontWeight:500,marginBottom:6,textAlign:"left"}}>
+                        📤 JSONダウンロード（緊急時用）
+                      </button>
+                      <button onClick={()=>fileRef.current?.click()}
+                        style={{width:"100%",fontSize:12,padding:"7px 10px",borderRadius:6,border:"0.5px solid rgba(0,0,0,0.15)",background:"transparent",color:"var(--text)",cursor:"pointer",textAlign:"left",marginBottom:6}}>
+                        📥 JSONから復元（緊急時用）
+                      </button>
+                      <input ref={fileRef} type="file" accept=".json" onChange={handleImport} style={{display:"none"}}/>
+                      {/* 自動バックアップ */}
+                      {(()=>{
+                        const bks=getAutoBackups();
+                        return(<div style={{marginTop:10,paddingTop:10,borderTop:"0.5px dashed rgba(0,0,0,0.08)"}}>
+                          <div style={{fontSize:11,fontWeight:500,color:"var(--text2)",marginBottom:6}}>🔄 自動バックアップ（直近3件）</div>
+                          {bks.length===0?(<div style={{fontSize:10,color:"var(--text3)",lineHeight:1.6}}>まだ自動バックアップはありません。<br/>データ変更後、5分経過で自動作成されます。</div>):(
+                          <>{bks.map(bk=>{
+                            const d=new Date(bk.timestamp);
+                            const label=`${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,"0")}`;
+                            const ago=Math.round((Date.now()-d.getTime())/60000);
+                            const agoLabel=ago<60?`${ago}分前`:ago<1440?`${Math.round(ago/60)}時間前`:`${Math.round(ago/1440)}日前`;
+                            return(
+                              <div key={bk.gen} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:"0.5px solid rgba(0,0,0,0.05)"}}>
+                                <div>
+                                  <div style={{fontSize:12,color:"var(--text)"}}>{label}</div>
+                                  <div style={{fontSize:10,color:"var(--text3)"}}>{agoLabel}</div>
+                                </div>
+                                <button onClick={()=>{
+                                  if(confirm(`${label}のバックアップに復元しますか？\n現在のデータは上書きされます。`)){
+                                    const restored=restoreAutoBackup(bk.gen);
+                                    if(restored){setData(migrateData(restored));setShowBackup(false);
+                                      const t=document.getElementById("toast");if(t){t.textContent="✅ バックアップから復元しました";t.style.opacity=1;setTimeout(()=>t.style.opacity=0,2500);}
+                                    }else{alert("復元に失敗しました");}
+                                  }
+                                }} style={{fontSize:11,padding:"4px 10px",borderRadius:5,border:"0.5px solid #2E8B57",background:"#EBF8EF",color:"#2E8B57",cursor:"pointer",fontWeight:500}}>
+                                  復元
+                                </button>
+                              </div>
+                            );
+                          })}</>)}
+                        </div>);
+                      })()}
+                    </div>
+                  )}
                 </div>
 
                 {/* 困ったときはFAQ */}
-                <div style={{marginTop:16,paddingTop:12,borderTop:"0.5px solid rgba(0,0,0,0.08)",textAlign:"center"}}>
+                <div style={{marginTop:14,paddingTop:10,borderTop:"0.5px solid rgba(0,0,0,0.08)",textAlign:"center"}}>
                   <button onClick={()=>{setShowBackup(false);setShowFaq(true);}} style={{fontSize:11,padding:"6px 14px",borderRadius:6,border:"0.5px solid var(--accent)",background:"var(--accent-bg)",color:"var(--accent-text)",cursor:"pointer",fontWeight:500}}>
                     📚 困ったときは
                   </button>
