@@ -1044,6 +1044,30 @@ async function cropFace(base64, mediaType, region, orientation){
   });
 }
 
+// Clavis API のエラーレスポンスを「ライセンス系 / サーバー系 / それ以外」に分類する。
+// 呼び出し側はこの kind を Error に詰めて投げ、UI 側で原因別の文言に出し分ける。
+//   "LICENSE_INVALID"  401/403、または code が license_* / missing_license
+//   "SERVER_ERROR"     5xx、または code が upstream_unreachable
+//   null               それ以外 (画像読み取り失敗系として扱う)
+async function classifyClavisApiError(resp){
+  if(resp.status===401||resp.status===403) return "LICENSE_INVALID";
+  if(resp.status>=500) return "SERVER_ERROR";
+  try{
+    const j=await resp.clone().json();
+    if(typeof j.code==="string"){
+      if(j.code==="missing_license"||j.code.startsWith("license_")) return "LICENSE_INVALID";
+      if(j.code==="upstream_unreachable") return "SERVER_ERROR";
+    }
+  }catch{}
+  return null;
+}
+
+// ライセンスキーが Clavis 発行形式 (`clv_live_` または `clv_test_` + base32風) かを判定。
+// generate_license_key (Supabase 側) と一致。長さは generator の現状+将来余地に合わせ 20〜40 で許容。
+function isValidLicenseKeyFormat(key){
+  return typeof key==="string"&&/^clv_(live|test)_[A-Z2-9]{20,40}$/.test(key.trim());
+}
+
 async function readDocument(fileBase64, mediaType, apiKey){
   const isPDF=mediaType==="application/pdf";
   const content=[
@@ -1098,16 +1122,29 @@ async function readDocument(fileBase64, mediaType, apiKey){
 - work_historyが読み取れない場合はnullに
 - face_regionは在留カードの顔写真エリアを0〜1の比率で。顔写真がない書類の場合はnullに`}
   ];
-  const resp=await fetch("https://api.clavis-note.com/v1/messages",{
-    method:"POST",
-    headers:{"Content-Type":"application/json","X-Clavis-License":apiKey,"X-Clavis-Feature":"poipoi","anthropic-version":"2023-06-01"},
-    body:JSON.stringify({
-      model:"claude-sonnet-4-20250514",
-      max_tokens:2048,
-      messages:[{role:"user",content}]
-    })
-  });
-  if(!resp.ok){const e=await resp.text();throw new Error(`API Error ${resp.status}: ${e}`);}
+  let resp;
+  try{
+    resp=await fetch("https://api.clavis-note.com/v1/messages",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","X-Clavis-License":apiKey,"X-Clavis-Feature":"poipoi","anthropic-version":"2023-06-01"},
+      body:JSON.stringify({
+        model:"claude-sonnet-4-20250514",
+        max_tokens:2048,
+        messages:[{role:"user",content}]
+      })
+    });
+  }catch(netErr){
+    const err=new Error("Clavis API 到達不可: "+(netErr&&netErr.message||netErr));
+    err.kind="SERVER_ERROR";
+    throw err;
+  }
+  if(!resp.ok){
+    const kind=await classifyClavisApiError(resp);
+    const e=await resp.text();
+    const err=new Error(`API Error ${resp.status}: ${e}`);
+    err.kind=kind;
+    throw err;
+  }
   const data=await resp.json();
   const text=data.content.map(b=>b.text||"").join("");
   const jsonMatch=text.match(/\{[\s\S]*\}/);
@@ -1133,16 +1170,29 @@ async function translateText(text, targetLang, apiKey){
 
 【原文】
 ${text}`;
-  const resp = await fetch("https://api.clavis-note.com/v1/messages",{
-    method:"POST",
-    headers:{"Content-Type":"application/json","X-Clavis-License":apiKey,"X-Clavis-Feature":"translate","anthropic-version":"2023-06-01"},
-    body:JSON.stringify({
-      model:"claude-sonnet-4-20250514",
-      max_tokens:1024,
-      messages:[{role:"user",content:prompt}]
-    })
-  });
-  if(!resp.ok){const e=await resp.text();throw new Error(`API Error ${resp.status}: ${e}`);}
+  let resp;
+  try{
+    resp = await fetch("https://api.clavis-note.com/v1/messages",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","X-Clavis-License":apiKey,"X-Clavis-Feature":"translate","anthropic-version":"2023-06-01"},
+      body:JSON.stringify({
+        model:"claude-sonnet-4-20250514",
+        max_tokens:1024,
+        messages:[{role:"user",content:prompt}]
+      })
+    });
+  }catch(netErr){
+    const err=new Error("Clavis API 到達不可: "+(netErr&&netErr.message||netErr));
+    err.kind="SERVER_ERROR";
+    throw err;
+  }
+  if(!resp.ok){
+    const kind=await classifyClavisApiError(resp);
+    const e=await resp.text();
+    const err=new Error(`API Error ${resp.status}: ${e}`);
+    err.kind=kind;
+    throw err;
+  }
   const data = await resp.json();
   return data.content.map(b=>b.text||"").join("").trim();
 }
@@ -1977,6 +2027,7 @@ function ProspectDetailModal({prospect,clients,onUpdate,onDelete,onGenerate,onPr
   async function handleTranslate(){
     const apiKey=(office||{}).license_key;
     if(!apiKey){alert("ライセンスキーが未設定です。\nマスター登録 → 🏠事務所設定 → 🤖AI設定 から設定してください。");return;}
+    if(!isValidLicenseKeyFormat(apiKey)){alert("ライセンスキーの形式が正しくありません。\nマスター登録 → 🏠事務所設定 → 🤖AI設定 から再設定してください。");return;}
     const text=p.estimate_note;
     if(!text||!text.trim()){alert("備考欄に翻訳する内容を入力してください。");return;}
     const source=extractOriginalText(text);
@@ -1985,7 +2036,10 @@ function ProspectDetailModal({prospect,clients,onUpdate,onDelete,onGenerate,onPr
       const translated=await translateText(source,transLang,apiKey);
       up("estimate_note",`${translated}\n（${source}）`);
     }catch(e){
-      alert("翻訳に失敗しました：\n"+e.message);
+      let msg="翻訳に失敗しました：\n"+e.message;
+      if(e&&e.kind==="LICENSE_INVALID") msg="ライセンスキーが無効です";
+      else if(e&&e.kind==="SERVER_ERROR") msg="Clavisサーバーに接続できません。しばらくしてからお試しください";
+      alert(msg);
     }finally{
       setTranslating(false);
     }
@@ -2505,14 +2559,27 @@ async function readFileViaAI(file, apiKey){
       const ws=wb.Sheets[sn];
       allText+=`\n【シート: ${sn}】\n`+XLSX.utils.sheet_to_csv(ws,{FS:"\t"});
     });
-    const resp=await fetch("https://api.clavis-note.com/v1/messages",{
-      method:"POST",
-      headers:{"Content-Type":"application/json","X-Clavis-License":apiKey,"X-Clavis-Feature":"poipoi","anthropic-version":"2023-06-01"},
-      body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:2048,
-        messages:[{role:"user",content:`以下はExcelファイル「${file.name}」の内容です。在留申請書や入管関連書類から読み取れる情報をすべてJSON形式で返してください。余計なテキストは一切不要です。\n\n以下のフィールドを持つJSONを返してください。読み取れない項目はnullにしてください。\n{"name_roman":"ローマ字氏名","name_kana":"カタカナ氏名","nationality":"国籍","date_of_birth":"YYYY-MM-DD","gender":"男 or 女","phone":"電話番号","email":"メールアドレス","postal_code":"郵便番号（ハイフンなし7桁）","address":"住所","residence_status":"在留資格","residence_expiry":"YYYY-MM-DD","residence_card":"在留カード番号","passport_number":"パスポート番号","passport_expiry":"YYYY-MM-DD","company_name":"勤務先","store":"支店名","work_start_date":"YYYY-MM-DD","work_history":[{"company":"勤務先名","country":"国名","start":"YYYY-MM","end":"YYYY-MM"}]}\n\n【データ】\n${allText}`}]
-      })
-    });
-    if(!resp.ok){const e=await resp.text();throw new Error(`API Error ${resp.status}: ${e}`);}
+    let resp;
+    try{
+      resp=await fetch("https://api.clavis-note.com/v1/messages",{
+        method:"POST",
+        headers:{"Content-Type":"application/json","X-Clavis-License":apiKey,"X-Clavis-Feature":"poipoi","anthropic-version":"2023-06-01"},
+        body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:2048,
+          messages:[{role:"user",content:`以下はExcelファイル「${file.name}」の内容です。在留申請書や入管関連書類から読み取れる情報をすべてJSON形式で返してください。余計なテキストは一切不要です。\n\n以下のフィールドを持つJSONを返してください。読み取れない項目はnullにしてください。\n{"name_roman":"ローマ字氏名","name_kana":"カタカナ氏名","nationality":"国籍","date_of_birth":"YYYY-MM-DD","gender":"男 or 女","phone":"電話番号","email":"メールアドレス","postal_code":"郵便番号（ハイフンなし7桁）","address":"住所","residence_status":"在留資格","residence_expiry":"YYYY-MM-DD","residence_card":"在留カード番号","passport_number":"パスポート番号","passport_expiry":"YYYY-MM-DD","company_name":"勤務先","store":"支店名","work_start_date":"YYYY-MM-DD","work_history":[{"company":"勤務先名","country":"国名","start":"YYYY-MM","end":"YYYY-MM"}]}\n\n【データ】\n${allText}`}]
+        })
+      });
+    }catch(netErr){
+      const err=new Error("Clavis API 到達不可: "+(netErr&&netErr.message||netErr));
+      err.kind="SERVER_ERROR";
+      throw err;
+    }
+    if(!resp.ok){
+      const kind=await classifyClavisApiError(resp);
+      const e=await resp.text();
+      const err=new Error(`API Error ${resp.status}: ${e}`);
+      err.kind=kind;
+      throw err;
+    }
     const rd=await resp.json();
     const txt=rd.content.map(b=>b.text||"").join("");
     const jm=txt.match(/\{[\s\S]*\}/);
@@ -2614,6 +2681,7 @@ function Dashboard({data,setData,onNavClient,onNavCase,onNavPayment,onNavMaster}
   async function handlePoipoiFiles(files){
     if(!files || files.length===0) return;
     if(!apiKey){ showToast("ライセンスキーが設定されていません", 3000); return; }
+    if(!isValidLicenseKeyFormat(apiKey)){ showToast("⚠️ ライセンスキーの形式が正しくありません", 3500); return; }
 
     const PLACEHOLDER_PATTERNS=["未定","未登録","未記入","不明","N/A","未記載"];
     const isPlaceholderValue=(v)=>typeof v==="string" && PLACEHOLDER_PATTERNS.some(p=>v.includes(p));
@@ -2644,6 +2712,7 @@ function Dashboard({data,setData,onNavClient,onNavCase,onNavPayment,onNavMaster}
     try {
       // Phase 1: 全ファイル読取
       const extractions=[];
+      let lastErrKind=null;  // 集約エラー文言の出し分け用 (LICENSE_INVALID > SERVER_ERROR > その他)
       for(let i=0;i<files.length;i++){
         const f=files[i];
         if(files.length>1) showToast(`📷 読取中… (${i+1}/${files.length}) ${f.name}`, 8000);
@@ -2652,11 +2721,20 @@ function Dashboard({data,setData,onNavClient,onNavCase,onNavPayment,onNavMaster}
           if(extracted) extractions.push({file:f, extracted});
         }catch(err){
           console.error(`Dashboard ポイポイ ${f.name} 読取エラー:`, err);
-          showToast(`⚠️ ${f.name}: ${err.message||"読取失敗"}`, 3000);
+          // 個別ファイルtoastは技術詳細を出さずシンプルに。原因別文言は集約メッセージで出す。
+          showToast(`⚠️ ${f.name}: 読取失敗`, 2500);
+          if(err&&err.kind){
+            // LICENSE_INVALID は一度出たら以降のリトライ無意味なので最優先で保持
+            if(err.kind==="LICENSE_INVALID") lastErrKind="LICENSE_INVALID";
+            else if(lastErrKind!=="LICENSE_INVALID") lastErrKind=err.kind;
+          }
         }
       }
       if(extractions.length===0){
-        showToast("⚠️ 読み取れませんでした", 3000);
+        let msg="⚠️ 画像から情報を読み取れませんでした。別の画像でお試しください";
+        if(lastErrKind==="LICENSE_INVALID") msg="⚠️ ライセンスキーが無効です";
+        else if(lastErrKind==="SERVER_ERROR") msg="⚠️ Clavisサーバーに接続できません。しばらくしてからお試しください";
+        showToast(msg, 4000);
         return;
       }
 
@@ -3907,6 +3985,7 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
     if(!files||files.length===0)return;
     const apiKey=(data.office||{}).license_key;
     if(!apiKey){alert("ライセンスキーが設定されていません。\nマスター登録 → 🏠事務所設定 → 🤖AI設定 から設定してください。");return;}
+    if(!isValidLicenseKeyFormat(apiKey)){alert("ライセンスキーの形式が正しくありません。\nマスター登録 → 🏠事務所設定 → 🤖AI設定 から再設定してください。");return;}
 
     const PLACEHOLDER_PATTERNS=["未定","未登録","未記入","不明","N/A","未記載"];
     const isPlaceholderValue=(v)=>typeof v==="string" && PLACEHOLDER_PATTERNS.some(p=>v.includes(p));
@@ -3944,6 +4023,7 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
     try{
       // === Phase 1: 全ファイルをまずAI読取（コミット前に抽出だけ確定させる） ===
       const extractions=[]; // [{file, extracted}]
+      let lastErrKind=null;  // 集約エラー文言の出し分け用 (LICENSE_INVALID > SERVER_ERROR > その他)
       for(let fi=0;fi<files.length;fi++){
         const f=files[fi];
         if(t&&files.length>1){t.textContent=`📷 読取中… (${fi+1}/${files.length}) ${f.name}`;t.style.opacity=1;}
@@ -3952,13 +4032,24 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
           extracted=await readFileViaAI(f,apiKey);
         }catch(err){
           console.error(`ポイポイ式 ${f.name} 読取エラー:`,err);
-          if(t){t.textContent=`⚠️ ${f.name}: ${err.message||"読取失敗"}`;t.style.opacity=1;setTimeout(()=>t.style.opacity=0,3000);}
+          // 個別ファイルtoastは技術詳細を出さずシンプルに。原因別文言は集約メッセージで出す。
+          if(t){t.textContent=`⚠️ ${f.name}: 読取失敗`;t.style.opacity=1;setTimeout(()=>t.style.opacity=0,2500);}
+          if(err&&err.kind){
+            if(err.kind==="LICENSE_INVALID") lastErrKind="LICENSE_INVALID";
+            else if(lastErrKind!=="LICENSE_INVALID") lastErrKind=err.kind;
+          }
           continue;
         }
         if(!extracted) continue;
         extractions.push({file:f, extracted});
       }
-      if(extractions.length===0) return;
+      if(extractions.length===0){
+        let msg="⚠️ 画像から情報を読み取れませんでした。別の画像でお試しください";
+        if(lastErrKind==="LICENSE_INVALID") msg="⚠️ ライセンスキーが無効です";
+        else if(lastErrKind==="SERVER_ERROR") msg="⚠️ Clavisサーバーに接続できません。しばらくしてからお試しください";
+        if(t){t.textContent=msg;t.style.opacity=1;setTimeout(()=>t.style.opacity=0,4000);}
+        return;
+      }
 
       // === Phase 2: 別人混入検出（identityファイル間でグルーピング） ===
       const identityExts=extractions.filter(e=>hasIdentity(e.extracted));
@@ -6972,6 +7063,10 @@ function PaymentDetail({p,cases,clients,office,onUpdate,onDelete,onSplit,onItemS
       alert("ライセンスキーが設定されていません。\nマスター登録 → 🏠事務所設定 → 🤖AI設定 から設定してください。");
       return;
     }
+    if(!isValidLicenseKeyFormat(apiKey)){
+      alert("ライセンスキーの形式が正しくありません。\nマスター登録 → 🏠事務所設定 → 🤖AI設定 から再設定してください。");
+      return;
+    }
     const text=p[field];
     if(!text||!text.trim()){
       alert("備考欄に翻訳する内容を入力してください。");
@@ -6983,7 +7078,10 @@ function PaymentDetail({p,cases,clients,office,onUpdate,onDelete,onSplit,onItemS
       const translated=await translateText(source,targetLang,apiKey);
       update(field,`${translated}\n（${source}）`);
     }catch(e){
-      alert("翻訳に失敗しました：\n"+e.message);
+      let msg="翻訳に失敗しました：\n"+e.message;
+      if(e&&e.kind==="LICENSE_INVALID") msg="ライセンスキーが無効です";
+      else if(e&&e.kind==="SERVER_ERROR") msg="Clavisサーバーに接続できません。しばらくしてからお試しください";
+      alert(msg);
     }finally{
       setTranslating(null);
     }
