@@ -5,3 +5,6 @@ _*.png
 
 # Claude Code ローカル設定（preview server 等のローカル開発用）
 .claude/
+
+CLAUDE.md
+*.docx
