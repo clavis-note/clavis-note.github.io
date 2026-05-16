@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clavis Note - 行政書士のための在留資格管理ツール</title>
+<meta name="description" content="現役行政書士が現場で必要なものを形にした、行政書士のための在留資格・入管業務管理ツール。事件簿の自動生成、クライアント台帳、案件管理、報酬管理がオールインワン。AI-OCRによる各種書類の自動読み取り（ポイポイ式）。">
+<meta property="og:title" content="Clavis Note - 行政書士のための在留資格管理ツール">
+<meta property="og:description" content="作業に追われていた時間を、人と向き合う時間へ。2026年5月、正式リリース予定。">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://clavis-note.com/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;600;700;800&family=Noto+Sans+JP:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f5f4ee;
+    --bg-alt: #ebe9e0;
+    --bg-soft: #faf8f5;
+    --text: #2a2724;
+    --text-muted: #6b6760;
+    --accent: #378ADD;
+    --accent-soft: #E6F1FB;
+    --accent-deep: #2c6fb0;
+    --line: #d4d2c8;
+    --line-soft: #e5e3dd;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans JP', -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+    font-weight: 400;
+    line-height: 1.9;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .container {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+  .container-wide {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  /* ─── ヘッダー ─── */
+  header.site {
+    padding: 28px 24px 20px;
+    text-align: center;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  header.site .brand {
+    font-family: 'Shippori Mincho', serif;
+    font-size: 22px;
+    letter-spacing: 0.05em;
+    color: var(--text);
+    font-weight: 600;
+  }
+  header.site .brand .accent {
+    color: var(--accent);
+  }
+
+  /* ─── セクションラベル ─── */
+  .section-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    margin-bottom: 32px;
+    font-size: 12px;
+    letter-spacing: 0.4em;
+    color: var(--accent);
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+  .section-label::before,
+  .section-label::after {
+    content: '';
+    display: block;
+    width: 32px;
+    height: 1px;
+    background: var(--accent);
+    opacity: 0.5;
+  }
+
+  /* ─── ヒーロー ─── */
+  section.hero {
+    padding: 88px 0 72px;
+    text-align: center;
+  }
+  section.hero h1 {
+    font-family: 'Shippori Mincho', serif;
+    font-size: 44px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    margin: 0 0 36px;
+    line-height: 1.3;
+    color: var(--text);
+  }
+  section.hero h1 .accent {
+    color: var(--accent);
+  }
+  section.hero .lead {
+    font-family: 'Shippori Mincho', serif;
+    font-size: 24px;
+    line-height: 1.8;
+    color: var(--text);
+    margin: 0 0 16px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+  section.hero .sub {
+    font-size: 15px;
+    color: var(--text-muted);
+    margin: 0 0 48px;
+    letter-spacing: 0.05em;
+  }
+  section.hero .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 24px;
+    background: var(--accent-soft);
+    border: 1px solid var(--accent);
+    border-radius: 100px;
+    font-size: 13px;
+    color: var(--accent-deep);
+    letter-spacing: 0.1em;
+    font-weight: 500;
+  }
+  section.hero .badge .dot {
+    width: 6px;
+    height: 6px;
+    background: var(--accent);
+    border-radius: 50%;
+  }
+
+  /* ─── Voiceセクション ─── */
+  section.voice {
+    padding: 80px 0;
+    border-top: 1px solid var(--line-soft);
+    background: var(--bg-soft);
+  }
+  section.voice .voice-quote {
+    font-family: 'Shippori Mincho', serif;
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1.6;
+    text-align: center;
+    color: var(--text);
+    margin: 0 0 64px;
+    letter-spacing: 0.04em;
+  }
+  section.voice .pain-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    margin-bottom: 64px;
+  }
+  section.voice .pain-item {
+    background: var(--bg);
+    border: 1px solid var(--line-soft);
+    padding: 28px 28px 24px;
+    border-radius: 4px;
+    position: relative;
+  }
+  section.voice .pain-num {
+    font-family: 'Shippori Mincho', serif;
+    font-size: 13px;
+    color: var(--accent);
+    letter-spacing: 0.15em;
+    margin-bottom: 14px;
+    font-weight: 500;
+  }
+  section.voice .pain-text {
+    font-size: 14.5px;
+    line-height: 2.0;
+    color: var(--text);
+    margin: 0;
+  }
+  section.voice .conclusion {
+    text-align: center;
+    padding: 40px 24px;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    background: var(--accent-soft);
+    border-radius: 4px;
+  }
+  section.voice .conclusion p {
+    font-family: 'Shippori Mincho', serif;
+    font-size: 22px;
+    font-weight: 600;
+    line-height: 1.8;
+    color: var(--text);
+    margin: 0;
+    letter-spacing: 0.04em;
+  }
+  section.voice .conclusion p .clavis-name {
+    color: var(--accent);
+  }
+
+  /* ─── セクション共通 ─── */
+  section.block {
+    padding: 80px 0;
+    border-top: 1px solid var(--line-soft);
+  }
+
+  /* ─── ストーリー ─── */
+  section.story .story-quote {
+    font-family: 'Shippori Mincho', serif;
+    font-size: 24px;
+    font-weight: 600;
+    line-height: 1.9;
+    text-align: center;
+    color: var(--text);
+    margin: 0 0 56px;
+    padding: 0 16px;
+    letter-spacing: 0.03em;
+  }
+  section.story .story-body {
+    column-count: 2;
+    column-gap: 48px;
+    column-rule: 1px solid var(--line-soft);
+    font-size: 15px;
+    line-height: 2.1;
+    color: var(--text);
+  }
+  section.story .story-body p {
+    margin: 0 0 1.5em;
+    text-align: justify;
+    break-inside: avoid;
+  }
+  section.story .story-body p strong {
+    font-weight: 600;
+    color: var(--text);
+    border-bottom: 1px solid var(--accent);
+    padding-bottom: 1px;
+  }
+  section.story .signature {
+    text-align: right;
+    margin-top: 48px;
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
+    color: var(--text);
+    font-size: 14px;
+  }
+  section.story .signature .signature-name {
+    font-family: 'Shippori Mincho', serif;
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    margin-right: 12px;
+  }
+  section.story .signature .signature-org {
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+
+  /* ─── 機能 ─── */
+  section.features {
+    background: var(--bg);
+  }
+  section.features h2 {
+    font-family: 'Shippori Mincho', serif;
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    margin: 0 0 16px;
+    text-align: center;
+  }
+
+  /* 入力をラクにする工夫 ラベル */
+  section.features .approach-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    margin: 56px 0 32px;
+    font-size: 13px;
+    letter-spacing: 0.25em;
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+  section.features .approach-label::before,
+  section.features .approach-label::after {
+    content: '';
+    display: block;
+    width: 32px;
+    height: 1px;
+    background: var(--line);
+  }
+
+  /* 2カード並列 */
+  section.features .approach-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-bottom: 80px;
+  }
+
+  /* 吹き出し風カード（ポイポイ式・マスター登録） */
+  section.features .approach-card {
+    background: var(--bg-soft);
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    padding: 36px 28px 28px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+  /* 吹き出しのバッジ（カードの上に乗る） */
+  section.features .approach-card .approach-badge {
+    position: absolute;
+    top: -14px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--accent);
+    color: #fff;
+    font-family: 'Shippori Mincho', serif;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    padding: 6px 22px;
+    border-radius: 100px;
+    white-space: nowrap;
+  }
+  section.features .approach-card .approach-catch {
+    font-family: 'Shippori Mincho', serif;
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1.6;
+    text-align: center;
+    color: var(--text);
+    margin: 16px 0 24px;
+    letter-spacing: 0.04em;
+  }
+  section.features .approach-card .approach-desc {
+    font-size: 14px;
+    line-height: 2.0;
+    color: var(--text);
+    margin: 0;
+    flex-grow: 1;
+  }
+  section.features .approach-card .approach-note {
+    font-size: 11.5px;
+    line-height: 1.7;
+    color: var(--text-muted);
+    margin: 20px 0 0;
+    padding-top: 16px;
+    border-top: 1px solid var(--line-soft);
+  }
+
+  /* 主な機能 ラベル */
+  section.features .main-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    margin: 0 0 32px;
+    font-size: 13px;
+    letter-spacing: 0.25em;
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+  section.features .main-label::before,
+  section.features .main-label::after {
+    content: '';
+    display: block;
+    width: 32px;
+    height: 1px;
+    background: var(--line);
+  }
+
+  section.features ul {
+    list-style: none;
+  }
+  section.features li {
+    padding: 32px 0;
+    border-top: 1px solid var(--line-soft);
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 32px;
+    align-items: start;
+  }
+  section.features li:first-child {
+    border-top: none;
+  }
+  section.features .feat-title {
+    font-family: 'Shippori Mincho', serif;
+    font-size: 19px;
+    font-weight: 600;
+    color: var(--accent);
+    margin: 0;
+    letter-spacing: 0.05em;
+    line-height: 1.5;
+  }
+  section.features .feat-desc {
+    margin: 0;
+    font-size: 15px;
+    line-height: 2.0;
+    color: var(--text);
+  }
+
+  /* ─── 利用について ─── */
+  section.terms-info {
+    background: var(--accent-soft);
+    padding: 56px 0;
+    text-align: center;
+  }
+  section.terms-info p {
+    margin: 0 0 1em;
+    font-size: 15px;
+    line-height: 2.0;
+    color: var(--text);
+  }
+  section.terms-info p strong {
+    font-family: 'Shippori Mincho', serif;
+    font-weight: 700;
+    color: var(--accent-deep);
+    font-size: 17px;
+    letter-spacing: 0.05em;
+  }
+  section.terms-info p:last-child {
+    margin-bottom: 0;
+    color: var(--text-muted);
+    font-size: 13px;
+    margin-top: 12px;
+  }
+
+  /* ─── リリース通知 ─── */
+  section.notify {
+    padding: 80px 0;
+    text-align: center;
+  }
+  section.notify h2 {
+    font-family: 'Shippori Mincho', serif;
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    margin: 0 0 24px;
+  }
+  section.notify p {
+    font-size: 15px;
+    line-height: 1.9;
+    margin: 0 0 32px;
+  }
+  section.notify .placeholder-form {
+    background: var(--bg-soft);
+    border: 1px dashed var(--line);
+    border-radius: 8px;
+    padding: 40px 24px;
+    color: var(--text-muted);
+    font-size: 14px;
+    margin: 32px auto 0;
+    max-width: 520px;
+  }
+  section.notify .placeholder-form .form-label {
+    font-family: 'Shippori Mincho', serif;
+    display: block;
+    color: var(--accent);
+    font-size: 15px;
+    margin-bottom: 12px;
+    letter-spacing: 0.1em;
+    font-weight: 600;
+  }
+
+  /* ─── フッター ─── */
+  footer.site {
+    background: var(--bg-alt);
+    border-top: 1px solid var(--line);
+    padding: 48px 24px 32px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+  footer.site .footer-brand {
+    font-family: 'Shippori Mincho', serif;
+    font-size: 20px;
+    color: var(--text);
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+    font-weight: 600;
+  }
+  footer.site .footer-brand .accent {
+    color: var(--accent);
+  }
+  footer.site .footer-org {
+    color: var(--text);
+    font-size: 14px;
+    margin-bottom: 4px;
+    letter-spacing: 0.05em;
+  }
+  footer.site .footer-info {
+    color: var(--text-muted);
+    font-size: 12px;
+    margin-bottom: 24px;
+    line-height: 1.8;
+  }
+  footer.site .footer-links {
+    margin-bottom: 20px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+  }
+  footer.site .footer-links a {
+    color: var(--text-muted);
+    text-decoration: none;
+    margin: 0 12px;
+    font-size: 13px;
+    letter-spacing: 0.05em;
+  }
+  footer.site .footer-links a:hover {
+    color: var(--accent);
+    text-decoration: underline;
+  }
+  footer.site .copyright {
+    color: var(--text-muted);
+    font-size: 12px;
+    letter-spacing: 0.1em;
+  }
+
+  /* ─── レスポンシブ ─── */
+  @media (max-width: 720px) {
+    section.hero { padding: 60px 0 56px; }
+    section.hero h1 { font-size: 32px; line-height: 1.4; margin-bottom: 28px; }
+    section.hero .lead { font-size: 18px; line-height: 1.7; }
+    section.hero .sub { font-size: 13px; margin-bottom: 36px; }
+    section.block, section.voice { padding: 56px 0; }
+    section.voice .voice-quote { font-size: 22px; line-height: 1.7; margin-bottom: 40px; }
+    section.voice .pain-grid {
+      grid-template-columns: 1fr;
+      gap: 16px;
+      margin-bottom: 40px;
+    }
+    section.voice .pain-item { padding: 22px 22px 20px; }
+    section.voice .pain-text { font-size: 14px; }
+    section.voice .conclusion p { font-size: 17px; line-height: 1.7; }
+    section.story .story-quote { font-size: 18px; line-height: 1.8; margin-bottom: 36px; }
+    section.story .story-body {
+      column-count: 1;
+      font-size: 14.5px;
+      line-height: 2.0;
+    }
+    section.features li {
+      grid-template-columns: 1fr;
+      gap: 12px;
+      padding: 24px 0;
+    }
+    section.features h2 { font-size: 22px; margin-bottom: 16px; }
+    section.features .feat-title { font-size: 17px; }
+    section.features .feat-desc { font-size: 14.5px; }
+    section.features .approach-grid {
+      grid-template-columns: 1fr;
+      gap: 36px;
+      margin-bottom: 56px;
+    }
+    section.features .approach-label {
+      margin: 40px 0 32px;
+    }
+    section.features .approach-card {
+      padding: 32px 22px 24px;
+    }
+    section.features .approach-card .approach-badge {
+      font-size: 13px;
+      padding: 5px 18px;
+    }
+    section.features .approach-card .approach-catch {
+      font-size: 19px;
+      line-height: 1.6;
+    }
+    section.features .approach-card .approach-desc {
+      font-size: 13.5px;
+    }
+    section.features .approach-card .approach-note {
+      font-size: 11px;
+    }
+    section.terms-info p strong { font-size: 16px; }
+    section.notify h2 { font-size: 22px; }
+    .container, .container-wide { padding: 0 20px; }
+    footer.site .footer-links a {
+      display: inline-block;
+      margin: 4px 8px;
+    }
+  }
+</style>
+</head>
+<body>
+
+<header class="site">
+  <div class="brand">Clavis <span class="accent">Note</span></div>
+</header>
+
+<section class="hero">
+  <div class="container">
+    <h1>Clavis <span class="accent">Note</span></h1>
+    <p class="lead">作業に追われていた時間を、<br>人と向き合う時間へ</p>
+    <p class="sub">〜 もっと自由に、もっとクライアントに向き合える環境を 〜</p>
+    <span class="badge">
+      <span class="dot"></span>
+      2026年5月 正式リリース予定
+    </span>
+  </div>
+</section>
+
+<section class="block story">
+  <div class="container-wide">
+    <p class="story-quote">
+      事務作業の負担軽減によって<br>
+      より多くの案件を受け入れ、お客様をサポートできるようにしたい
+    </p>
+    <div class="story-body">
+      <p>在留資格業務に携わって6年。クライアント数の増加とともに、<strong>ご家族の呼び寄せ・複数案件の並行管理・追加資料対応</strong>が重なり、事務作業が業務の大半を占めるようになりました。</p>
+      <p>Excel、事件簿ソフト、請求書サービス、OneNote——複数ツールを駆使しても「確認漏れ」「入力の二度手間」は消えなかった。</p>
+      <p>「この作業、自動化できないかな？」という問いをClaude（AI）に投げ続け、<strong>日常の困りごとや解決したいことをひとつずつ機能として反映</strong>させていくうちに、現場から生まれたオールインワンツールが完成しました。</p>
+      <p>DX化で自己申請が増える一方、<strong>現場で働く外国人には行政書士の親身なサポートが欠かせない</strong>。Clavis Noteは、その時間を守るために作りました。</p>
+    </div>
+    <div class="signature">
+      <span class="signature-name">行政書士　長見　恵</span>
+      <span class="signature-org">ながみ行政書士事務所</span>
+    </div>
+  </div>
+</section>
+
+<section class="voice">
+  <div class="container-wide">
+    <div class="section-label">Voice</div>
+    <p class="voice-quote">「私だけの&ldquo;あるある&rdquo;ですか？」</p>
+    
+    <div class="pain-grid">
+      <div class="pain-item">
+        <div class="pain-num">— 01 —</div>
+        <p class="pain-text">在留カード・パスポートの情報を毎回手入力。何度も同じ情報を色々な書類に転記している。</p>
+      </div>
+      <div class="pain-item">
+        <div class="pain-num">— 02 —</div>
+        <p class="pain-text">Excel、事件簿ソフト、請求ツール、手書きのメモ帳。情報がそれぞれの場所に散らばって、バラバラ。</p>
+      </div>
+      <div class="pain-item">
+        <div class="pain-num">— 03 —</div>
+        <p class="pain-text">追加資料の対応履歴や審査官とのやり取り——記録に残しきれず、記憶頼みになっている。</p>
+      </div>
+      <div class="pain-item">
+        <div class="pain-num">— 04 —</div>
+        <p class="pain-text">着手金、成功報酬、追加実費——この入金はなんの金額なのか。確定申告シーズンに、売上・売掛金の整合で頭を抱える。</p>
+      </div>
+    </div>
+
+    <div class="conclusion">
+      <p>現役行政書士が、現場で必要だったものを、そのまま形にした。<br>それが <span class="clavis-name">Clavis Note</span> です。</p>
+    </div>
+  </div>
+</section>
+
+<section class="block features">
+  <div class="container">
+    <div class="section-label">Features</div>
+    <h2>Clavis Note でできること</h2>
+
+    <div class="approach-label">入力をラクにする 2つの工夫</div>
+
+    <div class="approach-grid">
+      <div class="approach-card">
+        <div class="approach-badge">ポイポイ式</div>
+        <p class="approach-catch">書類を、ポイッ。<br>それで終わり。</p>
+        <p class="approach-desc">在留カード・パスポート・契約書を、ドラッグ＆ドロップするだけで自動読み取り。現場で在留カードの写真を撮れば、そのままクライアント台帳が完成。外国語の退職証明書や履歴書も、AI-OCR でデータ化して、クライアント台帳の9割超を自動登録。入力作業を限りなくゼロに。</p>
+        <p class="approach-note">※ ポイポイ式はAIを利用した自動読み取り機能です。読み取り内容に誤りがある場合がありますので、最終的な確認は必ず利用者ご自身でお願いします。</p>
+      </div>
+
+      <div class="approach-card">
+        <div class="approach-badge">マスター登録</div>
+        <p class="approach-catch">マスターから、サッ。<br>即、登録。</p>
+        <p class="approach-desc">あらかじめ登録した依頼業務種別・金額・書類セットを、ボタン1つで呼び出し。案件作成も、報酬登録も、迷わず・速く。</p>
+      </div>
+    </div>
+
+    <div class="main-label">主な機能</div>
+    <ul>
+      <li>
+        <p class="feat-title">クライアント台帳</p>
+        <p class="feat-desc">在留カード・パスポート情報、職歴・給与履歴、案件履歴を一元管理。家族構成や勤務先との繋がりも、ひと目でわかる。</p>
+      </li>
+      <li>
+        <p class="feat-title">案件管理</p>
+        <p class="feat-desc">入管業務がメインだけど、たまにそれ以外の業務も引き受ける——そんな現場のリアルに応えて、一般業務も管理可能。入管業務には、追加資料対応履歴や審査官・勤務先とのやり取りも記録できます。</p>
+      </li>
+      <li>
+        <p class="feat-title">報酬・入金管理</p>
+        <p class="feat-desc">見積・請求・領収書発行から、まとめ請求、立替金管理まで。現金でいただいた報酬をその場で入金記録、領収書・PDF発行と、現場で完了できる業務フローを実現。</p>
+      </li>
+    </ul>
+  </div>
+</section>
+
+<section class="terms-info">
+  <div class="container">
+    <p><strong>行政書士資格保有者専用のツールです</strong></p>
+    <p>一般企業・個人ユーザー・登録支援機関単体の方への提供は行いません。</p>
+    <p>料金プラン・申込方法は、正式リリース時にお知らせします。</p>
+  </div>
+</section>
+
+<section class="notify">
+  <div class="container">
+    <div class="section-label">Notice</div>
+    <h2>リリース通知</h2>
+    <p>Clavis Note の正式リリースをいち早くお知らせします。</p>
+    <div class="placeholder-form">
+      <span class="form-label">登録フォーム準備中</span>
+      ご登録いただいたメールアドレスは、<br>
+      リリース通知のみに使用し、その他の用途には一切使用しません。
+    </div>
+  </div>
+</section>
+
+<footer class="site">
+  <div class="footer-brand">Clavis <span class="accent">Note</span></div>
+  <div class="footer-org">ながみ行政書士事務所</div>
+  <div class="footer-info">
+    代表　長見　恵<br>
+    東京都立川市高松町３－１４－２　２F
+  </div>
+  <div class="footer-links">
+    <a href="/terms.html">ご利用規約</a>
+    <a href="/privacy.html">プライバシーポリシー</a>
+    <a href="/tokushoho.html">特定商取引法表記</a>
+  </div>
+  <div class="copyright">
+    &copy; 2026 ながみ行政書士事務所
+  </div>
+</footer>
+
+</body>
+</html>
