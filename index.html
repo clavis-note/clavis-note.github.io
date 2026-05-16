@@ -3,1428 +3,2212 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Clavis Note - 行政書士のための在留資格管理ツール</title>
+<title>Clavis Note ─ 行政書士のための在留資格管理ツール</title>
 <meta name="description" content="現役行政書士が現場で必要なものを形にした、行政書士のための在留資格・入管業務管理ツール。事件簿の自動生成、クライアント台帳、案件管理、報酬管理がオールインワン。AI-OCRによる各種書類の自動読み取り（ポイポイ式）。">
-<meta property="og:title" content="Clavis Note - 行政書士のための在留資格管理ツール">
+<meta property="og:title" content="Clavis Note ─ 行政書士のための在留資格管理ツール">
 <meta property="og:description" content="作業に追われていた時間を、人と向き合う時間へ。2026年5月リリース。">
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://clavis-note.com/">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;600;700;800&family=Noto+Sans+JP:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;600;700;800&family=Noto+Sans+JP:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --bg: #f5f4ee;
-    --bg-alt: #ebe9e0;
-    --bg-soft: #faf8f5;
-    --text: #2a2724;
-    --text-muted: #6b6760;
-    --accent: #378ADD;
-    --accent-soft: #E6F1FB;
-    --accent-deep: #2c6fb0;
-    --line: #d4d2c8;
-    --line-soft: #e5e3dd;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  html { scroll-behavior: smooth; }
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'Noto Sans JP', -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
-    font-weight: 400;
-    line-height: 1.9;
-    font-size: 16px;
-    -webkit-font-smoothing: antialiased;
-    overflow-x: hidden;
-  }
+/* =================================================================
+   Clavis Note LP — Brushed-up styles
+   3 themes: refined / editorial / premium
+   ================================================================= */
 
-  .container {
-    max-width: 760px;
-    margin: 0 auto;
-    padding: 0 24px;
-  }
-  .container-wide {
-    max-width: 980px;
-    margin: 0 auto;
-    padding: 0 24px;
-  }
+:root {
+  /* Base — overridden per theme */
+  --bg:        #f5f4ee;
+  --bg-alt:    #ebe9e0;
+  --bg-soft:   #faf8f5;
+  --bg-deep:   #1a1d24;     /* dark inverted sections */
+  --bg-deep-2: #232730;
+  --text:      #1f1c19;
+  --text-mute: #6b6760;
+  --text-inv:  #f5f4ee;
+  --line:      #d4d2c8;
+  --line-soft: #e5e3dd;
+  --line-deep: #2f333d;
 
-  /* ─── セクションラベル ─── */
-  .section-label {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 14px;
-    margin-bottom: 32px;
-    font-size: 14px;
-    letter-spacing: 0.4em;
-    color: var(--accent);
-    text-transform: uppercase;
-    font-weight: 500;
-  }
-  .section-label::before,
-  .section-label::after {
-    content: '';
-    display: block;
-    width: 32px;
-    height: 1px;
-    background: var(--accent);
-    opacity: 0.5;
-  }
+  --accent:      #2D7DD2;   /* blue */
+  --accent-soft: #E6F1FB;
+  --accent-deep: #1F5A9E;
+  --accent-ink:  #0d2742;
 
-  /* ─── ヒーローセクション（動画版） ─── */
-  .hero {
-    min-height: 100vh;
-    padding: 36px 24px 80px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-  }
+  --gold:        #b48a3c;
+  --gold-soft:   #f3ead4;
 
-  .hero .brand {
-    font-family: 'Shippori Mincho', serif;
-    font-size: 22px;
-    letter-spacing: 0.12em;
-    color: var(--text);
-    font-weight: 600;
-    margin-bottom: 32px;
-    opacity: 0;
-    animation: fadeIn 0.8s ease-out 0.3s forwards;
-  }
-  .hero .brand .accent {
-    color: var(--accent);
-  }
+  /* Typography */
+  --font-serif: 'Shippori Mincho', 'YuMincho', 'Hiragino Mincho ProN', serif;
+  --font-sans:  'Noto Sans JP', -apple-system, BlinkMacSystemFont, 'Segoe UI', Meiryo, sans-serif;
+  --font-mono:  'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  .hero .catchcopy {
-    font-family: 'Shippori Mincho', serif;
-    font-size: 40px;
-    font-weight: 700;
-    line-height: 1.55;
-    letter-spacing: 0.06em;
-    color: var(--text);
-    margin-bottom: 12px;
-    max-width: 760px;
-    opacity: 0;
-    animation: fadeInUp 0.9s ease-out 0.8s forwards;
-  }
-  .hero .catchcopy .accent {
-    color: var(--accent);
-  }
-  .hero .subcopy {
-    font-size: 16px;
-    color: var(--text-muted);
-    letter-spacing: 0.05em;
-    margin-bottom: 40px;
-    opacity: 0;
-    animation: fadeInUp 0.8s ease-out 1.3s forwards;
-  }
+  --radius-sm: 6px;
+  --radius:    12px;
+  --radius-lg: 20px;
 
-  .hero .video-wrap {
-    position: relative;
-    width: 100%;
-    max-width: 800px;
-    margin: 0 auto 48px;
-    border-radius: 16px;
-    overflow: hidden;
-    box-shadow: 0 20px 60px rgba(55, 138, 221, 0.15), 0 4px 12px rgba(0,0,0,0.06);
-    background: var(--bg-soft);
-    opacity: 0;
-    animation: fadeInUp 1s ease-out 1.6s forwards;
-  }
-  .hero .video-wrap video {
-    display: block;
-    width: 100%;
-    height: auto;
-  }
+  --shadow-sm: 0 1px 2px rgba(20,18,16,.06), 0 1px 1px rgba(20,18,16,.04);
+  --shadow:    0 12px 28px -10px rgba(20,18,16,.18), 0 4px 10px -4px rgba(20,18,16,.08);
+  --shadow-lg: 0 30px 60px -20px rgba(20,18,16,.25), 0 10px 24px -10px rgba(20,18,16,.12);
+  --shadow-accent: 0 10px 30px -8px rgba(45,125,210,.35);
+}
 
-  .hero .hero-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 12px;
-    padding: 14px 36px;
-    background: var(--accent);
-    border: none;
-    border-radius: 100px;
-    font-size: 14px;
-    color: #fff;
-    letter-spacing: 0.12em;
-    font-weight: 600;
-    margin-bottom: 32px;
-    opacity: 0;
-    animation: fadeInUp 0.8s ease-out 2.2s forwards;
-    box-shadow: 0 6px 20px rgba(55, 138, 221, 0.35);
-  }
-  .hero .hero-badge .dot {
-    width: 8px;
-    height: 8px;
-    background: #fff;
-    border-radius: 50%;
-    animation: pulse 2s infinite;
-  }
+/* ========================== THEMES ============================== */
+body.theme-editorial {
+  --bg:        #f8f5ee;
+  --bg-alt:    #efeadd;
+  --bg-soft:   #fdfbf5;
+  --text:      #14110e;
+  --text-mute: #6a655c;
+  --line:      #cfcabe;
+  --line-soft: #e5e0d2;
+  --accent:      #1b4ea0;
+  --accent-soft: #e6edf8;
+  --accent-deep: #0b2f6a;
+  --accent-ink:  #051b3f;
+  --shadow-accent: 0 10px 30px -8px rgba(27,78,160,.4);
+}
 
-  .hero .scroll-hint {
-    color: var(--text-muted);
-    font-size: 12px;
-    letter-spacing: 0.25em;
-    opacity: 0;
-    animation: fadeIn 0.8s ease-out 2.6s forwards, bounceHint 2s ease-in-out 3s infinite;
-  }
-  .hero .scroll-hint::before {
-    content: '↓';
-    display: block;
-    font-size: 18px;
-    margin-bottom: 6px;
-  }
+body.theme-premium {
+  --bg:        #f3efe6;
+  --bg-alt:    #e6dfd0;
+  --bg-soft:   #fbf7ee;
+  --bg-deep:   #0d1218;
+  --bg-deep-2: #161c25;
+  --text:      #1a1612;
+  --text-mute: #6a6359;
+  --line:      #c9c1ae;
+  --line-soft: #e1d8c4;
+  --accent:      #1a4480;
+  --accent-soft: #e7ecf4;
+  --accent-deep: #0d2a55;
+  --accent-ink:  #061634;
+  --gold:        #a07a2e;
+  --gold-soft:   #f0e4c8;
+  --shadow-accent: 0 10px 30px -8px rgba(26,68,128,.4);
+}
 
-  @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
-  @keyframes fadeInUp {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-  @keyframes pulse {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.5; transform: scale(1.3); }
-  }
-  @keyframes bounceHint {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(6px); }
-  }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-weight: 400;
+  line-height: 1.85;
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
 
-  /* ─── セクション共通 ─── */
-  section.block {
-    padding: 80px 0;
-    border-top: 1px solid var(--line-soft);
-  }
+img, svg, video { max-width: 100%; display: block; }
 
-  /* ─── ストーリー ─── */
-  section.story .story-quote {
-    font-family: 'Shippori Mincho', serif;
-    font-size: 24px;
-    font-weight: 600;
-    line-height: 1.9;
-    text-align: center;
-    color: var(--text);
-    margin: 0 0 56px;
-    padding: 0 16px;
-    letter-spacing: 0.03em;
-  }
-  section.story .story-body {
-    column-count: 2;
-    column-gap: 48px;
-    column-rule: 1px solid var(--line-soft);
-    font-size: 15px;
-    line-height: 2.1;
-    color: var(--text);
-  }
-  section.story .story-body p {
-    margin: 0 0 1.5em;
-    text-align: justify;
-    break-inside: avoid;
-  }
-  section.story .story-body p strong {
-    font-weight: 600;
-    color: var(--text);
-    border-bottom: 1px solid var(--accent);
-    padding-bottom: 1px;
-  }
-  section.story .signature {
-    text-align: right;
-    margin-top: 48px;
-    padding-top: 24px;
-    border-top: 1px solid var(--line);
-    color: var(--text);
-    font-size: 14px;
-  }
-  section.story .signature .signature-name {
-    font-family: 'Shippori Mincho', serif;
-    font-size: 17px;
-    font-weight: 600;
-    letter-spacing: 0.15em;
-    margin-right: 12px;
-  }
-  section.story .signature .signature-org {
-    color: var(--text-muted);
-    font-size: 13px;
-  }
+/* ========================== LAYOUT ============================== */
+.container       { max-width: 760px; margin: 0 auto; padding: 0 24px; }
+.container-wide  { max-width: 1080px; margin: 0 auto; padding: 0 32px; }
+.container-full  { max-width: 1240px; margin: 0 auto; padding: 0 32px; }
 
-  /* ─── Voiceセクション ─── */
-  section.voice {
-    padding: 80px 0;
-    border-top: 1px solid var(--line-soft);
-    background: var(--bg-soft);
-  }
-  section.voice .voice-quote {
-    font-family: 'Shippori Mincho', serif;
-    font-size: 32px;
-    font-weight: 700;
-    line-height: 1.6;
-    text-align: center;
-    color: var(--text);
-    margin: 0 0 64px;
-    letter-spacing: 0.04em;
-  }
-  section.voice .pain-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 32px;
-    margin-bottom: 64px;
-  }
-  section.voice .pain-item {
-    background: var(--bg);
-    border: 1px solid var(--line-soft);
-    padding: 28px 28px 24px;
-    border-radius: 4px;
-    position: relative;
-  }
-  section.voice .pain-num {
-    font-family: 'Shippori Mincho', serif;
-    font-size: 16px;
-    color: var(--accent);
-    letter-spacing: 0.15em;
-    margin-bottom: 14px;
-    font-weight: 500;
-  }
-  section.voice .pain-text {
-    font-size: 15.5px;
-    line-height: 2.0;
-    color: var(--text);
-    margin: 0;
-  }
-  section.voice .conclusion {
-    text-align: center;
-    padding: 40px 24px;
-    border-top: 1px solid var(--line);
-    border-bottom: 1px solid var(--line);
-    background: var(--accent-soft);
-    border-radius: 4px;
-  }
-  section.voice .conclusion p {
-    font-family: 'Shippori Mincho', serif;
-    font-size: 22px;
-    font-weight: 600;
-    line-height: 1.8;
-    color: var(--text);
-    margin: 0;
-    letter-spacing: 0.04em;
-  }
-  section.voice .conclusion p .clavis-name {
-    color: var(--accent);
-  }
+section.block { padding: 112px 0; position: relative; }
+section.block + section.block { border-top: 1px solid var(--line-soft); }
 
-  /* ─── 機能 ─── */
-  section.features {
-    background: var(--bg);
-  }
-  section.features h2 {
-    font-family: 'Shippori Mincho', serif;
-    font-size: 28px;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    margin: 0 0 16px;
-    text-align: center;
-  }
-  section.features .approach-label {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 14px;
-    margin: 56px 0 32px;
-    font-size: 13px;
-    letter-spacing: 0.25em;
-    color: var(--text-muted);
-    font-weight: 500;
-  }
-  section.features .approach-label::before,
-  section.features .approach-label::after {
-    content: '';
-    display: block;
-    width: 32px;
-    height: 1px;
-    background: var(--line);
-  }
-  section.features .approach-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 24px;
-    margin-bottom: 32px;
-  }
-  section.features .approach-card {
-    background: var(--bg-soft);
-    border: 1px solid var(--accent);
-    border-radius: 8px;
-    padding: 36px 28px 28px;
-    position: relative;
-    display: flex;
-    flex-direction: column;
-  }
-  section.features .approach-card .approach-badge {
-    position: absolute;
-    top: -14px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: var(--accent);
-    color: #fff;
-    font-family: 'Shippori Mincho', serif;
-    font-size: 14px;
-    font-weight: 600;
-    letter-spacing: 0.15em;
-    padding: 6px 22px;
-    border-radius: 100px;
-    white-space: nowrap;
-  }
-  section.features .approach-card .approach-catch {
-    font-family: 'Shippori Mincho', serif;
-    font-size: 24px;
-    font-weight: 700;
-    line-height: 1.6;
-    text-align: center;
-    color: var(--text);
-    margin: 16px 0 24px;
-    letter-spacing: 0.04em;
-  }
-  section.features .approach-card .approach-desc {
-    font-size: 14px;
-    line-height: 2.0;
-    color: var(--text);
-    margin: 0;
-    flex-grow: 1;
-  }
-  section.features .approach-card .approach-note {
-    font-size: 11.5px;
-    line-height: 1.7;
-    color: var(--text-muted);
-    margin: 20px 0 0;
-    padding-top: 16px;
-    border-top: 1px solid var(--line-soft);
-  }
-  section.features .approach-card .master-illust {
-    margin: 20px 0 0;
-    padding-top: 16px;
-    border-top: 1px solid var(--line-soft);
-    text-align: center;
-  }
-  section.features .approach-card .master-illust svg {
-    width: 100%;
-    max-width: 100%;
-    height: auto;
-    display: inline-block;
-  }
-  section.features .main-label {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 14px;
-    margin: 0 0 32px;
-    font-size: 13px;
-    letter-spacing: 0.25em;
-    color: var(--text-muted);
-    font-weight: 500;
-  }
-  section.features .main-label::before,
-  section.features .main-label::after {
-    content: '';
-    display: block;
-    width: 32px;
-    height: 1px;
-    background: var(--line);
-  }
-  section.features ul {
-    list-style: none;
-  }
-  section.features li {
-    padding: 32px 0;
-    border-top: 1px solid var(--line-soft);
-    display: grid;
-    grid-template-columns: 200px 1fr;
-    gap: 32px;
-    align-items: start;
-  }
-  section.features li:first-child {
-    border-top: none;
-  }
-  section.features .feat-title {
-    font-family: 'Shippori Mincho', serif;
-    font-size: 19px;
-    font-weight: 600;
-    color: var(--accent);
-    margin: 0;
-    letter-spacing: 0.05em;
-    line-height: 1.5;
-  }
-  section.features .feat-desc {
-    margin: 0;
-    font-size: 15px;
-    line-height: 2.0;
-    color: var(--text);
-  }
+/* eyebrow / section label */
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.32em;
+  color: var(--accent);
+  text-transform: uppercase;
+  font-weight: 500;
+}
+.eyebrow::before {
+  content: '';
+  display: block;
+  width: 28px;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.55;
+}
+.eyebrow.center { justify-content: center; display: flex; }
+.eyebrow.center::after {
+  content: '';
+  display: block;
+  width: 28px;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.55;
+}
 
-  /* ─── ポイポイデモ（GSAP） ─── */
-  .poipoi-section {
-    padding: 32px 0 80px;
-    position: relative;
-    overflow: hidden;
-  }
-  .poipoi-section .poipoi-section-label {
-    text-align: center;
-    color: var(--accent);
-    letter-spacing: 0.4em;
-    font-size: 13px;
-    font-weight: 500;
-    margin-bottom: 16px;
-  }
-  .poipoi-section h2 {
-    font-family: 'Shippori Mincho', serif;
-    font-size: 36px;
-    font-weight: 700;
-    text-align: center;
-    letter-spacing: 0.06em;
-    margin-bottom: 16px;
-    line-height: 1.5;
-  }
-  .poipoi-section h2 .accent { color: var(--accent); }
-  .poipoi-section .lead {
-    text-align: center;
-    color: var(--text-muted);
-    font-size: 16px;
-    margin-bottom: 60px;
-    line-height: 1.8;
-  }
+h1, h2, h3, h4 { font-family: var(--font-serif); font-weight: 700; letter-spacing: 0.04em; }
+.serif { font-family: var(--font-serif); }
+.mono  { font-family: var(--font-mono); }
 
-  .stage {
-    position: relative;
-    max-width: 1100px;
-    margin: 0 auto;
-    height: 700px;
-    padding: 0 24px;
-  }
+/* ========================== TOP NAV ============================= */
+.site-nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 80;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 28px;
+  background: color-mix(in srgb, var(--bg) 78%, transparent);
+  backdrop-filter: blur(14px) saturate(120%);
+  -webkit-backdrop-filter: blur(14px) saturate(120%);
+  border-bottom: 1px solid transparent;
+  transition: border-color .3s ease, background .3s ease;
+}
+.site-nav.scrolled {
+  border-bottom-color: var(--line-soft);
+}
+.site-nav .nav-brand {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--text);
+}
+.site-nav .nav-brand .accent { color: var(--accent); }
+.site-nav .nav-actions { display: flex; gap: 22px; align-items: center; }
+.site-nav .nav-link {
+  font-size: 13px;
+  color: var(--text-mute);
+  text-decoration: none;
+  letter-spacing: 0.08em;
+  transition: color .2s;
+}
+.site-nav .nav-link:hover { color: var(--text); }
+.site-nav .nav-cta {
+  font-family: var(--font-serif);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: #fff;
+  background: var(--accent);
+  padding: 10px 20px;
+  border-radius: 999px;
+  text-decoration: none;
+  box-shadow: var(--shadow-accent);
+  transition: transform .2s, background .2s;
+}
+.site-nav .nav-cta:hover { transform: translateY(-1px); background: var(--accent-deep); }
+@media (max-width: 720px) {
+  .site-nav { padding: 12px 16px; }
+  .site-nav .nav-actions .nav-link { display: none; }
+  .site-nav .nav-cta { padding: 8px 14px; font-size: 12px; }
+}
 
-  .document {
-    position: absolute;
-    filter: drop-shadow(0 10px 25px rgba(0,0,0,0.15)) drop-shadow(0 2px 6px rgba(0,0,0,0.08));
-    z-index: 10;
-    will-change: transform;
-  }
-  .doc-zairyu {
-    left: 40px;
-    top: 100px;
-    transform: rotate(-8deg);
-  }
-  .doc-passport {
-    left: 130px;
-    top: 280px;
-    transform: rotate(6deg);
-  }
-  .doc-contract {
-    left: 60px;
-    top: 440px;
-    transform: rotate(-4deg);
-  }
+/* ========================== HERO ================================ */
+.hero {
+  position: relative;
+  padding: 132px 32px 100px;
+  overflow: hidden;
+}
+.hero-grid {
+  max-width: 1240px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  gap: 72px;
+  align-items: center;
+}
+.hero-copy { position: relative; z-index: 2; }
+.hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 16px 7px 12px;
+  border: 1px solid var(--accent);
+  background: var(--accent-soft);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent-deep);
+  letter-spacing: 0.1em;
+  margin-bottom: 28px;
+}
+.hero-eyebrow .dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+  animation: pulse 2.2s ease-in-out infinite;
+}
+.hero h1.catchcopy {
+  font-family: var(--font-serif);
+  font-size: clamp(34px, 4.6vw, 60px);
+  font-weight: 700;
+  line-height: 1.4;
+  letter-spacing: 0.04em;
+  color: var(--text);
+  margin: 0 0 26px;
+  text-wrap: pretty;
+}
+.hero h1.catchcopy .accent {
+  color: var(--accent);
+  position: relative;
+}
+.hero h1.catchcopy .accent::after {
+  content: '';
+  position: absolute;
+  left: 6%; right: 6%; bottom: -2px;
+  height: 6px;
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  border-radius: 4px;
+  z-index: -1;
+}
+.hero .subcopy {
+  font-size: 17px;
+  color: var(--text-mute);
+  line-height: 1.95;
+  letter-spacing: 0.04em;
+  margin: 0 0 36px;
+  max-width: 540px;
+}
+.hero-actions { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.hero-actions .cta-primary,
+.cta-primary {
+  display: inline-flex; align-items: center; gap: 10px;
+  background: var(--accent);
+  color: #fff;
+  text-decoration: none;
+  font-family: var(--font-serif);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  padding: 16px 28px;
+  border-radius: 999px;
+  box-shadow: var(--shadow-accent);
+  transition: transform .2s, background .2s, box-shadow .2s;
+}
+.cta-primary:hover { background: var(--accent-deep); transform: translateY(-2px); box-shadow: 0 18px 40px -12px color-mix(in srgb, var(--accent) 45%, transparent); }
+.cta-primary .arrow {
+  width: 22px; height: 22px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,.18);
+  border-radius: 50%;
+  transition: transform .25s;
+}
+.cta-primary:hover .arrow { transform: translateX(3px); }
+.hero-actions .cta-secondary {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--font-serif);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  text-decoration: none;
+  letter-spacing: 0.08em;
+  padding: 14px 6px;
+  border-bottom: 1px solid var(--text);
+}
+.hero-actions .cta-secondary:hover { color: var(--accent); border-color: var(--accent); }
 
-  .app-window {
-    position: absolute;
-    right: 24px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 540px;
-    height: 640px;
-    background: #fff;
-    border-radius: 12px;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.2), 0 4px 12px rgba(0,0,0,0.1);
-    border: 1px solid var(--line-soft);
-    overflow: hidden;
-    z-index: 5;
-    display: flex;
-    flex-direction: column;
-  }
-  .app-titlebar {
-    height: 36px;
-    background: var(--bg-soft);
-    border-bottom: 1px solid var(--line-soft);
-    display: flex;
-    align-items: center;
-    padding: 0 12px;
-    gap: 6px;
-    flex-shrink: 0;
-  }
-  .app-titlebar .dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: var(--line);
-  }
-  .app-titlebar .dot.red { background: #ff6b6b; }
-  .app-titlebar .dot.yellow { background: #ffd966; }
-  .app-titlebar .dot.green { background: #7ed957; }
-  .app-titlebar .title {
-    margin-left: 14px;
-    font-family: 'Shippori Mincho', serif;
-    font-size: 12px;
-    color: var(--text-muted);
-    letter-spacing: 0.1em;
-  }
-  .app-titlebar .title .accent { color: var(--accent); }
+.hero-trust {
+  margin-top: 36px;
+  display: flex;
+  gap: 28px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--text-mute);
+  letter-spacing: 0.05em;
+}
+.hero-trust .item { display: flex; align-items: center; gap: 8px; }
+.hero-trust .item svg { flex-shrink: 0; color: var(--accent); }
 
-  .poipoi-zone {
-    margin: 20px 24px 16px;
-    padding: 24px 16px;
-    border: 2px dashed var(--accent);
-    border-radius: 10px;
-    background: var(--accent-soft);
-    text-align: center;
-    transition: all 0.3s;
-    position: relative;
-    flex-shrink: 0;
-  }
-  .poipoi-zone.flash {
-    background: rgba(55, 138, 221, 0.25);
-    border-color: var(--accent-deep);
-    box-shadow: 0 0 0 6px rgba(55, 138, 221, 0.15);
-  }
-  .poipoi-zone .icon {
-    font-size: 28px;
-    margin-bottom: 6px;
-  }
-  .poipoi-zone .label {
-    font-family: 'Shippori Mincho', serif;
-    font-size: 14px;
-    color: var(--accent-deep);
-    font-weight: 600;
-    letter-spacing: 0.06em;
-  }
-  .poipoi-zone .sub {
-    font-size: 10.5px;
-    color: var(--text-muted);
-    margin-top: 3px;
-  }
+/* hero visual (video frame) */
+.hero-visual {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--bg-soft);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--line-soft);
+}
+.hero-visual .hero-video,
+.hero-visual .hero-static {
+  position: absolute; inset: 0;
+}
+.hero-visual[data-mode="video"] .hero-static { display: none; }
+.hero-visual[data-mode="static"] .hero-video { display: none; }
+.hero-visual::before {
+  content: '';
+  position: absolute; inset: 0;
+  background:
+    repeating-linear-gradient(135deg,
+      transparent 0 18px,
+      color-mix(in srgb, var(--text) 4%, transparent) 18px 19px);
+  z-index: 0;
+}
+.hero-visual video {
+  position: relative; z-index: 1;
+  width: 100%; height: 100%;
+  object-fit: cover;
+}
+.hero-visual .visual-placeholder {
+  position: absolute; inset: 0; z-index: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 14px;
+  color: var(--text-mute);
+}
+.hero-visual .visual-placeholder .mono {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+.hero-visual .visual-chrome {
+  position: absolute; top: 14px; left: 14px; right: 14px;
+  display: flex; align-items: center; gap: 6px;
+  z-index: 3;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, #fff 60%, transparent);
+  backdrop-filter: blur(8px);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: var(--text-mute);
+}
+.hero-visual .visual-chrome .lights { display: flex; gap: 4px; margin-right: 8px; }
+.hero-visual .visual-chrome .lights span {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #d6d3cc;
+}
+.hero-visual .visual-chrome .lights span:nth-child(1) { background: #ff6b6b; }
+.hero-visual .visual-chrome .lights span:nth-child(2) { background: #ffd966; }
+.hero-visual .visual-chrome .lights span:nth-child(3) { background: #7ed957; }
 
-  .tabs {
-    display: flex;
-    border-bottom: 1px solid var(--line);
-    margin: 0 24px;
-    position: relative;
-    flex-shrink: 0;
-  }
-  .tab {
-    flex: 1;
-    padding: 11px 0;
-    text-align: center;
-    font-family: 'Shippori Mincho', serif;
-    font-size: 13px;
-    color: var(--text-muted);
-    cursor: pointer;
-    transition: color 0.3s;
-    position: relative;
-    letter-spacing: 0.04em;
-  }
-  .tab.active {
-    color: var(--accent-deep);
-    font-weight: 700;
-  }
-  .tab-indicator {
-    position: absolute;
-    bottom: -1px;
-    height: 2.5px;
-    background: var(--accent);
-    border-radius: 2px 2px 0 0;
-    width: 33.33%;
-    left: 0;
-    transition: left 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-  }
+/* ========================== HERO STATIC ========================= */
+.hero-static {
+  background:
+    radial-gradient(ellipse 420px 320px at 78% 50%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 70%),
+    linear-gradient(160deg, var(--bg-soft) 0%, var(--bg-alt) 100%);
+  overflow: hidden;
+}
+.hero-static .hs-bg {
+  position: absolute; inset: 0;
+  background:
+    repeating-linear-gradient(135deg,
+      transparent 0 22px,
+      color-mix(in srgb, var(--text) 4%, transparent) 22px 23px);
+  opacity: .5;
+}
+.hero-static .hs-doc {
+  position: absolute;
+  filter: drop-shadow(0 10px 22px rgba(20,18,16,.18)) drop-shadow(0 2px 6px rgba(20,18,16,.08));
+  animation: hsFloat 5s ease-in-out infinite;
+}
+.hero-static .hs-doc-zairyu {
+  width: 36%; left: 4%; top: 14%;
+  transform: rotate(-9deg);
+  animation-delay: 0s;
+}
+.hero-static .hs-doc-passport {
+  width: 24%; left: 12%; top: 48%;
+  transform: rotate(6deg);
+  animation-delay: .6s;
+}
+.hero-static .hs-doc-contract {
+  width: 26%; left: 32%; top: 32%;
+  transform: rotate(-3deg);
+  animation-delay: 1.2s;
+}
+@keyframes hsFloat {
+  0%, 100% { translate: 0 0; }
+  50%      { translate: 0 -8px; }
+}
+.hero-static .hs-arrow {
+  position: absolute;
+  left: 48%; top: 46%;
+  width: 14%;
+  color: var(--accent);
+  opacity: .85;
+  animation: hsArrowPulse 2.4s ease-in-out infinite;
+}
+.hero-static .hs-arrow svg { width: 100%; height: auto; }
+@keyframes hsArrowPulse {
+  0%, 100% { transform: translateX(0); opacity: .6; }
+  50%      { transform: translateX(6px); opacity: 1; }
+}
+.hero-static .hs-app {
+  position: absolute;
+  right: 4%; top: 50%;
+  transform: translateY(-50%);
+  width: 42%;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 22px 50px -16px rgba(20,18,16,.28), 0 6px 14px -6px rgba(20,18,16,.12);
+  border: 1px solid var(--line-soft);
+  overflow: hidden;
+  font-family: var(--font-sans);
+}
+.hero-static .hs-app-bar {
+  display: flex; align-items: center; gap: 4px;
+  height: 22px;
+  padding: 0 10px;
+  background: var(--bg-soft);
+  border-bottom: 1px solid var(--line-soft);
+}
+.hero-static .hs-app-bar span {
+  width: 7px; height: 7px; border-radius: 50%; background: var(--line);
+}
+.hero-static .hs-app-bar span:nth-child(1) { background: #ff6b6b; }
+.hero-static .hs-app-bar span:nth-child(2) { background: #ffd966; }
+.hero-static .hs-app-bar span:nth-child(3) { background: #7ed957; }
+.hero-static .hs-app-bar em {
+  margin-left: 8px;
+  font-style: normal;
+  font-family: var(--font-serif);
+  font-size: 9px;
+  color: var(--text-mute);
+  letter-spacing: 0.1em;
+}
+.hero-static .hs-app-drop {
+  margin: 10px 12px 8px;
+  padding: 10px 6px;
+  border: 1.5px dashed var(--accent);
+  background: var(--accent-soft);
+  border-radius: 6px;
+  text-align: center;
+  font-family: var(--font-serif);
+  font-size: 9.5px;
+  color: var(--accent-deep);
+  letter-spacing: 0.05em;
+}
+.hero-static .hs-app-drop .hs-drop-icon {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 2px;
+}
+.hero-static .hs-app-tabs {
+  display: flex;
+  margin: 0 12px;
+  border-bottom: 1px solid var(--line);
+}
+.hero-static .hs-app-tabs span {
+  flex: 1;
+  text-align: center;
+  font-family: var(--font-serif);
+  font-size: 8.5px;
+  color: var(--text-mute);
+  padding: 6px 0;
+  letter-spacing: 0.05em;
+}
+.hero-static .hs-app-tabs span.on {
+  color: var(--accent-deep);
+  font-weight: 700;
+  border-bottom: 2px solid var(--accent);
+}
+.hero-static .hs-app-rows {
+  margin: 4px 12px 12px;
+}
+.hero-static .hs-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--line-soft);
+  font-size: 8.5px;
+}
+.hero-static .hs-row:last-child { border-bottom: none; }
+.hero-static .hs-row .k { color: var(--text-mute); }
+.hero-static .hs-row .v { color: var(--text); font-weight: 600; }
+.hero-static .hs-app-toast {
+  position: absolute;
+  top: 8px; right: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-family: var(--font-serif);
+  font-size: 8px;
+  letter-spacing: 0.06em;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-weight: 600;
+  box-shadow: 0 4px 10px -2px color-mix(in srgb, var(--accent) 45%, transparent);
+}
 
-  .tab-panels {
-    flex: 1;
-    overflow: hidden;
-    position: relative;
-  }
-  .tab-panel {
-    position: absolute;
-    inset: 0;
-    padding: 16px 32px 24px;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.4s;
-  }
-  .tab-panel.active {
-    opacity: 1;
-    pointer-events: auto;
-  }
-  .app-row {
-    display: flex;
-    align-items: flex-start;
-    padding: 9px 0;
-    border-bottom: 1px solid var(--line-soft);
-    font-size: 12.5px;
-  }
-  .app-row .field-label {
-    width: 140px;
-    color: var(--text-muted);
-    font-size: 10.5px;
-    padding-top: 1px;
-  }
-  .app-row .field-label .src {
-    display: block;
-    font-size: 8.5px;
-    color: var(--accent);
-    margin-top: 1px;
-  }
-  .app-row .field-value {
-    flex: 1;
-    color: var(--text);
-    font-weight: 500;
-    min-height: 16px;
-    position: relative;
-  }
-  .app-row .field-value.empty::before {
-    content: '';
-    display: inline-block;
-    width: 60%;
-    height: 5px;
-    background: var(--bg-alt);
-    border-radius: 3px;
-    margin-top: 6px;
-  }
+@media (max-width: 980px) {
+  .hero-static .hs-doc-zairyu   { width: 38%; }
+  .hero-static .hs-doc-passport { width: 26%; }
+  .hero-static .hs-doc-contract { width: 28%; }
+  .hero-static .hs-app { width: 46%; }
+  .hero-static .hs-app-drop { font-size: 8.5px; padding: 8px 4px; }
+  .hero-static .hs-row { font-size: 8px; }
+}
 
-  .success-toast {
-    position: absolute;
-    top: 30px;
-    left: 50%;
-    transform: translateX(-50%) translateY(-30px);
-    background: var(--accent);
-    color: #fff;
-    padding: 14px 26px;
-    border-radius: 100px;
-    font-size: 14px;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    box-shadow: 0 8px 24px rgba(55, 138, 221, 0.4);
-    opacity: 0;
-    z-index: 20;
-    white-space: nowrap;
-  }
+/* hero decoration */
+.hero::before, .hero::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  pointer-events: none;
+  z-index: 0;
+}
+.hero::before {
+  width: 460px; height: 460px;
+  background: color-mix(in srgb, var(--accent) 24%, transparent);
+  top: -160px; left: -100px;
+  opacity: .45;
+}
+.hero::after {
+  width: 360px; height: 360px;
+  background: color-mix(in srgb, var(--gold) 35%, transparent);
+  bottom: -120px; right: -80px;
+  opacity: .35;
+}
 
-  /* ─── 利用について ─── */
-  section.terms-info {
-    background: var(--accent-soft);
-    padding: 56px 0;
-    text-align: center;
-  }
-  section.terms-info p {
-    margin: 0 0 1em;
-    font-size: 15px;
-    line-height: 2.0;
-    color: var(--text);
-  }
-  section.terms-info p strong {
-    font-family: 'Shippori Mincho', serif;
-    font-weight: 700;
-    color: var(--accent-deep);
-    font-size: 17px;
-    letter-spacing: 0.05em;
-  }
-  section.terms-info p:last-child {
-    margin-bottom: 0;
-  }
+@media (max-width: 980px) {
+  .hero { padding: 100px 20px 64px; }
+  .hero-grid { grid-template-columns: 1fr; gap: 44px; }
+  .hero .subcopy { font-size: 15.5px; }
+  .hero-visual { aspect-ratio: 16 / 11; }
+}
 
-  /* ─── 料金プラン ─── */
-  section.pricing {
-    background: var(--bg);
-  }
-  section.pricing h2 {
-    font-family: 'Shippori Mincho', serif;
-    font-size: 28px;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    margin: 0 0 16px;
-    text-align: center;
-  }
-  section.pricing .pricing-intro {
-    text-align: center;
-    font-size: 15px;
-    line-height: 2.0;
-    color: var(--text);
-    margin: 0 0 56px;
-  }
-  section.pricing .pricing-intro strong {
-    color: var(--accent-deep);
-    font-weight: 600;
-  }
+/* fade-in entries (small) */
+.fade-in { opacity: 0; transform: translateY(14px); animation: fadeUp .9s ease-out forwards; }
+.fade-in.d1 { animation-delay: .1s; }
+.fade-in.d2 { animation-delay: .25s; }
+.fade-in.d3 { animation-delay: .4s; }
+.fade-in.d4 { animation-delay: .55s; }
+.fade-in.d5 { animation-delay: .7s; }
+@keyframes fadeUp { to { opacity: 1; transform: translateY(0); } }
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.25); opacity: .55; }
+}
 
-  .pricing-flow {
-    margin: 0 0 48px;
-  }
+/* ========================== TRUST STRIP ========================= */
+.trust-strip {
+  border-top: 1px solid var(--line-soft);
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--bg-soft);
+}
+.trust-strip-inner {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 22px 32px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 28px;
+}
+.trust-item {
+  display: flex; align-items: center; gap: 14px;
+  font-size: 13.5px;
+  color: var(--text);
+  letter-spacing: 0.04em;
+  line-height: 1.5;
+}
+.trust-item .num {
+  font-family: var(--font-serif);
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 0;
+  line-height: 1;
+}
+.trust-item .num:not(:has(.unit)) {
+  /* text-only nums (e.g., "ローカル") shrink slightly so they don't dwarf neighbors */
+  font-size: 19px;
+  letter-spacing: 0.04em;
+}
+.trust-item .num .unit {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-mute);
+  margin-left: 2px;
+}
+.trust-item .label { color: var(--text-mute); font-size: 12px; display: block; }
+.trust-item .label strong { color: var(--text); font-size: 13px; font-weight: 600; display: block; }
+@media (max-width: 900px) {
+  .trust-strip-inner { grid-template-columns: 1fr 1fr; gap: 20px; padding: 20px 24px; }
+}
 
-  .trial-hero {
-    background: var(--accent-soft);
-    border: 2px solid var(--accent);
-    border-radius: 12px;
-    padding: 44px 32px 40px;
-    text-align: center;
-  }
-  .trial-hero .trial-label {
-    font-size: 13px;
-    color: var(--accent-deep);
-    letter-spacing: 0.25em;
-    font-weight: 600;
-    margin-bottom: 16px;
-  }
-  .trial-hero .trial-title {
-    font-family: 'Shippori Mincho', serif;
-    font-size: 30px;
-    font-weight: 700;
-    color: var(--text);
-    letter-spacing: 0.04em;
-    margin-bottom: 20px;
-    line-height: 1.4;
-  }
-  .trial-hero .trial-days {
-    color: var(--accent);
-    font-size: 1.25em;
-    border-bottom: 3px solid var(--accent);
-    padding-bottom: 2px;
-  }
-  .trial-hero .trial-features {
-    font-size: 14px;
-    color: var(--text);
-    letter-spacing: 0.1em;
-  }
+/* ========================== STORY =============================== */
+.story-section {
+  padding: 120px 0 110px;
+  position: relative;
+}
+.story-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.45fr) minmax(0, 1fr);
+  gap: 72px;
+  align-items: start;
+}
+.story-side .story-eyebrow { margin-bottom: 24px; }
+.story-side .story-tag {
+  display: inline-block;
+  margin-top: 24px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.2em;
+  color: var(--text-mute);
+  text-transform: uppercase;
+}
+.story-quote {
+  font-family: var(--font-serif);
+  font-size: clamp(22px, 2.4vw, 32px);
+  font-weight: 700;
+  line-height: 1.65;
+  letter-spacing: 0.04em;
+  color: var(--text);
+  margin: 0 0 40px;
+  position: relative;
+  padding-left: 28px;
+  text-wrap: pretty;
+}
+.story-quote::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 6px; bottom: 6px;
+  width: 4px;
+  background: var(--accent);
+  border-radius: 4px;
+}
+.story-body {
+  column-count: 2;
+  column-gap: 48px;
+  font-size: 15.5px;
+  line-height: 2.0;
+  color: var(--text);
+}
+.story-body p { margin: 0 0 1.4em; text-align: justify; break-inside: avoid; }
+.story-body p strong {
+  font-weight: 600;
+  background: linear-gradient(transparent 62%, color-mix(in srgb, var(--accent) 22%, transparent) 62%);
+  padding: 0 2px;
+}
+.signature {
+  display: flex; align-items: center; justify-content: flex-end;
+  gap: 14px;
+  margin-top: 44px;
+  padding-top: 28px;
+  border-top: 1px solid var(--line);
+  font-size: 14px;
+  color: var(--text-mute);
+}
+.signature-stamp {
+  width: 56px; height: 56px;
+  border: 1.5px solid var(--accent);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--accent);
+  font-family: var(--font-serif);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  transform: rotate(-6deg);
+}
+.signature .signature-name {
+  font-family: var(--font-serif);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.1em;
+}
+@media (max-width: 900px) {
+  .story-grid { grid-template-columns: 1fr; gap: 32px; }
+  .story-body { column-count: 1; }
+}
 
-  .flow-arrow {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 20px 0;
-    color: var(--accent);
-    font-size: 24px;
-    line-height: 1;
-    opacity: 0.6;
-  }
+/* ========================== VOICE (DARK) ======================== */
+.voice-section {
+  background: var(--bg-deep);
+  color: var(--text-inv);
+  padding: 120px 0;
+  position: relative;
+  overflow: hidden;
+}
+.voice-section::before {
+  content: '';
+  position: absolute;
+  top: -120px; left: 50%;
+  transform: translateX(-50%);
+  width: 800px; height: 240px;
+  background: radial-gradient(ellipse at center, color-mix(in srgb, var(--accent) 35%, transparent), transparent 65%);
+  filter: blur(40px);
+  pointer-events: none;
+}
+.voice-section .eyebrow {
+  color: color-mix(in srgb, var(--accent) 70%, white);
+}
+.voice-section .voice-head {
+  text-align: center;
+  margin-bottom: 64px;
+  position: relative; z-index: 2;
+}
+.voice-section .voice-head .eyebrow { margin-bottom: 24px; }
+.voice-section .voice-quote {
+  font-family: var(--font-serif);
+  font-size: clamp(28px, 4vw, 48px);
+  font-weight: 700;
+  line-height: 1.5;
+  letter-spacing: 0.04em;
+  text-wrap: pretty;
+}
+.voice-section .voice-quote .accent {
+  color: color-mix(in srgb, var(--accent) 70%, white);
+  font-style: italic;
+}
+.voice-section .voice-sub {
+  margin-top: 20px;
+  font-size: 14.5px;
+  color: rgba(245,244,238,.65);
+  letter-spacing: 0.06em;
+}
 
-  .discount-banner {
-    background: var(--accent-deep);
-    color: #fff;
-    border-radius: 12px;
-    padding: 36px 28px 32px;
-    text-align: center;
-    box-shadow: 0 8px 24px rgba(44, 111, 176, 0.25);
-  }
-  .discount-banner .discount-label {
-    font-size: 12px;
-    color: rgba(255, 255, 255, 0.85);
-    letter-spacing: 0.2em;
-    font-weight: 500;
-    margin-bottom: 14px;
-  }
-  .discount-banner .discount-headline {
-    font-family: 'Shippori Mincho', serif;
-    font-size: 28px;
-    font-weight: 700;
-    color: #fff;
-    letter-spacing: 0.05em;
-    margin-bottom: 24px;
-    line-height: 1.5;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    flex-wrap: wrap;
-  }
-  .discount-banner .discount-percent {
-    display: inline-block;
-    background: #fff;
-    color: var(--accent-deep);
-    padding: 4px 18px;
-    border-radius: 100px;
-    font-size: 18px;
-    font-weight: 700;
-    letter-spacing: 0.05em;
-  }
-  .discount-banner .discount-prices {
-    margin-bottom: 12px;
-    font-family: 'Shippori Mincho', serif;
-    line-height: 1.3;
-  }
-  .discount-banner .price-original {
-    font-size: 22px;
-    color: rgba(255, 255, 255, 0.65);
-    text-decoration: line-through;
-    margin-right: 4px;
-  }
-  .discount-banner .price-arrow {
-    color: rgba(255, 255, 255, 0.7);
-    font-size: 20px;
-    margin: 0 10px;
-  }
-  .discount-banner .price-final {
-    font-size: 40px;
-    font-weight: 700;
-    color: #fff;
-    letter-spacing: 0.02em;
-  }
-  .discount-banner .price-final .unit {
-    font-size: 15px;
-    font-weight: 500;
-    color: rgba(255, 255, 255, 0.85);
-    margin-left: 2px;
-  }
-  .discount-banner .discount-note {
-    font-size: 12px;
-    color: rgba(255, 255, 255, 0.75);
-    letter-spacing: 0.05em;
-    margin-top: 4px;
-  }
+.pain-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 18px;
+  margin-bottom: 56px;
+  position: relative; z-index: 2;
+}
+.pain-card {
+  position: relative;
+  background: var(--bg-deep-2);
+  border: 1px solid var(--line-deep);
+  border-radius: var(--radius);
+  padding: 36px 32px 32px;
+  transition: transform .35s ease, border-color .35s ease;
+}
+.pain-card:hover {
+  transform: translateY(-4px);
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+}
+.pain-card .pain-num {
+  display: flex; align-items: baseline; gap: 6px;
+  font-family: var(--font-serif);
+  font-size: 11px;
+  letter-spacing: 0.3em;
+  color: color-mix(in srgb, var(--accent) 70%, white);
+  margin-bottom: 14px;
+  text-transform: uppercase;
+}
+.pain-card .pain-num .big {
+  font-family: var(--font-serif);
+  font-size: 44px;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--accent) 70%, white);
+  letter-spacing: 0;
+  line-height: 1;
+  margin-right: 8px;
+  opacity: .9;
+}
+.pain-card .pain-text {
+  font-size: 15.5px;
+  line-height: 1.95;
+  color: rgba(245,244,238,.92);
+  margin: 0;
+}
+.pain-card .pain-tags {
+  display: flex; gap: 6px; margin-top: 18px;
+  flex-wrap: wrap;
+}
+.pain-card .pain-tag {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line-deep);
+  color: rgba(245,244,238,.65);
+}
 
-  .regular-price-note {
-    text-align: center;
-    margin-top: 24px;
-    padding: 14px 16px;
-    border-top: 1px dashed var(--line);
-    font-size: 13px;
-    color: var(--text-muted);
-    letter-spacing: 0.05em;
-  }
-  .regular-price-note strong {
-    color: var(--text);
-    font-weight: 600;
-  }
+.voice-conclusion {
+  margin-top: 60px;
+  padding: 48px 32px;
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, var(--line-deep));
+  border-radius: var(--radius);
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--accent) 22%, var(--bg-deep-2)) 0%,
+    var(--bg-deep-2) 100%);
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.voice-conclusion::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: var(--radius);
+  padding: 1px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 55%, transparent), transparent 60%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  pointer-events: none;
+}
+.voice-conclusion .conclusion-lead {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.3em;
+  color: color-mix(in srgb, var(--accent) 70%, white);
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+.voice-conclusion .conclusion-quote {
+  font-family: var(--font-serif);
+  font-size: clamp(22px, 2.6vw, 30px);
+  font-weight: 700;
+  line-height: 1.7;
+  color: #fff;
+  letter-spacing: 0.04em;
+  margin: 0;
+  text-wrap: pretty;
+}
+.voice-conclusion .conclusion-quote .clavis {
+  color: color-mix(in srgb, var(--accent) 65%, white);
+  background: linear-gradient(transparent 65%, color-mix(in srgb, var(--accent) 35%, transparent) 65%);
+  padding: 0 4px;
+}
 
-  .pricing-includes {
-    background: var(--bg-soft);
-    border: 1px solid var(--line-soft);
-    border-radius: 8px;
-    padding: 32px 32px 28px;
-    margin: 0 0 48px;
-  }
-  .pricing-includes h3 {
-    font-family: 'Shippori Mincho', serif;
-    font-size: 17px;
-    font-weight: 600;
-    color: var(--text);
-    margin: 0 0 20px;
-    text-align: center;
-    letter-spacing: 0.05em;
-  }
-  .pricing-includes ul {
-    list-style: none;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px 24px;
-  }
-  .pricing-includes li {
-    font-size: 14px;
-    line-height: 1.8;
-    color: var(--text);
-    padding-left: 22px;
-    position: relative;
-  }
-  .pricing-includes li::before {
-    content: '✓';
-    position: absolute;
-    left: 0;
-    top: 0;
-    color: var(--accent);
-    font-weight: 700;
-  }
+@media (max-width: 720px) {
+  .pain-grid { grid-template-columns: 1fr; gap: 14px; }
+  .pain-card { padding: 28px 24px 24px; }
+  .voice-conclusion { padding: 36px 24px; }
+}
 
-  .pricing-cta {
-    text-align: center;
-  }
-  .cta-button {
-    display: inline-block;
-    background: var(--accent);
-    color: #fff;
-    text-decoration: none;
-    font-family: 'Shippori Mincho', serif;
-    font-size: 18px;
-    font-weight: 600;
-    letter-spacing: 0.1em;
-    padding: 18px 48px;
-    border-radius: 100px;
-    transition: background 0.2s ease, transform 0.2s ease;
-    box-shadow: 0 4px 12px rgba(55, 138, 221, 0.25);
-  }
-  .cta-button:hover {
-    background: var(--accent-deep);
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(55, 138, 221, 0.35);
-  }
-  .cta-note {
-    margin-top: 20px;
-    font-size: 12px;
-    line-height: 1.8;
-    color: var(--text-muted);
-  }
+/* ========================== FEATURES (approach) ================= */
+.features-section { padding: 120px 0; }
+.features-section .features-head {
+  text-align: center;
+  margin-bottom: 80px;
+}
+.features-section .features-head .eyebrow { margin-bottom: 24px; }
+.features-section h2 {
+  font-family: var(--font-serif);
+  font-size: clamp(28px, 3.4vw, 40px);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  line-height: 1.45;
+  margin: 0 0 16px;
+}
+.features-section .features-sub {
+  color: var(--text-mute);
+  font-size: 15px;
+  letter-spacing: 0.04em;
+}
+.approach-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 28px;
+  margin-bottom: 32px;
+}
+.approach-card {
+  position: relative;
+  background: linear-gradient(180deg, var(--bg-soft) 0%, var(--bg) 100%);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 56px 36px 36px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: transform .35s ease, box-shadow .35s ease, border-color .35s ease;
+}
+.approach-card:hover {
+  transform: translateY(-6px);
+  box-shadow: var(--shadow-lg);
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
+}
+.approach-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--accent);
+}
+.approach-card .approach-num {
+  position: absolute;
+  top: 28px; right: 32px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  color: var(--text-mute);
+}
+.approach-card .approach-badge {
+  display: inline-block;
+  align-self: flex-start;
+  background: var(--accent);
+  color: #fff;
+  font-family: var(--font-serif);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  padding: 6px 16px;
+  border-radius: 999px;
+  margin-bottom: 22px;
+}
+.approach-card .approach-catch {
+  font-family: var(--font-serif);
+  font-size: clamp(22px, 2.4vw, 28px);
+  font-weight: 700;
+  line-height: 1.55;
+  letter-spacing: 0.04em;
+  margin: 0 0 22px;
+  color: var(--text);
+  text-wrap: pretty;
+}
+.approach-card .approach-desc {
+  font-size: 14.5px;
+  line-height: 2.0;
+  color: var(--text);
+  margin: 0;
+  flex: 1;
+}
+.approach-card .approach-note {
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px dashed var(--line);
+  font-size: 11.5px;
+  line-height: 1.7;
+  color: var(--text-mute);
+}
+.approach-card .master-illust {
+  margin-top: 24px;
+  padding: 16px 0 0;
+  border-top: 1px dashed var(--line);
+}
+.approach-card .master-illust svg { width: 100%; height: auto; }
 
-  /* ─── FAQ ─── */
-  section.faq {
-    background: var(--bg-soft);
-  }
-  section.faq h2 {
-    font-family: 'Shippori Mincho', serif;
-    font-size: 28px;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    margin: 0 0 48px;
-    text-align: center;
-  }
-  .faq-list {
-    max-width: 720px;
-    margin: 0 auto;
-  }
-  .faq-item {
-    border-bottom: 1px solid var(--line-soft);
-    padding: 0;
-  }
-  .faq-item:first-child {
-    border-top: 1px solid var(--line-soft);
-  }
-  .faq-item summary {
-    list-style: none;
-    cursor: pointer;
-    padding: 22px 40px 22px 8px;
-    font-family: 'Shippori Mincho', serif;
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--text);
-    letter-spacing: 0.04em;
-    position: relative;
-    line-height: 1.6;
-    transition: color 0.2s ease;
-  }
-  .faq-item summary::-webkit-details-marker {
-    display: none;
-  }
-  .faq-item summary:hover {
-    color: var(--accent);
-  }
-  .faq-item summary::after {
-    content: '+';
-    position: absolute;
-    right: 12px;
-    top: 50%;
-    transform: translateY(-50%);
-    font-size: 24px;
-    font-weight: 400;
-    color: var(--accent);
-    transition: transform 0.2s ease;
-  }
-  .faq-item[open] summary::after {
-    content: '−';
-  }
-  .faq-item .faq-answer {
-    padding: 0 8px 24px;
-    font-size: 14.5px;
-    line-height: 2.0;
-    color: var(--text);
-  }
-  .faq-item .faq-answer a {
-    color: var(--accent);
-    text-decoration: none;
-  }
-  .faq-item .faq-answer a:hover {
-    text-decoration: underline;
-  }
-  .faq-item .faq-answer p {
-    margin: 0 0 1em;
-  }
-  .faq-item .faq-answer p:last-child {
-    margin-bottom: 0;
-  }
-  .faq-item .faq-answer ul {
-    margin: 0 0 1em;
-    padding-left: 1.5em;
-  }
-  .faq-item .faq-answer ul li {
-    margin-bottom: 0.5em;
-  }
+@media (max-width: 820px) {
+  .approach-grid { grid-template-columns: 1fr; gap: 18px; }
+  .approach-card { padding: 40px 26px 28px; }
+}
 
-  /* ─── フッター ─── */
-  footer.site {
-    background: var(--bg-alt);
-    border-top: 1px solid var(--line);
-    padding: 48px 24px 32px;
-    text-align: center;
-    color: var(--text-muted);
-    font-size: 13px;
-  }
-  footer.site .footer-brand {
-    font-family: 'Shippori Mincho', serif;
-    font-size: 20px;
-    color: var(--text);
-    letter-spacing: 0.05em;
-    margin-bottom: 8px;
-    font-weight: 600;
-  }
-  footer.site .footer-brand .accent {
-    color: var(--accent);
-  }
-  footer.site .footer-org {
-    color: var(--text);
-    font-size: 14px;
-    margin-bottom: 4px;
-    letter-spacing: 0.05em;
-  }
-  footer.site .footer-info {
-    color: var(--text-muted);
-    font-size: 12px;
-    margin-bottom: 24px;
-    line-height: 1.8;
-  }
-  footer.site .footer-links {
-    margin-bottom: 20px;
-    padding-top: 20px;
-    border-top: 1px solid var(--line);
-  }
-  footer.site .footer-links a {
-    color: var(--text-muted);
-    text-decoration: none;
-    margin: 0 12px;
-    font-size: 13px;
-    letter-spacing: 0.05em;
-  }
-  footer.site .footer-links a:hover {
-    color: var(--accent);
-    text-decoration: underline;
-  }
-  footer.site .copyright {
-    color: var(--text-muted);
-    font-size: 12px;
-    letter-spacing: 0.1em;
-  }
+/* ========================== POIPOI DEMO ========================= */
+.poipoi-section {
+  padding: 60px 0 110px;
+  background:
+    radial-gradient(ellipse 800px 500px at 50% 100%,
+      color-mix(in srgb, var(--accent) 14%, transparent) 0%,
+      transparent 70%);
+  position: relative;
+  overflow: hidden;
+}
+.poipoi-section .container-full { position: relative; }
+.poipoi-head { text-align: center; margin-bottom: 56px; }
+.poipoi-head .eyebrow { margin-bottom: 22px; }
+.poipoi-head h2 {
+  font-family: var(--font-serif);
+  font-size: clamp(28px, 3.4vw, 40px);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  margin: 0 0 16px;
+  line-height: 1.5;
+}
+.poipoi-head h2 .accent { color: var(--accent); }
+.poipoi-head .lead {
+  color: var(--text-mute);
+  font-size: 15.5px;
+  letter-spacing: 0.04em;
+}
 
-  /* ─── TOP▲ フローティングボタン ─── */
-  .back-to-top {
-    position: fixed;
-    right: 24px;
-    bottom: 24px;
-    width: 56px;
-    height: 56px;
-    background: var(--accent);
-    color: #fff;
-    border: none;
-    border-radius: 50%;
-    cursor: pointer;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 1px;
-    font-family: 'Shippori Mincho', serif;
-    font-weight: 700;
-    box-shadow: 0 4px 14px rgba(55, 138, 221, 0.4);
-    opacity: 0;
-    visibility: hidden;
-    transform: translateY(10px);
-    transition: opacity 0.3s ease, transform 0.3s ease, visibility 0.3s ease, background 0.2s ease;
-    z-index: 100;
-  }
-  .back-to-top.visible {
-    opacity: 0.92;
-    visibility: visible;
-    transform: translateY(0);
-  }
-  .back-to-top:hover {
-    opacity: 1;
-    background: var(--accent-deep);
-  }
-  .back-to-top .arrow-up {
-    font-size: 14px;
-    line-height: 1;
-  }
-  .back-to-top .top-label {
-    font-size: 9px;
-    line-height: 1;
-    letter-spacing: 0.1em;
-  }
-  @media (max-width: 720px) {
-    .back-to-top {
-      right: 16px;
-      bottom: 16px;
-      width: 48px;
-      height: 48px;
-    }
-    .back-to-top .arrow-up { font-size: 12px; }
-    .back-to-top .top-label { font-size: 8px; }
-  }
+.stage {
+  position: relative;
+  max-width: 1100px;
+  margin: 0 auto;
+  height: 700px;
+  padding: 0 24px;
+}
 
-  /* ─── レスポンシブ ─── */
-  @media (max-width: 900px) {
-    .stage { height: auto; padding-bottom: 24px; }
-    .doc-zairyu { top: 20px; left: 10px; }
-    .doc-passport { top: 80px; left: 80px; }
-    .doc-contract { top: 160px; left: 20px; }
-    .app-window { width: 95%; right: 2.5%; top: auto; transform: none; margin-top: 100px; position: relative; height: 600px; }
-    .poipoi-section h2 { font-size: 26px; }
-  }
-  @media (max-width: 720px) {
-    .hero { padding: 24px 16px 60px; }
-    .hero .brand { font-size: 18px; margin-bottom: 24px; }
-    .hero .catchcopy { font-size: 26px; line-height: 1.55; }
-    .hero .subcopy { font-size: 14px; margin-bottom: 28px; }
-    .hero .video-wrap { border-radius: 12px; margin-bottom: 32px; }
-    .hero .hero-badge { font-size: 12px; padding: 10px 22px; margin-bottom: 24px; }
-    section.block, section.voice { padding: 56px 0; }
-    section.voice .voice-quote { font-size: 22px; line-height: 1.7; margin-bottom: 40px; }
-    section.voice .pain-grid {
-      grid-template-columns: 1fr;
-      gap: 16px;
-      margin-bottom: 40px;
-    }
-    section.voice .pain-item { padding: 22px 22px 20px; }
-    section.voice .pain-text { font-size: 14px; }
-    section.voice .conclusion p { font-size: 17px; line-height: 1.7; }
-    section.story .story-quote { font-size: 18px; line-height: 1.8; margin-bottom: 36px; }
-    section.story .story-body {
-      column-count: 1;
-      font-size: 14.5px;
-      line-height: 2.0;
-    }
-    section.features li {
-      grid-template-columns: 1fr;
-      gap: 12px;
-      padding: 24px 0;
-    }
-    section.features h2 { font-size: 22px; margin-bottom: 16px; }
-    section.features .feat-title { font-size: 17px; }
-    section.features .feat-desc { font-size: 14.5px; }
-    section.features .approach-grid {
-      grid-template-columns: 1fr;
-      gap: 36px;
-      margin-bottom: 24px;
-    }
-    section.features .approach-label {
-      margin: 40px 0 32px;
-    }
-    section.features .approach-card {
-      padding: 32px 22px 24px;
-    }
-    section.features .approach-card .approach-badge {
-      font-size: 13px;
-      padding: 5px 18px;
-    }
-    section.features .approach-card .approach-catch {
-      font-size: 19px;
-      line-height: 1.6;
-    }
-    section.features .approach-card .approach-desc {
-      font-size: 13.5px;
-    }
-    section.features .approach-card .approach-note {
-      font-size: 11px;
-    }
-    .poipoi-section { padding: 24px 0 56px; }
-    .poipoi-section .lead { font-size: 14px; margin-bottom: 40px; }
-    section.terms-info p strong { font-size: 16px; }
-    section.pricing h2 { font-size: 22px; }
-    .trial-hero {
-      padding: 32px 24px 28px;
-    }
-    .trial-hero .trial-title {
-      font-size: 22px;
-      margin-bottom: 14px;
-    }
-    .trial-hero .trial-days {
-      font-size: 1.2em;
-    }
-    .trial-hero .trial-features {
-      font-size: 13px;
-    }
-    .flow-arrow {
-      padding: 14px 0;
-      font-size: 20px;
-    }
-    .discount-banner {
-      padding: 28px 22px 24px;
-    }
-    .discount-banner .discount-headline {
-      font-size: 22px;
-      margin-bottom: 20px;
-    }
-    .discount-banner .discount-percent {
-      font-size: 15px;
-      padding: 3px 14px;
-    }
-    .discount-banner .price-original {
-      font-size: 18px;
-    }
-    .discount-banner .price-arrow {
-      font-size: 16px;
-      margin: 0 6px;
-    }
-    .discount-banner .price-final {
-      font-size: 32px;
-    }
-    .regular-price-note {
-      font-size: 12px;
-    }
-    .pricing-includes {
-      padding: 24px 20px 20px;
-    }
-    .pricing-includes ul {
-      grid-template-columns: 1fr;
-      gap: 10px;
-    }
-    .cta-button {
-      font-size: 16px;
-      padding: 16px 36px;
-    }
-    section.faq h2 { font-size: 22px; }
-    .faq-item summary { font-size: 14.5px; padding: 20px 36px 20px 8px; }
-    .faq-item .faq-answer { font-size: 13.5px; }
-    .container, .container-wide { padding: 0 20px; }
-    footer.site .footer-links a {
-      display: inline-block;
-      margin: 4px 8px;
-    }
-  }
-  @media (max-width: 480px) {
-    .hero .catchcopy { font-size: 22px; }
-  }
-</style>
+.document {
+  position: absolute;
+  filter: drop-shadow(0 10px 25px rgba(0,0,0,.18)) drop-shadow(0 2px 6px rgba(0,0,0,.08));
+  z-index: 10;
+  will-change: transform;
+}
+.doc-zairyu   { left: 40px;  top: 100px; transform: rotate(-8deg); }
+.doc-passport { left: 130px; top: 280px; transform: rotate(6deg); }
+.doc-contract { left: 60px;  top: 440px; transform: rotate(-4deg); }
+
+.app-window {
+  position: absolute;
+  right: 24px; top: 50%;
+  transform: translateY(-50%);
+  width: 560px;
+  height: 660px;
+  background: #fff;
+  border-radius: var(--radius);
+  box-shadow: 0 30px 80px -20px rgba(20,18,16,.32), 0 8px 20px -8px rgba(20,18,16,.12);
+  border: 1px solid var(--line-soft);
+  overflow: hidden;
+  z-index: 5;
+  display: flex; flex-direction: column;
+}
+.app-titlebar {
+  height: 40px;
+  background: var(--bg-soft);
+  border-bottom: 1px solid var(--line-soft);
+  display: flex; align-items: center;
+  padding: 0 14px; gap: 6px;
+  flex-shrink: 0;
+}
+.app-titlebar .dot { width: 11px; height: 11px; border-radius: 50%; background: var(--line); }
+.app-titlebar .dot.red { background: #ff6b6b; }
+.app-titlebar .dot.yellow { background: #ffd966; }
+.app-titlebar .dot.green { background: #7ed957; }
+.app-titlebar .title {
+  margin-left: 16px;
+  font-family: var(--font-serif);
+  font-size: 13px;
+  color: var(--text-mute);
+  letter-spacing: 0.1em;
+}
+.app-titlebar .title .accent { color: var(--accent); }
+.app-titlebar .badge {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: var(--accent);
+  background: var(--accent-soft);
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+
+.poipoi-zone {
+  margin: 22px 24px 18px;
+  padding: 28px 16px;
+  border: 2px dashed var(--accent);
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+  text-align: center;
+  transition: all .3s;
+  flex-shrink: 0;
+}
+.poipoi-zone.flash {
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+  border-color: var(--accent-deep);
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.poipoi-zone .icon {
+  font-size: 32px;
+  margin-bottom: 6px;
+  filter: grayscale(.1);
+}
+.poipoi-zone .label {
+  font-family: var(--font-serif);
+  font-size: 15px;
+  color: var(--accent-deep);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+.poipoi-zone .sub {
+  font-size: 11px;
+  color: var(--text-mute);
+  margin-top: 4px;
+  letter-spacing: 0.04em;
+}
+
+.tabs {
+  display: flex;
+  border-bottom: 1px solid var(--line);
+  margin: 0 24px;
+  position: relative;
+  flex-shrink: 0;
+}
+.tab {
+  flex: 1;
+  padding: 12px 0;
+  text-align: center;
+  font-family: var(--font-serif);
+  font-size: 13.5px;
+  color: var(--text-mute);
+  cursor: pointer;
+  transition: color .3s;
+  letter-spacing: 0.04em;
+}
+.tab.active { color: var(--accent-deep); font-weight: 700; }
+.tab-indicator {
+  position: absolute; bottom: -1px;
+  height: 2.5px;
+  background: var(--accent);
+  border-radius: 2px 2px 0 0;
+  width: 33.33%;
+  left: 0;
+  transition: left .5s cubic-bezier(.4,0,.2,1);
+}
+.tab-panels { flex: 1; overflow: hidden; position: relative; }
+.tab-panel {
+  position: absolute; inset: 0;
+  padding: 18px 32px 24px;
+  opacity: 0; pointer-events: none;
+  transition: opacity .4s;
+}
+.tab-panel.active { opacity: 1; pointer-events: auto; }
+.app-row {
+  display: flex; align-items: flex-start;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line-soft);
+  font-size: 12.5px;
+}
+.app-row .field-label {
+  width: 150px;
+  color: var(--text-mute);
+  font-size: 11px;
+  padding-top: 1px;
+}
+.app-row .field-label .src {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  color: var(--accent);
+  margin-top: 2px;
+  letter-spacing: 0.06em;
+}
+.app-row .field-value {
+  flex: 1; color: var(--text);
+  font-weight: 500; min-height: 16px;
+  position: relative;
+}
+.app-row .field-value.empty::before {
+  content: '';
+  display: inline-block;
+  width: 60%; height: 5px;
+  background: var(--bg-alt);
+  border-radius: 3px;
+  margin-top: 6px;
+}
+.success-toast {
+  position: absolute; top: 30px; left: 50%;
+  transform: translateX(-50%) translateY(-30px);
+  background: var(--accent);
+  color: #fff;
+  padding: 14px 26px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  box-shadow: 0 12px 30px -8px color-mix(in srgb, var(--accent) 50%, transparent);
+  opacity: 0;
+  z-index: 20;
+  white-space: nowrap;
+}
+
+@media (max-width: 980px) {
+  .stage { height: auto; padding-bottom: 24px; }
+  .doc-zairyu   { top: 20px;  left: 10px; }
+  .doc-passport { top: 80px;  left: 80px; }
+  .doc-contract { top: 160px; left: 20px; }
+  .app-window { width: 95%; right: 2.5%; top: auto; transform: none; margin-top: 120px; position: relative; height: 600px; }
+}
+
+/* ========================== MAIN FEATURES ======================= */
+.main-features { padding: 110px 0; background: var(--bg-soft); }
+.main-features .features-head { text-align: center; margin-bottom: 64px; }
+.main-features .features-head .eyebrow { margin-bottom: 22px; }
+.main-features h2 {
+  font-family: var(--font-serif);
+  font-size: clamp(28px, 3.4vw, 40px);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  margin: 0 0 16px;
+  line-height: 1.5;
+}
+.feat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+.feat-card {
+  background: var(--bg);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-lg);
+  padding: 40px 32px 36px;
+  display: flex; flex-direction: column;
+  transition: transform .3s, border-color .3s, box-shadow .3s;
+}
+.feat-card:hover {
+  transform: translateY(-4px);
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
+  box-shadow: var(--shadow);
+}
+.feat-card .feat-icon {
+  width: 56px; height: 56px;
+  border-radius: 16px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 24px;
+}
+.feat-card .feat-icon svg { width: 28px; height: 28px; }
+.feat-card .feat-title {
+  font-family: var(--font-serif);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.05em;
+  margin: 0 0 14px;
+  line-height: 1.5;
+}
+.feat-card .feat-desc {
+  font-size: 14.5px;
+  line-height: 2.0;
+  color: var(--text);
+  margin: 0;
+  flex: 1;
+}
+.feat-card .feat-points {
+  list-style: none;
+  margin: 18px 0 0;
+  padding: 18px 0 0;
+  border-top: 1px dashed var(--line);
+}
+.feat-card .feat-points li {
+  display: flex; gap: 8px;
+  font-size: 12.5px;
+  color: var(--text-mute);
+  line-height: 1.7;
+  padding: 3px 0;
+}
+.feat-card .feat-points li::before {
+  content: '＋';
+  color: var(--accent);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+@media (max-width: 900px) {
+  .feat-grid { grid-template-columns: 1fr; }
+}
+
+/* ========================== TERMS INFO ========================== */
+.terms-info {
+  padding: 60px 0;
+  background: var(--bg-deep);
+  color: var(--text-inv);
+  text-align: center;
+}
+.terms-info .container { max-width: 720px; }
+.terms-info .terms-lead {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.28em;
+  color: color-mix(in srgb, var(--accent) 70%, white);
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+.terms-info p.headline {
+  font-family: var(--font-serif);
+  font-size: clamp(20px, 2.4vw, 26px);
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.05em;
+  line-height: 1.65;
+  margin: 0 0 14px;
+  text-wrap: pretty;
+}
+.terms-info p.body {
+  font-size: 14px;
+  color: rgba(245,244,238,.7);
+  line-height: 1.9;
+  margin: 0;
+}
+
+/* ========================== PRICING ============================ */
+.pricing-section {
+  padding: 120px 0;
+  background: var(--bg);
+}
+.pricing-head { text-align: center; margin-bottom: 56px; }
+.pricing-head .eyebrow { margin-bottom: 22px; }
+.pricing-head h2 {
+  font-family: var(--font-serif);
+  font-size: clamp(28px, 3.4vw, 40px);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  margin: 0 0 18px;
+}
+.pricing-head .pricing-intro {
+  color: var(--text-mute);
+  font-size: 16px;
+  line-height: 1.95;
+}
+.pricing-head .pricing-intro strong { color: var(--accent-deep); font-weight: 600; }
+
+.pricing-flow {
+  display: grid;
+  grid-template-columns: 1fr auto 1.2fr;
+  gap: 24px;
+  align-items: stretch;
+  margin: 0 0 36px;
+}
+
+.trial-card,
+.discount-card {
+  border-radius: var(--radius-lg);
+  padding: 40px 32px;
+  position: relative;
+  overflow: hidden;
+}
+.trial-card {
+  background: var(--bg-soft);
+  border: 2px solid var(--accent);
+  text-align: center;
+}
+.trial-card .step-num {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 18px;
+}
+.trial-card .step-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.24em;
+  color: var(--accent-deep);
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+.trial-card .step-title {
+  font-family: var(--font-serif);
+  font-size: clamp(26px, 3vw, 36px);
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.4;
+  letter-spacing: 0.04em;
+  margin-bottom: 14px;
+}
+.trial-card .step-title .days {
+  color: var(--accent);
+  font-size: 1.25em;
+  border-bottom: 3px solid var(--accent);
+  padding-bottom: 2px;
+}
+.trial-card .step-meta {
+  font-size: 13.5px;
+  color: var(--text-mute);
+  letter-spacing: 0.08em;
+}
+.trial-card .step-meta .sep { color: var(--line); margin: 0 8px; }
+
+.flow-divider {
+  display: flex; align-items: center; justify-content: center;
+  color: var(--accent);
+  opacity: .5;
+}
+.flow-divider svg { width: 28px; height: 28px; }
+
+.discount-card {
+  background:
+    radial-gradient(ellipse 600px 300px at 30% 0%, color-mix(in srgb, var(--accent) 28%, transparent), transparent 70%),
+    linear-gradient(135deg, var(--accent-deep) 0%, var(--accent-ink) 100%);
+  color: #fff;
+  box-shadow: 0 24px 60px -20px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+.discount-card .step-num {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: #fff;
+  color: var(--accent-deep);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 18px;
+}
+.discount-card .step-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.24em;
+  color: rgba(255,255,255,.7);
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+.discount-card .discount-headline {
+  font-family: var(--font-serif);
+  font-size: clamp(22px, 2.6vw, 30px);
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.05em;
+  margin: 0 0 24px;
+  display: flex; align-items: center; gap: 14px;
+  flex-wrap: wrap;
+}
+.discount-card .pill {
+  display: inline-block;
+  background: #fff;
+  color: var(--accent-deep);
+  padding: 4px 18px;
+  border-radius: 999px;
+  font-family: var(--font-serif);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.discount-card .prices {
+  display: flex; align-items: baseline; gap: 14px;
+  margin-bottom: 12px;
+  font-family: var(--font-serif);
+}
+.discount-card .price-original {
+  font-size: 22px;
+  color: rgba(255,255,255,.55);
+  text-decoration: line-through;
+  letter-spacing: 0;
+}
+.discount-card .price-arrow {
+  color: rgba(255,255,255,.7);
+  font-size: 18px;
+}
+.discount-card .price-final {
+  font-size: 52px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -0.01em;
+  line-height: 1;
+}
+.discount-card .price-final .unit {
+  font-size: 16px;
+  font-weight: 500;
+  color: rgba(255,255,255,.85);
+  margin-left: 4px;
+  letter-spacing: 0.02em;
+}
+.discount-card .price-note {
+  font-size: 12px;
+  color: rgba(255,255,255,.7);
+  letter-spacing: 0.05em;
+}
+
+.regular-price-note {
+  text-align: center;
+  margin: 0 0 56px;
+  padding: 18px 16px;
+  border-top: 1px dashed var(--line);
+  border-bottom: 1px dashed var(--line);
+  font-size: 13.5px;
+  color: var(--text-mute);
+  letter-spacing: 0.05em;
+}
+.regular-price-note strong { color: var(--text); font-weight: 600; }
+
+.pricing-includes {
+  background: var(--bg-soft);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-lg);
+  padding: 36px 36px 32px;
+  margin: 0 0 56px;
+}
+.pricing-includes h3 {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 24px;
+  text-align: center;
+  letter-spacing: 0.06em;
+}
+.pricing-includes ul {
+  list-style: none;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 32px;
+}
+.pricing-includes li {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text);
+  padding-left: 28px;
+  position: relative;
+}
+.pricing-includes li::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 6px;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  border: 1.5px solid var(--accent);
+}
+.pricing-includes li::after {
+  content: '';
+  position: absolute;
+  left: 5px; top: 9px;
+  width: 6px; height: 4px;
+  border-left: 2px solid var(--accent);
+  border-bottom: 2px solid var(--accent);
+  transform: rotate(-45deg);
+}
+
+.pricing-cta { text-align: center; }
+.pricing-cta .cta-primary { font-size: 17px; padding: 18px 40px; }
+.cta-note {
+  margin-top: 20px;
+  font-size: 12px;
+  line-height: 1.85;
+  color: var(--text-mute);
+}
+
+@media (max-width: 980px) {
+  .pricing-flow { grid-template-columns: 1fr; }
+  .flow-divider { transform: rotate(90deg); padding: 4px 0; }
+  .pricing-includes ul { grid-template-columns: 1fr; }
+}
+
+/* ========================== FAQ ================================ */
+.faq-section {
+  padding: 120px 0;
+  background: var(--bg-soft);
+}
+.faq-head { text-align: center; margin-bottom: 56px; }
+.faq-head .eyebrow { margin-bottom: 22px; }
+.faq-head h2 {
+  font-family: var(--font-serif);
+  font-size: clamp(28px, 3.4vw, 40px);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  margin: 0;
+  line-height: 1.5;
+}
+.faq-list { max-width: 760px; margin: 0 auto; }
+.faq-item {
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--bg);
+  border-radius: 0;
+  margin-bottom: 0;
+  transition: background .25s;
+}
+.faq-item[open] { background: color-mix(in srgb, var(--accent-soft) 60%, var(--bg)); }
+.faq-item summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 24px 56px 24px 24px;
+  font-family: var(--font-serif);
+  font-size: 16.5px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.04em;
+  position: relative;
+  line-height: 1.6;
+  transition: color .2s;
+}
+.faq-item summary::-webkit-details-marker { display: none; }
+.faq-item summary:hover { color: var(--accent); }
+.faq-item summary::before {
+  content: 'Q';
+  display: inline-block;
+  width: 24px;
+  margin-right: 14px;
+  font-family: var(--font-serif);
+  font-size: 16px;
+  color: var(--accent);
+  font-weight: 700;
+}
+.faq-item summary::after {
+  content: '';
+  position: absolute;
+  right: 22px; top: 50%;
+  width: 14px; height: 14px;
+  border-right: 2px solid var(--accent);
+  border-bottom: 2px solid var(--accent);
+  transform: translateY(-70%) rotate(45deg);
+  transition: transform .25s;
+}
+.faq-item[open] summary::after {
+  transform: translateY(-30%) rotate(-135deg);
+}
+.faq-item .faq-answer {
+  padding: 0 24px 28px 62px;
+  font-size: 14.5px;
+  line-height: 1.95;
+  color: var(--text);
+  position: relative;
+}
+.faq-item .faq-answer::before {
+  content: 'A';
+  position: absolute;
+  left: 24px; top: 0;
+  width: 24px;
+  font-family: var(--font-serif);
+  font-size: 16px;
+  color: var(--text-mute);
+  font-weight: 700;
+}
+.faq-item .faq-answer a { color: var(--accent); text-decoration: none; }
+.faq-item .faq-answer a:hover { text-decoration: underline; }
+.faq-item .faq-answer p { margin: 0 0 1em; }
+.faq-item .faq-answer p:last-child { margin-bottom: 0; }
+.faq-item .faq-answer strong { font-weight: 600; }
+.faq-item .faq-answer ul { margin: .5em 0 1em; padding-left: 1.5em; }
+.faq-item .faq-answer ul li { margin-bottom: .5em; }
+
+/* ========================== FINAL CTA =========================== */
+.final-cta {
+  padding: 120px 0;
+  background: var(--bg-deep);
+  color: var(--text-inv);
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.final-cta::before {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 900px; height: 900px;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle, color-mix(in srgb, var(--accent) 30%, transparent), transparent 60%);
+  filter: blur(60px);
+}
+.final-cta .container { position: relative; z-index: 2; }
+.final-cta .eyebrow { color: color-mix(in srgb, var(--accent) 70%, white); margin-bottom: 24px; }
+.final-cta h2 {
+  font-family: var(--font-serif);
+  font-size: clamp(28px, 3.6vw, 44px);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  line-height: 1.5;
+  color: #fff;
+  margin: 0 0 22px;
+  text-wrap: pretty;
+}
+.final-cta h2 .accent { color: color-mix(in srgb, var(--accent) 70%, white); }
+.final-cta .lead {
+  font-size: 15.5px;
+  line-height: 1.95;
+  color: rgba(245,244,238,.75);
+  margin: 0 0 40px;
+}
+.final-cta .cta-primary { font-size: 17px; padding: 18px 42px; }
+.final-cta .footer-note {
+  margin-top: 28px;
+  font-size: 12px;
+  color: rgba(245,244,238,.55);
+  letter-spacing: 0.04em;
+}
+
+/* ========================== FOOTER ============================== */
+footer.site {
+  background: var(--bg-alt);
+  border-top: 1px solid var(--line);
+  padding: 56px 28px 32px;
+  color: var(--text-mute);
+  font-size: 13px;
+}
+.footer-grid {
+  max-width: 1080px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 40px;
+  padding-bottom: 32px;
+  border-bottom: 1px solid var(--line);
+}
+.footer-brand-block .footer-brand {
+  font-family: var(--font-serif);
+  font-size: 22px;
+  color: var(--text);
+  letter-spacing: 0.1em;
+  margin-bottom: 12px;
+  font-weight: 700;
+}
+.footer-brand-block .footer-brand .accent { color: var(--accent); }
+.footer-brand-block .footer-org {
+  color: var(--text);
+  font-size: 14px;
+  margin-bottom: 6px;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+.footer-brand-block .footer-info {
+  color: var(--text-mute);
+  font-size: 12.5px;
+  line-height: 1.85;
+}
+.footer-links-block {
+  display: flex; flex-direction: column;
+  gap: 8px;
+}
+.footer-links-block .footer-links-title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  color: var(--text-mute);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.footer-links-block a {
+  color: var(--text);
+  text-decoration: none;
+  font-size: 13.5px;
+  letter-spacing: 0.05em;
+  padding: 4px 0;
+  transition: color .2s;
+}
+.footer-links-block a:hover { color: var(--accent); }
+.footer-bottom {
+  max-width: 1080px;
+  margin: 24px auto 0;
+  display: flex; justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-mute);
+  letter-spacing: 0.05em;
+}
+@media (max-width: 720px) {
+  .footer-grid { grid-template-columns: 1fr; gap: 28px; }
+  .footer-bottom { flex-direction: column; gap: 6px; align-items: flex-start; }
+}
+
+/* ========================== BACK TO TOP ========================= */
+.back-to-top {
+  position: fixed;
+  right: 24px; bottom: 24px;
+  width: 48px; height: 48px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  font-family: var(--font-serif);
+  font-weight: 700;
+  box-shadow: 0 8px 20px -6px color-mix(in srgb, var(--accent) 50%, transparent);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(10px);
+  transition: opacity .3s, transform .3s, visibility .3s, background .2s;
+  z-index: 60;
+}
+.back-to-top.visible {
+  opacity: .95; visibility: visible; transform: translateY(0);
+}
+.back-to-top:hover { opacity: 1; background: var(--accent-deep); }
+.back-to-top .arrow-up { font-size: 12px; line-height: 1; }
+.back-to-top .top-label { font-size: 8px; line-height: 1; letter-spacing: 0.08em; margin-top: 2px; }
+
+/* === Adjust: when sticky CTA visible, move back-to-top up & left === */
+
+@media (max-width: 720px) {
+  .back-to-top { right: 16px; bottom: 16px; }
+  
+}
+
+/* ========================== UTIL FADE-IN ======================== */
+.reveal { opacity: 0; transform: translateY(28px); transition: opacity .9s cubic-bezier(.2,.6,.2,1), transform .9s cubic-bezier(.2,.6,.2,1); }
+.reveal.in { opacity: 1; transform: translateY(0); }
+
+/* ============== Editorial theme overrides ======================= */
+body.theme-editorial {
+  font-feature-settings: "palt";
+}
+body.theme-editorial h1.catchcopy,
+body.theme-editorial .features-section h2,
+body.theme-editorial .pricing-head h2,
+body.theme-editorial .faq-head h2,
+body.theme-editorial .main-features h2,
+body.theme-editorial .poipoi-head h2,
+body.theme-editorial .voice-quote,
+body.theme-editorial .final-cta h2 {
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+body.theme-editorial .hero h1.catchcopy { font-size: clamp(38px, 5vw, 68px); line-height: 1.32; }
+body.theme-editorial .story-quote { font-size: clamp(24px, 2.8vw, 36px); }
+body.theme-editorial .hero-eyebrow,
+body.theme-editorial .eyebrow {
+  font-family: var(--font-mono);
+}
+body.theme-editorial .voice-section { background: #0d0a06; }
+body.theme-editorial .final-cta { background: #0d0a06; }
+body.theme-editorial .terms-info { background: #0d0a06; }
+body.theme-editorial .pain-card { background: #181410; border-color: #2a221c; }
+
+/* ============== Premium theme overrides ========================= */
+body.theme-premium .approach-card::before {
+  background: linear-gradient(90deg, var(--accent) 0%, var(--gold) 100%);
+  height: 4px;
+}
+body.theme-premium .approach-card .approach-badge {
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-deep) 100%);
+}
+body.theme-premium .hero-eyebrow {
+  border-color: var(--gold);
+  background: var(--gold-soft);
+  color: #6a4b18;
+}
+body.theme-premium .hero-eyebrow .dot { background: var(--gold); box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 22%, transparent); }
+body.theme-premium .hero h1.catchcopy .accent::after {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 24%, transparent), color-mix(in srgb, var(--gold) 30%, transparent));
+}
+body.theme-premium .signature-stamp {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+body.theme-premium .voice-section {
+  background: linear-gradient(180deg, #0a0e15 0%, #0d1218 100%);
+}
+body.theme-premium .voice-conclusion {
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--gold) 14%, var(--bg-deep-2)) 0%,
+    var(--bg-deep-2) 100%);
+  border-color: color-mix(in srgb, var(--gold) 35%, var(--line-deep));
+}
+body.theme-premium .voice-conclusion .conclusion-quote .clavis {
+  color: color-mix(in srgb, var(--gold) 65%, white);
+  background: linear-gradient(transparent 65%, color-mix(in srgb, var(--gold) 35%, transparent) 65%);
+}
+body.theme-premium .discount-card {
+  background:
+    radial-gradient(ellipse 600px 300px at 30% 0%, color-mix(in srgb, var(--gold) 22%, transparent), transparent 70%),
+    linear-gradient(135deg, var(--accent-deep) 0%, var(--accent-ink) 100%);
+}
+body.theme-premium .discount-card .pill {
+  background: linear-gradient(135deg, var(--gold) 0%, #d3a653 100%);
+  color: #2a1e07;
+}
+body.theme-premium .final-cta::before {
+  background: radial-gradient(circle, color-mix(in srgb, var(--gold) 18%, transparent), color-mix(in srgb, var(--accent) 22%, transparent) 40%, transparent 60%);
+}
+body.theme-premium .cta-primary {
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-deep) 100%);
+}
+body.theme-premium .nav-cta {
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-deep) 100%);
+}
+
+/* mobile small adjustments */
+@media (max-width: 720px) {
+  section.block,
+  .story-section,
+  .voice-section,
+  .features-section,
+  .main-features,
+  .pricing-section,
+  .faq-section,
+  .final-cta { padding: 72px 0; }
+  .container-wide, .container-full { padding: 0 20px; }
+  .voice-conclusion { margin-top: 40px; }
+  .trial-card, .discount-card { padding: 32px 24px; }
+}
+
+</style><script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
 </head>
-<body>
+<body class="theme-refined">
 
-<!-- ヒーロー（動画版） -->
-<section class="hero">
-  <div class="brand">Clavis <span class="accent">Note</span></div>
-  <h1 class="catchcopy">
-    作業に追われていた時間を、<br>
-    人と向き合う<span class="accent">時間</span>へ。
-  </h1>
-  <p class="subcopy">〜 もっと自由に、もっとクライアントに向き合える環境を 〜</p>
-  <div class="video-wrap">
-    <video src="./poipoi_anime.mp4" autoplay muted loop playsinline></video>
+<!-- ============== TOP NAV ============== -->
+<header class="site-nav" id="siteNav">
+  <a href="#top" class="nav-brand">Clavis <span class="accent">Note</span></a>
+  <nav class="nav-actions">
+    <a href="#features" class="nav-link">機能</a>
+    <a href="#pricing" class="nav-link">料金</a>
+    <a href="#faq" class="nav-link">FAQ</a>
+    <a href="https://buy.stripe.com/8x2fZicdl78hd7DfYB3Je01?prefilled_promo_code=FOUNDER" class="nav-cta">30日間無料で始める</a>
+  </nav>
+</header>
+
+<!-- ============== HERO ============== -->
+<section class="hero" id="top">
+  <div class="hero-grid">
+    <div class="hero-copy">
+      <div class="hero-eyebrow fade-in">
+        <span class="dot"></span>
+        2026年5月リリース　／　行政書士登録者限定
+      </div>
+      <h1 class="catchcopy fade-in d1">
+        作業に追われていた時間を、<br>
+        <span class="accent">人と向き合う時間</span>へ。
+      </h1>
+      <p class="subcopy fade-in d2">
+        在留資格業務の現場から生まれた、行政書士のためのオールインワン管理ツール。<br>
+        クライアント台帳・案件・報酬を一元化し、書類の手入力をAIで限りなくゼロに。
+      </p>
+      <div class="hero-actions fade-in d3">
+        <a href="https://buy.stripe.com/8x2fZicdl78hd7DfYB3Je01?prefilled_promo_code=FOUNDER" class="cta-primary">
+          30日間無料で始める
+          <span class="arrow">
+            <svg width="11" height="11" viewBox="0 0 11 11" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 5.5h7m0 0L5.5 2M9 5.5L5.5 9" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </span>
+        </a>
+        <a href="#features" class="cta-secondary">機能をみる →</a>
+      </div>
+      <div class="hero-trust fade-in d4">
+        <span class="item">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1l1.8 3.6L13 5l-3 2.8.7 4.2L7 10l-3.7 2 .7-4.2L1 5l4.2-.4z" fill="currentColor"/></svg>
+          現役行政書士が開発
+        </span>
+        <span class="item">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1L1.5 3.5v3.7c0 3 2.3 5.5 5.5 5.8 3.2-.3 5.5-2.8 5.5-5.8V3.5L7 1z" stroke="currentColor" stroke-width="1.2" fill="none"/><path d="M4.5 7l1.7 1.7L9.5 5.3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          データはご自身のPC＋Google Drive
+        </span>
+        <span class="item">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="3" width="12" height="9" rx="1.5" stroke="currentColor" stroke-width="1.2" fill="none"/><path d="M3 5.5h8M3 8h5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+          全機能・件数制限なし
+        </span>
+      </div>
+    </div>
+
+    <div class="hero-visual fade-in d3" id="heroVisual">
+      <!-- Video version -->
+      <div class="hero-video">
+        <div class="visual-chrome">
+          <span class="lights"><span></span><span></span><span></span></span>
+          <span>poipoi_anime.mp4</span>
+        </div>
+        <div class="visual-placeholder">
+          <svg width="64" height="64" viewBox="0 0 64 64" fill="none" opacity=".45">
+            <rect x="6" y="10" width="34" height="44" rx="3" fill="#9aa0ab" opacity=".25" transform="rotate(-6 23 32)"/>
+            <rect x="14" y="14" width="34" height="44" rx="3" fill="#9aa0ab" opacity=".4"/>
+            <circle cx="48" cy="48" r="9" stroke="currentColor" stroke-width="1.5" fill="none"/>
+            <path d="M44 48l3 3 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span class="mono">poipoi animation preview</span>
+        </div>
+        <video id="heroVideo" muted loop playsinline poster="" preload="none"></video>
+      </div>
+
+      <!-- Static illustration version -->
+      <div class="hero-static">
+        <div class="hs-bg"></div>
+        <!-- floating documents -->
+        <svg class="hs-doc hs-doc-zairyu" viewBox="0 0 200 126" xmlns="http://www.w3.org/2000/svg">
+          <rect x="0" y="0" width="200" height="126" rx="8" fill="#f0f4fa" stroke="#c8cdd7"/>
+          <rect x="0" y="0" width="200" height="18" rx="8" fill="#2c6fb0"/>
+          <rect x="0" y="10" width="200" height="8" fill="#2c6fb0"/>
+          <text x="10" y="13" fill="#fff" font-family="'Shippori Mincho', serif" font-size="8" font-weight="600">在留カード</text>
+          <rect x="10" y="26" width="44" height="56" rx="3" fill="#d4d2c8"/>
+          <circle cx="32" cy="46" r="9" fill="#a8a59c"/>
+          <path d="M 18 78 Q 32 60 46 78 Z" fill="#a8a59c"/>
+          <rect x="62" y="28" width="48" height="3" rx="1.5" fill="#9aa0ab"/>
+          <rect x="62" y="34" width="100" height="4" rx="2" fill="#2a2724"/>
+          <rect x="62" y="45" width="34" height="3" rx="1.5" fill="#9aa0ab"/>
+          <rect x="62" y="51" width="70" height="4" rx="2" fill="#2a2724"/>
+          <rect x="62" y="62" width="42" height="3" rx="1.5" fill="#9aa0ab"/>
+          <rect x="62" y="68" width="110" height="4" rx="2" fill="#2a2724"/>
+          <rect x="10" y="92" width="152" height="3" rx="1.5" fill="#9aa0ab"/>
+          <rect x="10" y="99" width="110" height="5" rx="2" fill="#2c6fb0"/>
+          <rect x="168" y="92" width="22" height="18" rx="2" fill="#d4af37"/>
+        </svg>
+        <svg class="hs-doc hs-doc-passport" viewBox="0 0 130 168" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="hsPass" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#7d1a2e"/>
+              <stop offset="100%" stop-color="#3d0612"/>
+            </linearGradient>
+          </defs>
+          <rect x="4" y="4" width="122" height="160" rx="6" fill="url(#hsPass)" stroke="#3d0612"/>
+          <rect x="10" y="10" width="110" height="148" rx="3" fill="none" stroke="#d4af37" stroke-width="0.5" opacity="0.5"/>
+          <text x="65" y="32" fill="#d4af37" font-family="'Shippori Mincho', serif" font-size="9" font-weight="700" text-anchor="middle" letter-spacing="2">JAPAN</text>
+          <circle cx="65" cy="85" r="24" fill="#d4af37" opacity="0.85"/>
+          <circle cx="65" cy="85" r="10" fill="#8a6500"/>
+          <text x="65" y="140" fill="#d4af37" font-family="'Shippori Mincho', serif" font-size="11" font-weight="700" text-anchor="middle" letter-spacing="2">PASSPORT</text>
+        </svg>
+        <svg class="hs-doc hs-doc-contract" viewBox="0 0 140 180" xmlns="http://www.w3.org/2000/svg">
+          <rect x="4" y="4" width="132" height="172" rx="2" fill="#fff" stroke="#c8c5bd"/>
+          <text x="70" y="28" fill="#2a2724" font-family="'Shippori Mincho', serif" font-size="11" font-weight="700" text-anchor="middle" letter-spacing="4">雇用契約書</text>
+          <line x1="40" y1="34" x2="100" y2="34" stroke="#2a2724"/>
+          <rect x="14" y="50" width="112" height="2" fill="#9aa0ab"/>
+          <rect x="14" y="58" width="100" height="2" fill="#9aa0ab"/>
+          <rect x="14" y="66" width="110" height="2" fill="#9aa0ab"/>
+          <rect x="14" y="80" width="60" height="2.5" fill="#2a2724"/>
+          <rect x="14" y="90" width="112" height="2" fill="#9aa0ab"/>
+          <rect x="14" y="98" width="96" height="2" fill="#9aa0ab"/>
+          <rect x="14" y="112" width="50" height="2.5" fill="#2a2724"/>
+          <rect x="14" y="122" width="112" height="2" fill="#9aa0ab"/>
+          <rect x="14" y="130" width="80" height="2" fill="#9aa0ab"/>
+          <circle cx="108" cy="152" r="10" fill="none" stroke="#c44" stroke-width="1.5"/>
+          <text x="108" y="155" fill="#c44" font-family="'Shippori Mincho', serif" font-size="7" text-anchor="middle" font-weight="700">印</text>
+        </svg>
+
+        <!-- arrow -->
+        <div class="hs-arrow">
+          <svg viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg">
+            <path d="M5 15 Q30 5 50 15" stroke="currentColor" stroke-width="2" fill="none" stroke-dasharray="3 4" stroke-linecap="round"/>
+            <polygon points="45,10 55,15 45,20" fill="currentColor"/>
+          </svg>
+        </div>
+
+        <!-- mini app -->
+        <div class="hs-app">
+          <div class="hs-app-bar">
+            <span></span><span></span><span></span>
+            <em>Clavis Note</em>
+          </div>
+          <div class="hs-app-drop">
+            <span class="hs-drop-icon">📥</span>
+            <span class="hs-drop-label">ポイポイ式エリア</span>
+          </div>
+          <div class="hs-app-tabs">
+            <span class="on">基本</span><span>在留</span><span>職歴</span>
+          </div>
+          <div class="hs-app-rows">
+            <div class="hs-row"><span class="k">氏名</span><span class="v">SAMPLE POCKET</span></div>
+            <div class="hs-row"><span class="k">生年月日</span><span class="v">1990/04/01</span></div>
+            <div class="hs-row"><span class="k">国籍</span><span class="v">VIETNAM</span></div>
+            <div class="hs-row"><span class="k">在留資格</span><span class="v">技・人・国</span></div>
+          </div>
+          <div class="hs-app-toast">✨ 自動13項目</div>
+        </div>
+      </div>
+    </div>
   </div>
-  <span class="hero-badge">
-    <span class="dot"></span>
-    2026年5月リリース
-  </span>
 </section>
 
-<!-- ストーリー -->
-<section class="block story">
-  <div class="container-wide">
-    <p class="story-quote">
-      事務作業の負担軽減によって<br>
-      より多くの案件を受け入れ、お客様をサポートできるようにしたい
-    </p>
-    <div class="story-body">
-      <p>在留資格業務に携わって6年。クライアント数の増加とともに、<strong>ご家族の呼び寄せ・複数案件の並行管理・追加資料対応</strong>が重なり、事務作業が業務の大半を占めるようになりました。</p>
-      <p>Excel、事件簿ソフト、請求書サービス、OneNote——複数ツールを駆使しても「確認漏れ」「入力の二度手間」は消えなかった。</p>
-      <p>「この作業、自動化できないかな？」と、<strong>日常の困りごとや解決したいことをひとつずつ機能として反映</strong>させていくうちに、現場から生まれたオールインワンツールが完成しました。</p>
-      <p>DX化で自己申請が増える一方、<strong>現場で働く外国人には行政書士の親身なサポートが欠かせない</strong>。Clavis Noteは、その時間を守るために作りました。</p>
+<!-- ============== TRUST STRIP ============== -->
+<section class="trust-strip">
+  <div class="trust-strip-inner">
+    <div class="trust-item">
+      <span class="num">6<span class="unit">年</span></span>
+      <span class="label"><strong>現場の知見</strong>在留資格業務</span>
     </div>
-    <div class="signature">
-      <span class="signature-name">開発者　行政書士　長見　恵</span>
+    <div class="trust-item">
+      <span class="num">30<span class="unit">日</span></span>
+      <span class="label"><strong>無料トライアル</strong>全機能・件数制限なし</span>
+    </div>
+    <div class="trust-item">
+      <span class="num">90<span class="unit">% +</span></span>
+      <span class="label"><strong>自動入力</strong>クライアント台帳の登録</span>
+    </div>
+    <div class="trust-item">
+      <span class="num">ローカル</span>
+      <span class="label"><strong>データ管理</strong>PC＋Drive 同期</span>
     </div>
   </div>
 </section>
 
-<!-- Voice -->
-<section class="voice">
+<!-- ============== STORY ============== -->
+<section class="story-section">
   <div class="container-wide">
-    <div class="section-label">Voice</div>
-    <p class="voice-quote">「私だけの&ldquo;あるある&rdquo;ですか？」</p>
+    <div class="story-grid">
+      <aside class="story-side">
+        <div class="eyebrow story-eyebrow">Story ／ 開発の背景</div>
+        <p class="story-tag">— 現役行政書士による開発</p>
+      </aside>
+      <div class="story-main">
+        <p class="story-quote">
+          事務作業の負担軽減によって<br>
+          より多くの案件を受け入れ、お客様をサポートできるようにしたい。
+        </p>
+        <div class="story-body">
+          <p>在留資格業務に携わって6年。クライアント数の増加とともに、<strong>ご家族の呼び寄せ・複数案件の並行管理・追加資料対応</strong>が重なり、事務作業が業務の大半を占めるようになりました。</p>
+          <p>Excel、事件簿ソフト、請求書サービス、OneNote ── 複数ツールを駆使しても「確認漏れ」「入力の二度手間」は消えなかった。</p>
+          <p>「この作業、自動化できないかな？」と、<strong>日常の困りごとや解決したいことをひとつずつ機能として反映</strong>させていくうちに、現場から生まれたオールインワンツールが完成しました。</p>
+          <p>DX化で自己申請が増える一方、<strong>現場で働く外国人には行政書士の親身なサポートが欠かせない</strong>。Clavis Note は、その時間を守るために作りました。</p>
+        </div>
+        <div class="signature">
+          <span>開発者　行政書士</span>
+          <span class="signature-name">長見　恵</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== VOICE (DARK) ============== -->
+<section class="voice-section">
+  <div class="container-wide">
+    <div class="voice-head">
+      <div class="eyebrow center">Voice ／ 現場の声</div>
+      <p class="voice-quote">「私だけの<span class="accent">&ldquo;あるある&rdquo;</span>ですか？」</p>
+      <p class="voice-sub">─ 在留資格業務の現場で体験してきた、4つの「困った」</p>
+    </div>
 
     <div class="pain-grid">
-      <div class="pain-item">
-        <div class="pain-num">— 01 —</div>
-        <p class="pain-text">在留カード・パスポートの情報を毎回手入力。何度も同じ情報を色々な書類に転記している。</p>
-      </div>
-      <div class="pain-item">
-        <div class="pain-num">— 02 —</div>
+      <article class="pain-card">
+        <div class="pain-num"><span class="big">01</span>　Manual Input</div>
+        <p class="pain-text">在留カード・パスポートの情報を毎回手入力。何度も同じ情報を、色々な書類に転記している。</p>
+        <div class="pain-tags">
+          <span class="pain-tag">＃二度手間</span>
+          <span class="pain-tag">＃転記ミス</span>
+        </div>
+      </article>
+      <article class="pain-card">
+        <div class="pain-num"><span class="big">02</span>　Scattered Data</div>
         <p class="pain-text">Excel、事件簿ソフト、請求ツール、手書きのメモ帳。情報がそれぞれの場所に散らばって、バラバラ。</p>
-      </div>
-      <div class="pain-item">
-        <div class="pain-num">— 03 —</div>
-        <p class="pain-text">追加資料の対応履歴や審査官とのやり取り——記録に残しきれず、記憶頼みになっている。</p>
-      </div>
-      <div class="pain-item">
-        <div class="pain-num">— 04 —</div>
-        <p class="pain-text">着手金、成功報酬、追加実費——この入金はなんの金額なのか。確定申告シーズンに、売上・売掛金の整合で頭を抱える。</p>
-      </div>
+        <div class="pain-tags">
+          <span class="pain-tag">＃情報の分散</span>
+          <span class="pain-tag">＃確認漏れ</span>
+        </div>
+      </article>
+      <article class="pain-card">
+        <div class="pain-num"><span class="big">03</span>　Lost History</div>
+        <p class="pain-text">追加資料の対応履歴や審査官とのやり取り ── 記録に残しきれず、記憶頼みになっている。</p>
+        <div class="pain-tags">
+          <span class="pain-tag">＃履歴管理</span>
+          <span class="pain-tag">＃記憶頼み</span>
+        </div>
+      </article>
+      <article class="pain-card">
+        <div class="pain-num"><span class="big">04</span>　Mixed Accounts</div>
+        <p class="pain-text">着手金、成功報酬、追加実費 ── この入金は何の金額なのか。確定申告シーズンに、売上・売掛金の整合で頭を抱える。</p>
+        <div class="pain-tags">
+          <span class="pain-tag">＃報酬管理</span>
+          <span class="pain-tag">＃確定申告</span>
+        </div>
+      </article>
     </div>
 
-    <div class="conclusion">
-      <p>現役行政書士が、現場で必要だったものを、そのまま形にした。<br>それが <span class="clavis-name">Clavis Note</span> です。</p>
+    <div class="voice-conclusion">
+      <div class="conclusion-lead">Our Answer</div>
+      <p class="conclusion-quote">
+        現役行政書士が、現場で必要だったものを、そのまま形にした。<br>
+        それが <span class="clavis">Clavis Note</span> です。
+      </p>
     </div>
   </div>
 </section>
 
-<!-- Features -->
-<section class="block features">
-  <div class="container">
-    <div class="section-label">Features</div>
-    <h2>Clavis Note でできること</h2>
-
-    <div class="approach-label">入力をラクにする 2つの工夫</div>
+<!-- ============== APPROACH FEATURES ============== -->
+<section class="features-section" id="features">
+  <div class="container-wide">
+    <div class="features-head">
+      <div class="eyebrow center">Features ／ 入力をラクにする 2つの工夫</div>
+      <h2>Clavis Note でできること</h2>
+      <p class="features-sub">毎日のルーティンを、設計から見直しました。</p>
+    </div>
 
     <div class="approach-grid">
-      <div class="approach-card">
-        <div class="approach-badge">ポイポイ式</div>
-        <p class="approach-catch">書類をまとめてポイッ。<br>あとは、おまかせ。</p>
+      <article class="approach-card">
+        <span class="approach-num">01 / 02</span>
+        <span class="approach-badge">ポイポイ式</span>
+        <h3 class="approach-catch">書類をまとめてポイッ。<br>あとは、おまかせ。</h3>
         <p class="approach-desc">在留カード・パスポート・契約書を、ドラッグ＆ドロップするだけで自動読み取り。現場で在留カードの写真を撮れば、そのままクライアント台帳が完成。外国語の退職証明書や履歴書も、AI-OCR でデータ化して、クライアント台帳の9割超を自動登録。入力作業を限りなくゼロに。</p>
-        <p class="approach-note">※ ポイポイ式はAIを利用した自動読み取り機能です。読み取り内容に誤りがある場合がありますので、最終的な確認は必ず利用者ご自身でお願いします。</p>
-      </div>
+        <p class="approach-note">※ ポイポイ式は AI を利用した自動読み取り機能です。読み取り内容に誤りがある場合がありますので、最終的な確認は必ず利用者ご自身でお願いします。</p>
+      </article>
 
-      <div class="approach-card">
-        <div class="approach-badge">マスター登録</div>
-        <p class="approach-catch">マスターから、サッ。<br>即、登録。</p>
+      <article class="approach-card">
+        <span class="approach-num">02 / 02</span>
+        <span class="approach-badge">マスター登録</span>
+        <h3 class="approach-catch">マスターから、サッ。<br>即、登録。</h3>
         <p class="approach-desc">あらかじめ登録した依頼業務種別・金額・書類セットを、ボタン1つで呼び出し。案件作成も、報酬登録も、迷わず・速く。</p>
         <div class="master-illust">
           <svg viewBox="0 0 300 160" xmlns="http://www.w3.org/2000/svg">
-            <!-- マスター一覧（左） -->
             <g transform="translate(10, 14)">
-              <rect width="115" height="132" rx="6" fill="#fff" stroke="#378ADD" stroke-width="1"/>
-              <rect x="0" y="0" width="115" height="20" rx="6" fill="#E6F1FB"/>
-              <rect x="0" y="14" width="115" height="6" fill="#E6F1FB"/>
-              <text x="58" y="14" fill="#2c6fb0" font-family="'Shippori Mincho', serif" font-size="9" font-weight="700" text-anchor="middle">業務マスター</text>
-
-              <!-- 項目1 -->
-              <rect x="6" y="28" width="103" height="26" rx="3" fill="#faf8f5"/>
-              <text x="12" y="40" fill="#2a2724" font-family="'Noto Sans JP', sans-serif" font-size="8" font-weight="600">在留更新</text>
-              <text x="12" y="50" fill="#6b6760" font-family="'Noto Sans JP', sans-serif" font-size="6.5">¥50,000・書類×5</text>
-
-              <!-- 項目2（強調・呼び出される） -->
-              <rect x="6" y="58" width="103" height="26" rx="3" fill="#378ADD"/>
+              <rect width="115" height="132" rx="6" fill="var(--bg)" stroke="var(--accent)" stroke-width="1"/>
+              <rect x="0" y="0" width="115" height="20" rx="6" fill="var(--accent-soft)"/>
+              <rect x="0" y="14" width="115" height="6" fill="var(--accent-soft)"/>
+              <text x="58" y="14" fill="var(--accent-deep)" font-family="'Shippori Mincho', serif" font-size="9" font-weight="700" text-anchor="middle">業務マスター</text>
+              <rect x="6" y="28" width="103" height="26" rx="3" fill="var(--bg-soft)"/>
+              <text x="12" y="40" fill="var(--text)" font-family="'Noto Sans JP', sans-serif" font-size="8" font-weight="600">在留更新</text>
+              <text x="12" y="50" fill="var(--text-mute)" font-family="'Noto Sans JP', sans-serif" font-size="6.5">¥50,000・書類×5</text>
+              <rect x="6" y="58" width="103" height="26" rx="3" fill="var(--accent)"/>
               <text x="12" y="70" fill="#fff" font-family="'Noto Sans JP', sans-serif" font-size="8" font-weight="600">技・人・国 変更</text>
               <text x="12" y="80" fill="rgba(255,255,255,0.85)" font-family="'Noto Sans JP', sans-serif" font-size="6.5">¥80,000・書類×8</text>
-
-              <!-- 項目3 -->
-              <rect x="6" y="88" width="103" height="26" rx="3" fill="#faf8f5"/>
-              <text x="12" y="100" fill="#2a2724" font-family="'Noto Sans JP', sans-serif" font-size="8" font-weight="600">永住申請</text>
-              <text x="12" y="110" fill="#6b6760" font-family="'Noto Sans JP', sans-serif" font-size="6.5">¥150,000・書類×12</text>
+              <rect x="6" y="88" width="103" height="26" rx="3" fill="var(--bg-soft)"/>
+              <text x="12" y="100" fill="var(--text)" font-family="'Noto Sans JP', sans-serif" font-size="8" font-weight="600">永住申請</text>
+              <text x="12" y="110" fill="var(--text-mute)" font-family="'Noto Sans JP', sans-serif" font-size="6.5">¥150,000・書類×12</text>
             </g>
-
-            <!-- 矢印＋「サッ」バッジ -->
             <g transform="translate(130, 64)">
-              <rect x="0" y="-14" width="40" height="22" rx="5" fill="#378ADD"/>
+              <rect x="0" y="-14" width="40" height="22" rx="5" fill="var(--accent)"/>
               <text x="20" y="1" fill="#fff" font-family="'Shippori Mincho', serif" font-size="13" font-weight="700" text-anchor="middle" letter-spacing="0.05em">サッ</text>
-              <line x1="2" y1="20" x2="30" y2="20" stroke="#378ADD" stroke-width="2.5"/>
-              <polygon points="30,15 40,20 30,25" fill="#378ADD"/>
+              <line x1="2" y1="20" x2="30" y2="20" stroke="var(--accent)" stroke-width="2.5"/>
+              <polygon points="30,15 40,20 30,25" fill="var(--accent)"/>
             </g>
-
-            <!-- 新規案件（右） -->
             <g transform="translate(170, 14)">
-              <rect width="120" height="132" rx="6" fill="#fff" stroke="#d4d2c8" stroke-width="1"/>
-              <rect x="0" y="0" width="120" height="20" rx="6" fill="#f2f0eb"/>
-              <rect x="0" y="14" width="120" height="6" fill="#f2f0eb"/>
-              <text x="60" y="14" fill="#2a2724" font-family="'Shippori Mincho', serif" font-size="9" font-weight="700" text-anchor="middle">新規案件</text>
-
-              <text x="10" y="38" fill="#6b6760" font-family="'Noto Sans JP', sans-serif" font-size="6.5">業務種別</text>
-              <text x="10" y="48" fill="#378ADD" font-family="'Noto Sans JP', sans-serif" font-size="8" font-weight="600">技・人・国 変更</text>
-
-              <text x="10" y="64" fill="#6b6760" font-family="'Noto Sans JP', sans-serif" font-size="6.5">報酬</text>
-              <text x="10" y="74" fill="#378ADD" font-family="'Noto Sans JP', sans-serif" font-size="8" font-weight="600">¥80,000</text>
-
-              <text x="10" y="90" fill="#6b6760" font-family="'Noto Sans JP', sans-serif" font-size="6.5">必要書類</text>
-              <g fill="#378ADD" font-family="'Noto Sans JP', sans-serif" font-size="7">
+              <rect width="120" height="132" rx="6" fill="var(--bg)" stroke="var(--line)" stroke-width="1"/>
+              <rect x="0" y="0" width="120" height="20" rx="6" fill="var(--bg-alt)"/>
+              <rect x="0" y="14" width="120" height="6" fill="var(--bg-alt)"/>
+              <text x="60" y="14" fill="var(--text)" font-family="'Shippori Mincho', serif" font-size="9" font-weight="700" text-anchor="middle">新規案件</text>
+              <text x="10" y="38" fill="var(--text-mute)" font-family="'Noto Sans JP', sans-serif" font-size="6.5">業務種別</text>
+              <text x="10" y="48" fill="var(--accent)" font-family="'Noto Sans JP', sans-serif" font-size="8" font-weight="600">技・人・国 変更</text>
+              <text x="10" y="64" fill="var(--text-mute)" font-family="'Noto Sans JP', sans-serif" font-size="6.5">報酬</text>
+              <text x="10" y="74" fill="var(--accent)" font-family="'Noto Sans JP', sans-serif" font-size="8" font-weight="600">¥80,000</text>
+              <text x="10" y="90" fill="var(--text-mute)" font-family="'Noto Sans JP', sans-serif" font-size="6.5">必要書類</text>
+              <g fill="var(--accent)" font-family="'Noto Sans JP', sans-serif" font-size="7">
                 <text x="10" y="100">✓ 申請書</text>
                 <text x="60" y="100">✓ 写真</text>
                 <text x="10" y="110">✓ 在留カード</text>
@@ -1433,287 +2217,304 @@
             </g>
           </svg>
         </div>
-      </div>
+      </article>
     </div>
-
   </div>
 </section>
 
-<!-- ポイポイデモ（GSAP・実演のみ） -->
+<!-- ============== POIPOI DEMO (GSAP) ============== -->
 <section class="poipoi-section">
-  <div class="stage">
-
-    <!-- 在留カード -->
-    <svg class="document doc-zairyu" width="260" height="165" viewBox="0 0 260 165" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="zairyuBg" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#f0f4fa"/>
-          <stop offset="50%" stop-color="#ffffff"/>
-          <stop offset="100%" stop-color="#e8edf5"/>
-        </linearGradient>
-        <linearGradient id="ic" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#d4af37"/>
-          <stop offset="100%" stop-color="#a67c00"/>
-        </linearGradient>
-      </defs>
-      <rect x="0" y="0" width="260" height="165" rx="10" fill="url(#zairyuBg)" stroke="#c8cdd7" stroke-width="1"/>
-      <rect x="0" y="0" width="260" height="22" rx="10" fill="#2c6fb0"/>
-      <rect x="0" y="12" width="260" height="10" fill="#2c6fb0"/>
-      <text x="12" y="15" fill="#fff" font-family="'Shippori Mincho', serif" font-size="10" font-weight="600">在留カード / RESIDENCE CARD</text>
-      <rect x="14" y="32" width="58" height="74" rx="3" fill="#d4d2c8" stroke="#a8a59c" stroke-width="0.5"/>
-      <circle cx="43" cy="58" r="11" fill="#a8a59c"/>
-      <path d="M 25 105 Q 43 80 61 105 Z" fill="#a8a59c"/>
-      <rect x="82" y="34" width="60" height="3" rx="1.5" fill="#9aa0ab"/>
-      <rect x="82" y="42" width="120" height="5" rx="2" fill="#2a2724"/>
-      <rect x="82" y="55" width="40" height="3" rx="1.5" fill="#9aa0ab"/>
-      <rect x="82" y="63" width="80" height="5" rx="2" fill="#2a2724"/>
-      <rect x="82" y="76" width="50" height="3" rx="1.5" fill="#9aa0ab"/>
-      <rect x="82" y="84" width="140" height="5" rx="2" fill="#2a2724"/>
-      <rect x="14" y="118" width="200" height="3" rx="1.5" fill="#9aa0ab"/>
-      <rect x="14" y="126" width="140" height="6" rx="2" fill="#2c6fb0"/>
-      <rect x="218" y="118" width="28" height="22" rx="3" fill="url(#ic)" stroke="#8a6500" stroke-width="0.5"/>
-      <line x1="222" y1="124" x2="242" y2="124" stroke="#8a6500" stroke-width="0.5"/>
-      <line x1="222" y1="130" x2="242" y2="130" stroke="#8a6500" stroke-width="0.5"/>
-      <line x1="222" y1="135" x2="242" y2="135" stroke="#8a6500" stroke-width="0.5"/>
-      <line x1="228" y1="120" x2="228" y2="139" stroke="#8a6500" stroke-width="0.5"/>
-      <line x1="236" y1="120" x2="236" y2="139" stroke="#8a6500" stroke-width="0.5"/>
-      <text x="14" y="156" fill="#9aa0ab" font-family="'Noto Sans JP', sans-serif" font-size="6">就労制限の有無：就労可</text>
-    </svg>
-
-    <!-- パスポート -->
-    <svg class="document doc-passport" width="170" height="220" viewBox="0 0 170 220" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="passportBg" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#7d1a2e"/>
-          <stop offset="50%" stop-color="#5d0e1e"/>
-          <stop offset="100%" stop-color="#3d0612"/>
-        </linearGradient>
-        <radialGradient id="emblemGrad" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stop-color="#f5d76e"/>
-          <stop offset="60%" stop-color="#d4af37"/>
-          <stop offset="100%" stop-color="#a67c00"/>
-        </radialGradient>
-      </defs>
-      <rect x="6" y="6" width="158" height="208" rx="8" fill="url(#passportBg)" stroke="#3d0612" stroke-width="1"/>
-      <rect x="14" y="14" width="142" height="192" rx="4" fill="none" stroke="#d4af37" stroke-width="0.6" opacity="0.5"/>
-      <text x="85" y="38" fill="#d4af37" font-family="'Shippori Mincho', serif" font-size="11" font-weight="700" text-anchor="middle" letter-spacing="2">JAPAN</text>
-      <text x="85" y="48" fill="#d4af37" font-family="'Shippori Mincho', serif" font-size="6" text-anchor="middle" letter-spacing="1.5">日本国旅券</text>
-      <g transform="translate(85, 110)">
-        <circle cx="0" cy="0" r="38" fill="url(#emblemGrad)" stroke="#8a6500" stroke-width="0.5"/>
-        <g fill="#a67c00" opacity="0.8">
-          <ellipse cx="0" cy="-28" rx="3.5" ry="9"/>
-          <ellipse cx="0" cy="-28" rx="3.5" ry="9" transform="rotate(22.5)"/>
-          <ellipse cx="0" cy="-28" rx="3.5" ry="9" transform="rotate(45)"/>
-          <ellipse cx="0" cy="-28" rx="3.5" ry="9" transform="rotate(67.5)"/>
-          <ellipse cx="0" cy="-28" rx="3.5" ry="9" transform="rotate(90)"/>
-          <ellipse cx="0" cy="-28" rx="3.5" ry="9" transform="rotate(112.5)"/>
-          <ellipse cx="0" cy="-28" rx="3.5" ry="9" transform="rotate(135)"/>
-          <ellipse cx="0" cy="-28" rx="3.5" ry="9" transform="rotate(157.5)"/>
-          <ellipse cx="0" cy="-28" rx="3.5" ry="9" transform="rotate(180)"/>
-          <ellipse cx="0" cy="-28" rx="3.5" ry="9" transform="rotate(202.5)"/>
-          <ellipse cx="0" cy="-28" rx="3.5" ry="9" transform="rotate(225)"/>
-          <ellipse cx="0" cy="-28" rx="3.5" ry="9" transform="rotate(247.5)"/>
-          <ellipse cx="0" cy="-28" rx="3.5" ry="9" transform="rotate(270)"/>
-          <ellipse cx="0" cy="-28" rx="3.5" ry="9" transform="rotate(292.5)"/>
-          <ellipse cx="0" cy="-28" rx="3.5" ry="9" transform="rotate(315)"/>
-          <ellipse cx="0" cy="-28" rx="3.5" ry="9" transform="rotate(337.5)"/>
-        </g>
-        <circle cx="0" cy="0" r="14" fill="#d4af37" stroke="#8a6500" stroke-width="0.5"/>
-        <circle cx="0" cy="0" r="6" fill="#8a6500"/>
-      </g>
-      <text x="85" y="180" fill="#d4af37" font-family="'Shippori Mincho', serif" font-size="14" font-weight="700" text-anchor="middle" letter-spacing="3">PASSPORT</text>
-      <text x="85" y="195" fill="#d4af37" font-family="'Noto Sans JP', sans-serif" font-size="5.5" text-anchor="middle" letter-spacing="1">旅 券</text>
-    </svg>
-
-    <!-- 雇用契約書 -->
-    <svg class="document doc-contract" width="180" height="240" viewBox="0 0 180 240" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="paperBg" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stop-color="#ffffff"/>
-          <stop offset="100%" stop-color="#f8f6f0"/>
-        </linearGradient>
-      </defs>
-      <rect x="4" y="4" width="172" height="232" rx="2" fill="url(#paperBg)" stroke="#c8c5bd" stroke-width="0.8"/>
-      <line x1="4" y1="4" x2="176" y2="4" stroke="#a8a59c" stroke-width="0.4"/>
-      <text x="90" y="32" fill="#2a2724" font-family="'Shippori Mincho', serif" font-size="14" font-weight="700" text-anchor="middle" letter-spacing="6">雇用契約書</text>
-      <line x1="50" y1="40" x2="130" y2="40" stroke="#2a2724" stroke-width="0.6"/>
-      <line x1="55" y1="43" x2="125" y2="43" stroke="#2a2724" stroke-width="0.3"/>
-      <g fill="#6b6760">
-        <text x="18" y="60" font-family="'Noto Sans JP', sans-serif" font-size="7">甲（雇用者）：</text>
-        <rect x="68" y="55" width="90" height="3" rx="1" fill="#2a2724"/>
-        <text x="18" y="76" font-family="'Noto Sans JP', sans-serif" font-size="7">乙（被雇用者）：</text>
-        <rect x="72" y="71" width="86" height="3" rx="1" fill="#2a2724"/>
-        <text x="18" y="98" font-family="'Noto Sans JP', sans-serif" font-size="6.5">第一条（業務内容）</text>
-        <rect x="18" y="102" width="140" height="1.5" rx="0.5" fill="#9aa0ab"/>
-        <rect x="18" y="107" width="135" height="1.5" rx="0.5" fill="#9aa0ab"/>
-        <rect x="18" y="112" width="80" height="1.5" rx="0.5" fill="#9aa0ab"/>
-        <text x="18" y="126" font-family="'Noto Sans JP', sans-serif" font-size="6.5">第二条（雇用期間）</text>
-        <rect x="18" y="130" width="140" height="1.5" rx="0.5" fill="#9aa0ab"/>
-        <rect x="18" y="135" width="120" height="1.5" rx="0.5" fill="#9aa0ab"/>
-        <text x="18" y="150" font-family="'Noto Sans JP', sans-serif" font-size="6.5">第三条（報酬）</text>
-        <rect x="18" y="154" width="140" height="1.5" rx="0.5" fill="#9aa0ab"/>
-        <rect x="18" y="159" width="100" height="1.5" rx="0.5" fill="#9aa0ab"/>
-      </g>
-      <g transform="translate(140, 200)">
-        <circle cx="0" cy="0" r="14" fill="none" stroke="#c44" stroke-width="1.8"/>
-        <text x="0" y="3" fill="#c44" font-family="'Shippori Mincho', serif" font-size="8" text-anchor="middle" font-weight="700">印</text>
-      </g>
-      <line x1="20" y1="215" x2="115" y2="215" stroke="#9aa0ab" stroke-width="0.5"/>
-      <text x="20" y="225" fill="#9aa0ab" font-family="'Noto Sans JP', sans-serif" font-size="5">署名欄</text>
-    </svg>
-
-    <!-- アプリ画面 -->
-    <div class="app-window">
-      <div class="app-titlebar">
-        <div class="dot red"></div>
-        <div class="dot yellow"></div>
-        <div class="dot green"></div>
-        <div class="title">Clavis <span class="accent">Note</span></div>
-      </div>
-
-      <div class="poipoi-zone">
-        <div class="icon">📥</div>
-        <div class="label">ポイポイ式エリア</div>
-        <div class="sub">在留カード・パスポート・契約書などをドロップ</div>
-      </div>
-
-      <div class="tabs">
-        <div class="tab active" data-tab="0">基本情報</div>
-        <div class="tab" data-tab="1">在留情報</div>
-        <div class="tab" data-tab="2">職歴</div>
-        <div class="tab-indicator"></div>
-      </div>
-
-      <div class="tab-panels">
-        <div class="tab-panel active" data-panel="0">
-          <div class="app-row">
-            <div class="field-label">氏名（ローマ字）<span class="src">在留カード</span></div>
-            <div class="field-value empty" data-fill="NAGAMI MEGUMI"></div>
-          </div>
-          <div class="app-row">
-            <div class="field-label">生年月日<span class="src">在留カード</span></div>
-            <div class="field-value empty" data-fill="1990/04/01"></div>
-          </div>
-          <div class="app-row">
-            <div class="field-label">国籍<span class="src">在留カード</span></div>
-            <div class="field-value empty" data-fill="VIETNAM"></div>
-          </div>
-          <div class="app-row">
-            <div class="field-label">性別<span class="src">在留カード</span></div>
-            <div class="field-value empty" data-fill="女"></div>
-          </div>
-        </div>
-
-        <div class="tab-panel" data-panel="1">
-          <div class="app-row">
-            <div class="field-label">在留資格<span class="src">在留カード</span></div>
-            <div class="field-value empty" data-fill="技術・人文知識・国際業務"></div>
-          </div>
-          <div class="app-row">
-            <div class="field-label">在留カード番号<span class="src">在留カード</span></div>
-            <div class="field-value empty" data-fill="AB12345678CD"></div>
-          </div>
-          <div class="app-row">
-            <div class="field-label">在留期限<span class="src">在留カード</span></div>
-            <div class="field-value empty" data-fill="2027/06/30"></div>
-          </div>
-          <div class="app-row">
-            <div class="field-label">パスポート番号<span class="src">パスポート</span></div>
-            <div class="field-value empty" data-fill="TZ1234567"></div>
-          </div>
-          <div class="app-row">
-            <div class="field-label">パスポート有効期限<span class="src">パスポート</span></div>
-            <div class="field-value empty" data-fill="2030/03/15"></div>
-          </div>
-        </div>
-
-        <div class="tab-panel" data-panel="2">
-          <div class="app-row">
-            <div class="field-label">勤務先<span class="src">雇用契約書</span></div>
-            <div class="field-value empty" data-fill="○○株式会社"></div>
-          </div>
-          <div class="app-row">
-            <div class="field-label">職種<span class="src">雇用契約書</span></div>
-            <div class="field-value empty" data-fill="エンジニア"></div>
-          </div>
-          <div class="app-row">
-            <div class="field-label">雇用開始日<span class="src">雇用契約書</span></div>
-            <div class="field-value empty" data-fill="2024/04/01"></div>
-          </div>
-          <div class="app-row">
-            <div class="field-label">月給<span class="src">雇用契約書</span></div>
-            <div class="field-value empty" data-fill="280,000円"></div>
-          </div>
-        </div>
-      </div>
+  <div class="container-full">
+    <div class="poipoi-head">
+      <div class="eyebrow center">Live Demo</div>
+      <h2>3枚の書類が、<span class="accent">1つのクライアント台帳</span>に。</h2>
+      <p class="lead">在留カード・パスポート・雇用契約書を「ポイッ」。AIが自動で読み取り、3つのタブに振り分けます。</p>
     </div>
 
-    <div class="success-toast">✨ 13項目を3つのタブに自動振り分け</div>
+    <div class="stage">
+      <!-- 在留カード -->
+      <svg class="document doc-zairyu" width="260" height="165" viewBox="0 0 260 165" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="zairyuBg" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#f0f4fa"/>
+            <stop offset="50%" stop-color="#ffffff"/>
+            <stop offset="100%" stop-color="#e8edf5"/>
+          </linearGradient>
+          <linearGradient id="ic" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#d4af37"/>
+            <stop offset="100%" stop-color="#a67c00"/>
+          </linearGradient>
+        </defs>
+        <rect x="0" y="0" width="260" height="165" rx="10" fill="url(#zairyuBg)" stroke="#c8cdd7" stroke-width="1"/>
+        <rect x="0" y="0" width="260" height="22" rx="10" fill="#2c6fb0"/>
+        <rect x="0" y="12" width="260" height="10" fill="#2c6fb0"/>
+        <text x="12" y="15" fill="#fff" font-family="'Shippori Mincho', serif" font-size="10" font-weight="600">在留カード / RESIDENCE CARD</text>
+        <rect x="14" y="32" width="58" height="74" rx="3" fill="#d4d2c8" stroke="#a8a59c" stroke-width="0.5"/>
+        <circle cx="43" cy="58" r="11" fill="#a8a59c"/>
+        <path d="M 25 105 Q 43 80 61 105 Z" fill="#a8a59c"/>
+        <rect x="82" y="34" width="60" height="3" rx="1.5" fill="#9aa0ab"/>
+        <rect x="82" y="42" width="120" height="5" rx="2" fill="#2a2724"/>
+        <rect x="82" y="55" width="40" height="3" rx="1.5" fill="#9aa0ab"/>
+        <rect x="82" y="63" width="80" height="5" rx="2" fill="#2a2724"/>
+        <rect x="82" y="76" width="50" height="3" rx="1.5" fill="#9aa0ab"/>
+        <rect x="82" y="84" width="140" height="5" rx="2" fill="#2a2724"/>
+        <rect x="14" y="118" width="200" height="3" rx="1.5" fill="#9aa0ab"/>
+        <rect x="14" y="126" width="140" height="6" rx="2" fill="#2c6fb0"/>
+        <rect x="218" y="118" width="28" height="22" rx="3" fill="url(#ic)" stroke="#8a6500" stroke-width="0.5"/>
+        <line x1="222" y1="124" x2="242" y2="124" stroke="#8a6500" stroke-width="0.5"/>
+        <line x1="222" y1="130" x2="242" y2="130" stroke="#8a6500" stroke-width="0.5"/>
+        <line x1="222" y1="135" x2="242" y2="135" stroke="#8a6500" stroke-width="0.5"/>
+        <line x1="228" y1="120" x2="228" y2="139" stroke="#8a6500" stroke-width="0.5"/>
+        <line x1="236" y1="120" x2="236" y2="139" stroke="#8a6500" stroke-width="0.5"/>
+        <text x="14" y="156" fill="#9aa0ab" font-family="'Noto Sans JP', sans-serif" font-size="6">就労制限の有無：就労可</text>
+      </svg>
+
+      <!-- パスポート -->
+      <svg class="document doc-passport" width="170" height="220" viewBox="0 0 170 220" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="passportBg" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#7d1a2e"/>
+            <stop offset="50%" stop-color="#5d0e1e"/>
+            <stop offset="100%" stop-color="#3d0612"/>
+          </linearGradient>
+          <radialGradient id="emblemGrad" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#f5d76e"/>
+            <stop offset="60%" stop-color="#d4af37"/>
+            <stop offset="100%" stop-color="#a67c00"/>
+          </radialGradient>
+        </defs>
+        <rect x="6" y="6" width="158" height="208" rx="8" fill="url(#passportBg)" stroke="#3d0612" stroke-width="1"/>
+        <rect x="14" y="14" width="142" height="192" rx="4" fill="none" stroke="#d4af37" stroke-width="0.6" opacity="0.5"/>
+        <text x="85" y="38" fill="#d4af37" font-family="'Shippori Mincho', serif" font-size="11" font-weight="700" text-anchor="middle" letter-spacing="2">JAPAN</text>
+        <text x="85" y="48" fill="#d4af37" font-family="'Shippori Mincho', serif" font-size="6" text-anchor="middle" letter-spacing="1.5">日本国旅券</text>
+        <g transform="translate(85, 110)">
+          <circle cx="0" cy="0" r="38" fill="url(#emblemGrad)" stroke="#8a6500" stroke-width="0.5"/>
+          <g fill="#a67c00" opacity="0.8">
+            <ellipse cx="0" cy="-28" rx="3.5" ry="9"/>
+            <ellipse cx="0" cy="-28" rx="3.5" ry="9" transform="rotate(22.5)"/>
+            <ellipse cx="0" cy="-28" rx="3.5" ry="9" transform="rotate(45)"/>
+            <ellipse cx="0" cy="-28" rx="3.5" ry="9" transform="rotate(67.5)"/>
+            <ellipse cx="0" cy="-28" rx="3.5" ry="9" transform="rotate(90)"/>
+            <ellipse cx="0" cy="-28" rx="3.5" ry="9" transform="rotate(112.5)"/>
+            <ellipse cx="0" cy="-28" rx="3.5" ry="9" transform="rotate(135)"/>
+            <ellipse cx="0" cy="-28" rx="3.5" ry="9" transform="rotate(157.5)"/>
+            <ellipse cx="0" cy="-28" rx="3.5" ry="9" transform="rotate(180)"/>
+            <ellipse cx="0" cy="-28" rx="3.5" ry="9" transform="rotate(202.5)"/>
+            <ellipse cx="0" cy="-28" rx="3.5" ry="9" transform="rotate(225)"/>
+            <ellipse cx="0" cy="-28" rx="3.5" ry="9" transform="rotate(247.5)"/>
+            <ellipse cx="0" cy="-28" rx="3.5" ry="9" transform="rotate(270)"/>
+            <ellipse cx="0" cy="-28" rx="3.5" ry="9" transform="rotate(292.5)"/>
+            <ellipse cx="0" cy="-28" rx="3.5" ry="9" transform="rotate(315)"/>
+            <ellipse cx="0" cy="-28" rx="3.5" ry="9" transform="rotate(337.5)"/>
+          </g>
+          <circle cx="0" cy="0" r="14" fill="#d4af37" stroke="#8a6500" stroke-width="0.5"/>
+          <circle cx="0" cy="0" r="6" fill="#8a6500"/>
+        </g>
+        <text x="85" y="180" fill="#d4af37" font-family="'Shippori Mincho', serif" font-size="14" font-weight="700" text-anchor="middle" letter-spacing="3">PASSPORT</text>
+        <text x="85" y="195" fill="#d4af37" font-family="'Noto Sans JP', sans-serif" font-size="5.5" text-anchor="middle" letter-spacing="1">旅 券</text>
+      </svg>
+
+      <!-- 雇用契約書 -->
+      <svg class="document doc-contract" width="180" height="240" viewBox="0 0 180 240" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="paperBg" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="#ffffff"/>
+            <stop offset="100%" stop-color="#f8f6f0"/>
+          </linearGradient>
+        </defs>
+        <rect x="4" y="4" width="172" height="232" rx="2" fill="url(#paperBg)" stroke="#c8c5bd" stroke-width="0.8"/>
+        <line x1="4" y1="4" x2="176" y2="4" stroke="#a8a59c" stroke-width="0.4"/>
+        <text x="90" y="32" fill="#2a2724" font-family="'Shippori Mincho', serif" font-size="14" font-weight="700" text-anchor="middle" letter-spacing="6">雇用契約書</text>
+        <line x1="50" y1="40" x2="130" y2="40" stroke="#2a2724" stroke-width="0.6"/>
+        <line x1="55" y1="43" x2="125" y2="43" stroke="#2a2724" stroke-width="0.3"/>
+        <g fill="#6b6760">
+          <text x="18" y="60" font-family="'Noto Sans JP', sans-serif" font-size="7">甲（雇用者）：</text>
+          <rect x="68" y="55" width="90" height="3" rx="1" fill="#2a2724"/>
+          <text x="18" y="76" font-family="'Noto Sans JP', sans-serif" font-size="7">乙（被雇用者）：</text>
+          <rect x="72" y="71" width="86" height="3" rx="1" fill="#2a2724"/>
+          <text x="18" y="98" font-family="'Noto Sans JP', sans-serif" font-size="6.5">第一条（業務内容）</text>
+          <rect x="18" y="102" width="140" height="1.5" rx="0.5" fill="#9aa0ab"/>
+          <rect x="18" y="107" width="135" height="1.5" rx="0.5" fill="#9aa0ab"/>
+          <rect x="18" y="112" width="80" height="1.5" rx="0.5" fill="#9aa0ab"/>
+          <text x="18" y="126" font-family="'Noto Sans JP', sans-serif" font-size="6.5">第二条（雇用期間）</text>
+          <rect x="18" y="130" width="140" height="1.5" rx="0.5" fill="#9aa0ab"/>
+          <rect x="18" y="135" width="120" height="1.5" rx="0.5" fill="#9aa0ab"/>
+          <text x="18" y="150" font-family="'Noto Sans JP', sans-serif" font-size="6.5">第三条（報酬）</text>
+          <rect x="18" y="154" width="140" height="1.5" rx="0.5" fill="#9aa0ab"/>
+          <rect x="18" y="159" width="100" height="1.5" rx="0.5" fill="#9aa0ab"/>
+        </g>
+        <g transform="translate(140, 200)">
+          <circle cx="0" cy="0" r="14" fill="none" stroke="#c44" stroke-width="1.8"/>
+          <text x="0" y="3" fill="#c44" font-family="'Shippori Mincho', serif" font-size="8" text-anchor="middle" font-weight="700">印</text>
+        </g>
+        <line x1="20" y1="215" x2="115" y2="215" stroke="#9aa0ab" stroke-width="0.5"/>
+        <text x="20" y="225" fill="#9aa0ab" font-family="'Noto Sans JP', sans-serif" font-size="5">署名欄</text>
+      </svg>
+
+      <!-- アプリ画面 -->
+      <div class="app-window">
+        <div class="app-titlebar">
+          <div class="dot red"></div>
+          <div class="dot yellow"></div>
+          <div class="dot green"></div>
+          <div class="title">Clavis <span class="accent">Note</span> — クライアント登録</div>
+          <div class="badge">LIVE</div>
+        </div>
+
+        <div class="poipoi-zone">
+          <div class="icon">📥</div>
+          <div class="label">ポイポイ式エリア</div>
+          <div class="sub">在留カード・パスポート・契約書などをドロップ</div>
+        </div>
+
+        <div class="tabs">
+          <div class="tab active" data-tab="0">基本情報</div>
+          <div class="tab" data-tab="1">在留情報</div>
+          <div class="tab" data-tab="2">職歴</div>
+          <div class="tab-indicator"></div>
+        </div>
+
+        <div class="tab-panels">
+          <div class="tab-panel active" data-panel="0">
+            <div class="app-row"><div class="field-label">氏名（ローマ字）<span class="src">在留カード</span></div><div class="field-value empty" data-fill="SAMPLE POCKET"></div></div>
+            <div class="app-row"><div class="field-label">生年月日<span class="src">在留カード</span></div><div class="field-value empty" data-fill="1990/04/01"></div></div>
+            <div class="app-row"><div class="field-label">国籍<span class="src">在留カード</span></div><div class="field-value empty" data-fill="VIETNAM"></div></div>
+            <div class="app-row"><div class="field-label">性別<span class="src">在留カード</span></div><div class="field-value empty" data-fill="女"></div></div>
+          </div>
+          <div class="tab-panel" data-panel="1">
+            <div class="app-row"><div class="field-label">在留資格<span class="src">在留カード</span></div><div class="field-value empty" data-fill="技術・人文知識・国際業務"></div></div>
+            <div class="app-row"><div class="field-label">在留カード番号<span class="src">在留カード</span></div><div class="field-value empty" data-fill="AB12345678CD"></div></div>
+            <div class="app-row"><div class="field-label">在留期限<span class="src">在留カード</span></div><div class="field-value empty" data-fill="2027/06/30"></div></div>
+            <div class="app-row"><div class="field-label">パスポート番号<span class="src">パスポート</span></div><div class="field-value empty" data-fill="TZ1234567"></div></div>
+            <div class="app-row"><div class="field-label">パスポート有効期限<span class="src">パスポート</span></div><div class="field-value empty" data-fill="2030/03/15"></div></div>
+          </div>
+          <div class="tab-panel" data-panel="2">
+            <div class="app-row"><div class="field-label">勤務先<span class="src">雇用契約書</span></div><div class="field-value empty" data-fill="○○株式会社"></div></div>
+            <div class="app-row"><div class="field-label">職種<span class="src">雇用契約書</span></div><div class="field-value empty" data-fill="エンジニア"></div></div>
+            <div class="app-row"><div class="field-label">雇用開始日<span class="src">雇用契約書</span></div><div class="field-value empty" data-fill="2024/04/01"></div></div>
+            <div class="app-row"><div class="field-label">月給<span class="src">雇用契約書</span></div><div class="field-value empty" data-fill="280,000円"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="success-toast">✨ 13項目を3つのタブに自動振り分け</div>
+    </div>
   </div>
 </section>
 
-<!-- Features Part 2: 主な機能 -->
-<section class="block features">
-  <div class="container">
-    <div class="main-label">主な機能</div>
-    <ul>
-      <li>
-        <p class="feat-title">クライアント台帳</p>
+<!-- ============== MAIN FEATURES (3 cards) ============== -->
+<section class="main-features">
+  <div class="container-wide">
+    <div class="features-head">
+      <div class="eyebrow center">All-in-One</div>
+      <h2>主な機能</h2>
+    </div>
+    <div class="feat-grid">
+      <article class="feat-card">
+        <div class="feat-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+        </div>
+        <h3 class="feat-title">クライアント台帳</h3>
         <p class="feat-desc">在留カード・パスポート情報、職歴・給与履歴、案件履歴を一元管理。家族構成や勤務先との繋がりも、ひと目でわかる。</p>
-      </li>
-      <li>
-        <p class="feat-title">案件管理</p>
-        <p class="feat-desc">入管業務がメインだけど、たまにそれ以外の業務も引き受ける——そんな現場のリアルに応えて、一般業務も管理可能。入管業務には、追加資料対応履歴や審査官・勤務先とのやり取りも記録できます。</p>
-      </li>
-      <li>
-        <p class="feat-title">報酬・入金管理</p>
+        <ul class="feat-points">
+          <li>家族・勤務先の関連付け</li>
+          <li>在留期限アラート</li>
+          <li>変遷履歴の自動記録</li>
+        </ul>
+      </article>
+
+      <article class="feat-card">
+        <div class="feat-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2"/>
+            <path d="M16 2v4M8 2v4M3 10h18"/>
+            <path d="M8 14h4M8 18h6"/>
+          </svg>
+        </div>
+        <h3 class="feat-title">案件管理</h3>
+        <p class="feat-desc">入管業務がメインだけど、たまにそれ以外の業務も引き受ける ── そんな現場のリアルに応えて、一般業務も管理可能。入管業務には、追加資料対応履歴や審査官・勤務先とのやり取りも記録できます。</p>
+        <ul class="feat-points">
+          <li>事件簿の自動生成</li>
+          <li>追加資料の対応履歴</li>
+          <li>関係者ごとのやり取り記録</li>
+        </ul>
+      </article>
+
+      <article class="feat-card">
+        <div class="feat-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="1" x2="12" y2="23"/>
+            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+          </svg>
+        </div>
+        <h3 class="feat-title">報酬・入金管理</h3>
         <p class="feat-desc">見積・請求・領収書発行から、まとめ請求、立替金管理まで。現金でいただいた報酬をその場で入金記録、領収書・PDF発行と、現場で完了できる業務フローを実現。</p>
-      </li>
-    </ul>
+        <ul class="feat-points">
+          <li>見積→請求→入金 一気通貫</li>
+          <li>立替金・実費の追跡</li>
+          <li>確定申告連携データ出力</li>
+        </ul>
+      </article>
+    </div>
   </div>
 </section>
 
-<!-- 利用について -->
+<!-- ============== TERMS INFO ============== -->
 <section class="terms-info">
   <div class="container">
-    <p><strong>行政書士登録者専用のツールです</strong></p>
-    <p>一般企業・個人ユーザー・登録支援機関単体の方への提供は行いません。</p>
+    <div class="terms-lead">For Certified Gyoseishoshi Only</div>
+    <p class="headline">行政書士登録者専用のツールです</p>
+    <p class="body">一般企業・個人ユーザー・登録支援機関単体の方へのご提供は行っておりません。<br>在留カード・パスポート等の機微情報を扱うため、日行連 HP にてご登録の確認をさせていただきます。</p>
   </div>
 </section>
 
-<!-- 料金プラン -->
-<section class="block pricing">
-  <div class="container">
-    <div class="section-label">Pricing</div>
-    <h2>料金プラン</h2>
-    <p class="pricing-intro">
-      まずは <strong>30日間無料</strong> でじっくりお試しください。<br>
-      全機能・件数制限なしでご利用いただけます。
-    </p>
+<!-- ============== PRICING ============== -->
+<section class="pricing-section" id="pricing">
+  <div class="container-wide">
+    <div class="pricing-head">
+      <div class="eyebrow center">Pricing</div>
+      <h2>料金プラン</h2>
+      <p class="pricing-intro">
+        まずは <strong>30日間無料</strong> でじっくりお試しください。<br>
+        全機能・件数制限なしでご利用いただけます。
+      </p>
+    </div>
 
     <div class="pricing-flow">
-      <div class="trial-hero">
-        <div class="trial-label">まずは</div>
-        <div class="trial-title"><span class="trial-days">30日間</span>、まるごと無料</div>
-        <div class="trial-features">全機能解放　／　件数制限なし</div>
+      <div class="trial-card">
+        <div class="step-num">1</div>
+        <div class="step-label">— First Step —</div>
+        <div class="step-title"><span class="days">30日間</span>、まるごと無料</div>
+        <div class="step-meta">全機能解放<span class="sep">／</span>件数制限なし</div>
       </div>
 
-      <div class="flow-arrow">↓</div>
+      <div class="flow-divider">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="5" y1="12" x2="19" y2="12"/>
+          <polyline points="12 5 19 12 12 19"/>
+        </svg>
+      </div>
 
-      <div class="discount-banner">
-        <div class="discount-label">2ヶ月目以降</div>
-        <div class="discount-headline">6ヶ月間<span class="discount-percent">約54% OFF</span></div>
-        <div class="discount-prices">
+      <div class="discount-card">
+        <div class="step-num">2</div>
+        <div class="step-label">— 2ヶ月目以降 / 限定特典 —</div>
+        <div class="discount-headline">6ヶ月間 <span class="pill">約54% OFF</span></div>
+        <div class="prices">
           <span class="price-original">¥7,150</span>
           <span class="price-arrow">→</span>
           <span class="price-final">¥3,300<span class="unit">/月</span></span>
         </div>
-        <div class="discount-note">¥3,850 OFFクーポン適用</div>
+        <div class="price-note">¥3,850 OFF クーポン適用（FOUNDER）</div>
       </div>
+    </div>
 
-      <div class="regular-price-note">
-        割引終了後は通常価格 <strong>¥7,150/月</strong>（税込）
-      </div>
+    <div class="regular-price-note">
+      割引終了後は通常価格 <strong>¥7,150／月</strong>（税込）
     </div>
 
     <div class="pricing-includes">
@@ -1729,7 +2530,12 @@
     </div>
 
     <div class="pricing-cta">
-      <a href="https://buy.stripe.com/8x2fZicdl78hd7DfYB3Je01?prefilled_promo_code=FOUNDER" class="cta-button">30日間無料で始める →</a>
+      <a href="https://buy.stripe.com/8x2fZicdl78hd7DfYB3Je01?prefilled_promo_code=FOUNDER" class="cta-primary">
+        30日間無料で始める
+        <span class="arrow">
+          <svg width="11" height="11" viewBox="0 0 11 11" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 5.5h7m0 0L5.5 2M9 5.5L5.5 9" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+      </a>
       <p class="cta-note">
         ※ お申し込みにはクレジットカード登録が必要です。<br>
         ※ 行政書士登録者専用のサービスです。<br>
@@ -1739,323 +2545,285 @@
   </div>
 </section>
 
-<!-- FAQ -->
-<section class="block faq">
+<!-- ============== FAQ ============== -->
+<section class="faq-section" id="faq">
   <div class="container">
-    <div class="section-label">FAQ</div>
-    <h2>よくある質問</h2>
+    <div class="faq-head">
+      <div class="eyebrow center">FAQ</div>
+      <h2>よくある質問</h2>
+    </div>
     <div class="faq-list">
-
-      <!-- ━━ Q1: 行政書士登録者限定 ━━ -->
       <details class="faq-item">
         <summary>行政書士登録者以外は使えますか?</summary>
         <div class="faq-answer">
-          Clavis Noteは<strong>行政書士登録者</strong>専用のサービスです。一般企業・個人ユーザー・登録支援機関単体の方への提供は行っておりません。これは、在留カード・パスポート等の機微な個人情報を扱う性質上、行政書士法に基づく法定の守秘義務を負う行政書士であることを、<strong>日行連(日本行政書士会連合会)のHP</strong>で確認させていただくためです。
+          Clavis Note は<strong>行政書士登録者</strong>専用のサービスです。一般企業・個人ユーザー・登録支援機関単体の方への提供は行っておりません。これは、在留カード・パスポート等の機微な個人情報を扱う性質上、行政書士法に基づく法定の守秘義務を負う行政書士であることを、<strong>日行連（日本行政書士会連合会）のHP</strong>で確認させていただくためです。
         </div>
       </details>
-
-      <!-- ━━ Q2: データの保存先 ━━ -->
       <details class="faq-item">
         <summary>データはどこに保存されますか?</summary>
         <div class="faq-answer">
-          <p>入力したクライアント情報・案件・報酬データは、<strong>お使いのパソコン内に保存され、バックアップデータがGoogle Driveに同期されます</strong>(ご要望により OneDrive 連携の追加も検討します)。当事務所のサーバーには業務データを保管しない設計です。</p>
+          <p>入力したクライアント情報・案件・報酬データは、<strong>お使いのパソコン内に保存され、バックアップデータが Google Drive に同期されます</strong>（ご要望により OneDrive 連携の追加も検討します）。当事務所のサーバーには業務データを保管しない設計です。</p>
           <p>なお、ご契約者のお名前・メールアドレス・ライセンス情報は、決済・契約管理のため当事務所側で安全に保管しております。詳しくは <a href="privacy.html">プライバシーポリシー</a> をご確認ください。</p>
         </div>
       </details>
-
-      <!-- ━━ Q3: 個人開発でもセキュリティ大丈夫? (新規) ━━ -->
       <details class="faq-item">
         <summary>個人開発のようですが、セキュリティは大丈夫ですか?</summary>
         <div class="faq-answer">
-          <p>むしろ、個人開発だからこそ、Clavis Noteは、貴事務所の顧客情報を当事務所で預からない設計にしました。</p>
-          <p>よくあるクラウド型のサービスは、個人情報を「サービス会社の倉庫」のような場所に預けて使う仕組みです。便利な反面、倉庫に預ける仕組み(セキュリティ対策)には<strong>高度な専門性が要求されます</strong>。守秘義務を負う行政書士業務で使っていただくためには、<strong>リスクを最小限にしたい</strong>と考えました。</p>
-          <p>そのためClavis Noteは、その「倉庫」そのものを作らない仕組みになっています。</p>
-          <p>顧客の個人情報(クライアント台帳・案件・報酬データ・在留カードやパスポートの画像など)は、<strong>お使いのパソコン内に保存され、バックアップデータがGoogle Driveに同期されます</strong>(ご要望により OneDrive 連携の追加も検討します)。</p>
-          <p>当事務所では、業務データを預かることも、仕組み上、閲覧することもできません。</p>
-          <p>例えるなら、紙の台帳を貴事務所のキャビネットに保管しているのと近い感覚です。</p>
-          <p>ご不明点などがありましたら、<a href="mailto:info@clavis-note.com">info@clavis-note.com</a> までお気軽にお問い合わせください。</p>
+          <p>むしろ、個人開発だからこそ、Clavis Note は、貴事務所の顧客情報を当事務所で預からない設計にしました。</p>
+          <p>よくあるクラウド型のサービスは、個人情報を「サービス会社の倉庫」のような場所に預けて使う仕組みです。便利な反面、倉庫に預ける仕組み（セキュリティ対策）には<strong>高度な専門性が要求されます</strong>。守秘義務を負う行政書士業務で使っていただくためには、<strong>リスクを最小限にしたい</strong>と考えました。</p>
+          <p>そのため Clavis Note は、その「倉庫」そのものを作らない仕組みになっています。</p>
+          <p>顧客の個人情報（クライアント台帳・案件・報酬データ・在留カードやパスポートの画像など）は、<strong>お使いのパソコン内に保存され、バックアップデータが Google Drive に同期されます</strong>（ご要望により OneDrive 連携の追加も検討します）。</p>
+          <p>当事務所では、業務データを預かることも、仕組み上、閲覧することもできません。例えるなら、紙の台帳を貴事務所のキャビネットに保管しているのと近い感覚です。</p>
+          <p>ご不明点などがありましたら、<a href="/cdn-cgi/l/email-protection#462f28202906252a27302f356b282932236825292b"><span class="__cf_email__" data-cfemail="c5acaba3aa85a6a9a4b3acb6e8abaab1a0eba6aaa8">[email&#160;protected]</span></a> までお気軽にお問い合わせください。</p>
         </div>
       </details>
-
-      <!-- ━━ Q4: ポイポイ式は安全? (新規) ━━ -->
       <details class="faq-item">
-        <summary>ポイポイ式(書類の自動読み取り)は安全ですか?</summary>
+        <summary>ポイポイ式（書類の自動読み取り）は安全ですか?</summary>
         <div class="faq-answer">
-          <p>ポイポイ式は、在留カード・パスポート・雇用契約書などの画像から、必要な情報を抽出してフォームに自動入力する機能です。読み取り処理のため、<strong>画像データは外部のAIエンジン(API)を経由します</strong>。</p>
+          <p>ポイポイ式は、在留カード・パスポート・雇用契約書などの画像から、必要な情報を抽出してフォームに自動入力する機能です。読み取り処理のため、<strong>画像データは外部の AI エンジン（API）を経由します</strong>。</p>
           <ul>
-            <li><strong>AIの学習には使われません</strong>:API経由で送信したデータが、AIモデルの学習・改善に利用されることはありません(API提供事業者の公式仕様)。</li>
-            <li><strong>不正利用検知のため、一定期間はAPI提供事業者側で保管されます</strong>:多くのAPIサービスで採用されている一般的な仕様で、目的外の閲覧・利用は行われません。</li>
-            <li><strong>手入力でもご利用いただけます</strong>:ポイポイ式は「入力をラクにする工夫」のひとつで、利用は任意です。気になる書類はご自身の判断で手入力を選んでいただけます。</li>
+            <li><strong>AI の学習には使われません</strong>：API 経由で送信したデータが、AI モデルの学習・改善に利用されることはありません（API 提供事業者の公式仕様）。</li>
+            <li><strong>不正利用検知のため、一定期間は API 提供事業者側で保管されます</strong>：多くの API サービスで採用されている一般的な仕様で、目的外の閲覧・利用は行われません。</li>
+            <li><strong>手入力でもご利用いただけます</strong>：ポイポイ式は「入力をラクにする工夫」のひとつで、利用は任意です。気になる書類はご自身の判断で手入力を選んでいただけます。</li>
           </ul>
         </div>
       </details>
-
-      <!-- ━━ Q5: 使い方の確認方法 ━━ -->
       <details class="faq-item">
         <summary>使い方はどこで確認したらいいですか?</summary>
         <div class="faq-answer">
-          基本的な操作については、ご利用開始時にお送りする操作ガイドをご参照ください。ご不明な点やお困りごとがありましたら、<a href="mailto:info@clavis-note.com">info@clavis-note.com</a> までお気軽にお問い合わせください。
+          基本的な操作については、ご利用開始時にお送りする操作ガイドをご参照ください。ご不明な点やお困りごとがありましたら、<a href="/cdn-cgi/l/email-protection#3e575058517e5d525f48574d1350514a5b105d5153"><span class="__cf_email__" data-cfemail="d0b9beb6bf90b3bcb1a6b9a3fdbebfa4b5feb3bfbd">[email&#160;protected]</span></a> までお気軽にお問い合わせください。
         </div>
       </details>
-
-      <!-- ━━ Q6: ライセンスキー発行までの時間 ━━ -->
       <details class="faq-item">
         <summary>決済からライセンスキー発行まで時間がかかりますか?</summary>
         <div class="faq-answer">
-          通常は決済完了から数秒～数分でライセンスキーを発行し、welcomeメールでお送りしております。ごく稀にシステムの混雑等により10分程度かかる場合があります。30分以上経過しても届かない場合は、<a href="mailto:info@clavis-note.com">info@clavis-note.com</a> までご連絡ください。
+          通常は決済完了から数秒～数分でライセンスキーを発行し、welcome メールでお送りしております。ごく稀にシステムの混雑等により10分程度かかる場合があります。30分以上経過しても届かない場合は、<a href="/cdn-cgi/l/email-protection#8fe6e1e9e0cfece3eef9e6fca2e1e0fbeaa1ece0e2"><span class="__cf_email__" data-cfemail="dfb6b1b9b09fbcb3bea9b6acf2b1b0abbaf1bcb0b2">[email&#160;protected]</span></a> までご連絡ください。
         </div>
       </details>
-
-      <!-- ━━ Q7: welcomeメールが届かない ━━ -->
       <details class="faq-item">
-        <summary>welcomeメールが届きません</summary>
+        <summary>welcome メールが届きません</summary>
         <div class="faq-answer">
-          決済完了後、通常は数秒～数分で welcomeメールをお送りしております。届かない場合は、まず迷惑メールフォルダをご確認ください。それでも見当たらない場合は、メールアドレスの入力ミスの可能性があります。<a href="mailto:info@clavis-note.com">info@clavis-note.com</a> までお問い合わせいただければ、決済者情報を確認のうえ再送いたします。
+          決済完了後、通常は数秒～数分で welcome メールをお送りしております。届かない場合は、まず迷惑メールフォルダをご確認ください。それでも見当たらない場合は、メールアドレスの入力ミスの可能性があります。<a href="/cdn-cgi/l/email-protection#234a4d454c63404f42554a500e4d4c57460d404c4e"><span class="__cf_email__" data-cfemail="71181f171e31121d100718025c1f1e05145f121e1c">[email&#160;protected]</span></a> までお問い合わせいただければ、決済者情報を確認のうえ再送いたします。
         </div>
       </details>
-
-      <!-- ━━ Q8: ライセンスキー無効エラー ━━ -->
       <details class="faq-item">
         <summary>「ライセンスキーが無効です」と表示された時は?</summary>
         <div class="faq-answer">
-          ご入力内容に誤りがないかご確認ください。コピー&ペースト時に余分なスペースが混入することがあります。決済直後の場合は、ライセンスキー発行まで数分かかる場合があります。解決しない場合は <a href="mailto:info@clavis-note.com">info@clavis-note.com</a> までお問い合わせください。
+          ご入力内容に誤りがないかご確認ください。コピー&amp;ペースト時に余分なスペースが混入することがあります。決済直後の場合は、ライセンスキー発行まで数分かかる場合があります。解決しない場合は <a href="/cdn-cgi/l/email-protection#452c2b232a05262924332c36682b2a31206b262a28"><span class="__cf_email__" data-cfemail="721b1c141d32111e13041b015f1c1d06175c111d1f">[email&#160;protected]</span></a> までお問い合わせください。
         </div>
       </details>
-
-      <!-- ━━ Q9: 解約方法 ━━ -->
       <details class="faq-item">
         <summary>継続を中止したい時はどうすればいいですか?</summary>
         <div class="faq-answer">
-          次回更新日(決済日)の前日までに、所定の解約手続きをお願いいたします。月途中での解約による日割り精算・返金は行っておりません。解約手続きは <a href="mailto:info@clavis-note.com">info@clavis-note.com</a> までご連絡いただくか、Stripeから送付される決済明細メール内のリンクから直接管理いただけます。解約前に、バックアップ機能で業務データを保存してください。
+          次回更新日（決済日）の前日までに、所定の解約手続きをお願いいたします。月途中での解約による日割り精算・返金は行っておりません。解約手続きは <a href="/cdn-cgi/l/email-protection#8de4e3ebe2cdeee1ecfbe4fea0e3e2f9e8a3eee2e0"><span class="__cf_email__" data-cfemail="563f38303916353a37203f257b383922337835393b">[email&#160;protected]</span></a> までご連絡いただくか、Stripe から送付される決済明細メール内のリンクから直接管理いただけます。解約前に、バックアップ機能で業務データを保存してください。
         </div>
       </details>
-
     </div>
   </div>
 </section>
 
-<!-- フッター -->
+<!-- ============== FINAL CTA (dark) ============== -->
+<section class="final-cta">
+  <div class="container">
+    <div class="eyebrow center">Get Started</div>
+    <h2>作業に追われていた時間を、<br><span class="accent">人と向き合う時間</span>へ。</h2>
+    <p class="lead">
+      30日間、全機能・件数制限なしでお試しいただけます。<br>
+      6ヶ月間は <strong style="color:#fff;">約54% OFF</strong> でご利用いただけます。
+    </p>
+    <a href="https://buy.stripe.com/8x2fZicdl78hd7DfYB3Je01?prefilled_promo_code=FOUNDER" class="cta-primary">
+      30日間無料で始める
+      <span class="arrow">
+        <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M2 5.5h7m0 0L5.5 2M9 5.5L5.5 9" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </span>
+    </a>
+    <p class="footer-note">行政書士登録者専用のサービスです　／　日行連 HP にて確認させていただきます</p>
+  </div>
+</section>
+
+<!-- ============== FOOTER ============== -->
 <footer class="site">
-  <div class="footer-brand">Clavis <span class="accent">Note</span></div>
-  <div class="footer-org">ながみ行政書士事務所</div>
-  <div class="footer-info">
-    代表　長見　恵<br>
-    東京都立川市高松町３－１４－２　２F
+  <div class="footer-grid">
+    <div class="footer-brand-block">
+      <div class="footer-brand">Clavis <span class="accent">Note</span></div>
+      <div class="footer-org">ながみ行政書士事務所</div>
+      <div class="footer-info">
+        代表　長見　恵<br>
+        東京都立川市高松町３－１４－２　２F
+      </div>
+    </div>
+    <div class="footer-links-block">
+      <div class="footer-links-title">Information</div>
+      <a href="/terms.html">ご利用規約</a>
+      <a href="/privacy.html">プライバシーポリシー</a>
+      <a href="/tokushoho.html">特定商取引法表記</a>
+      <a href="/cdn-cgi/l/email-protection#adc4c3cbc2edcec1ccdbc4de80c3c2d9c883cec2c0"><span class="__cf_email__" data-cfemail="9bf2f5fdf4dbf8f7faedf2e8b6f5f4effeb5f8f4f6">[email&#160;protected]</span></a>
+    </div>
   </div>
-  <div class="footer-links">
-    <a href="/terms.html">ご利用規約</a>
-    <a href="/privacy.html">プライバシーポリシー</a>
-    <a href="/tokushoho.html">特定商取引法表記</a>
-  </div>
-  <div class="copyright">
-    &copy; 2026 ながみ行政書士事務所
+  <div class="footer-bottom">
+    <span>© 2026 ながみ行政書士事務所</span>
+    <span class="mono">Clavis Note — v1.0</span>
   </div>
 </footer>
 
-<!-- TOP▲ フローティングボタン -->
-<button class="back-to-top" aria-label="トップへ戻る">
+<!-- ============== BACK TO TOP ============== -->
+<button class="back-to-top" id="backToTop" aria-label="トップへ戻る">
   <span class="arrow-up">▲</span>
   <span class="top-label">TOP</span>
 </button>
 
-<script>
-  gsap.registerPlugin(ScrollTrigger);
+<div class="tp-section">
+    <div class="tp-label">Hero</div>
+    <div class="tp-themes tp-hero-modes">
+      <button class="tp-theme active" data-hero="video">動画</button>
+      <button class="tp-theme" data-hero="static">静止画</button>
+    </div>
+  </div>
+  <div class="tp-section">
+    <div class="tp-label">Options</div>
+    <div class="tp-toggle on" data-tweak="stickyCta">
+      <span>追従CTAバー</span>
+      <span class="pill"></span>
+    </div>
+    <div class="tp-toggle on" data-tweak="trustStrip">
+      <span>トラストストリップ</span>
+      <span class="pill"></span>
+    </div>
+  </div>
+</div>
 
-  document.querySelectorAll('.poipoi-section').forEach((section) => {
-    const stage = section.querySelector('.stage');
-    const poipoiZone = section.querySelector('.poipoi-zone');
-    const docZairyu = section.querySelector('.doc-zairyu');
-    const docPassport = section.querySelector('.doc-passport');
-    const docContract = section.querySelector('.doc-contract');
-    const toast = section.querySelector('.success-toast');
-    const tabIndicator = section.querySelector('.tab-indicator');
-    const tabs = section.querySelectorAll('.tab');
-    const tabPanels = section.querySelectorAll('.tab-panel');
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+(function () {
+  'use strict';
 
-    let floatAnims = [];
-    const tl = gsap.timeline({ paused: true });
+  const siteNav = document.getElementById('siteNav');
+  const backToTop = document.getElementById('backToTop');
 
-    // 溜め時間（秒）と吸い込み速度
-    const D = 1.2;       // ポイッ前の溜め
-    const DUR = 0.9;     // 吸い込み所要時間（0.7→0.9に0.2秒スロー化）
+  function onScroll() {
+    const y = window.scrollY;
+    if (siteNav) siteNav.classList.toggle('scrolled', y > 10);
+    if (backToTop) backToTop.classList.toggle('visible', y > 600);
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+  if (backToTop) backToTop.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
 
-    function startFloating() {
-      stopFloating();
-      floatAnims.push(gsap.to(docZairyu, { y: -8, rotation: -10, duration: 2.5, repeat: -1, yoyo: true, ease: 'sine.inOut' }));
-      floatAnims.push(gsap.to(docPassport, { y: 7, rotation: 8, duration: 2.8, repeat: -1, yoyo: true, ease: 'sine.inOut', delay: 0.3 }));
-      floatAnims.push(gsap.to(docContract, { y: -5, rotation: -6, duration: 3.2, repeat: -1, yoyo: true, ease: 'sine.inOut', delay: 0.6 }));
-    }
+  const revealEls = document.querySelectorAll('.pain-card, .approach-card, .feat-card, .trial-card, .discount-card, .pricing-includes, .story-quote, .voice-conclusion');
+  revealEls.forEach(el => el.classList.add('reveal'));
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(en => { if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); } });
+  }, { threshold: 0.12 });
+  revealEls.forEach(el => io.observe(el));
 
-    function stopFloating() {
-      floatAnims.forEach(a => a.kill());
-      floatAnims = [];
-    }
+  (function setupHeroVideo() {
+    const v = document.getElementById('heroVideo');
+    if (!v) return;
+    const src = './poipoi_anime.mp4';
+    fetch(src, { method: 'HEAD' })
+      .then(res => {
+        if (!res.ok) throw new Error('not found');
+        v.src = src;
+        const p = v.play();
+        if (p && typeof p.catch === 'function') p.catch(() => { v.style.display = 'none'; });
+      })
+      .catch(() => { v.style.display = 'none'; });
+    v.addEventListener('error', () => { v.style.display = 'none'; });
+  })();
 
-    function getZonePosition() {
-      const stageRect = stage.getBoundingClientRect();
-      const zoneRect = poipoiZone.getBoundingClientRect();
-      return {
-        x: zoneRect.left - stageRect.left + zoneRect.width / 2,
-        y: zoneRect.top - stageRect.top + zoneRect.height / 2
-      };
-    }
-
-    function buildTimeline() {
-      const target = getZonePosition();
-      tl.clear();
-
-      // 溜めの終わりに浮遊停止
-      tl.call(() => stopFloating(), null, D)
-
-      // 在留カード吸い込み
-      .to(docZairyu, {
-        x: target.x - 170,
-        y: target.y - 180,
-        rotation: 280,
-        scale: 0.25,
-        duration: DUR,
-        ease: 'power2.in'
-      }, D)
-      .to(docZairyu, { scale: 0, opacity: 0, duration: 0.2, ease: 'power2.out' }, D + DUR - 0.1)
-
-      // パスポート
-      .to(docPassport, {
-        x: target.x - 215,
-        y: target.y - 320,
-        rotation: -260,
-        scale: 0.25,
-        duration: DUR,
-        ease: 'power2.in'
-      }, D + 0.05)
-      .to(docPassport, { scale: 0, opacity: 0, duration: 0.2, ease: 'power2.out' }, D + DUR - 0.05)
-
-      // 雇用契約書
-      .to(docContract, {
-        x: target.x - 150,
-        y: target.y - 490,
-        rotation: 240,
-        scale: 0.25,
-        duration: DUR,
-        ease: 'power2.in'
-      }, D + 0.1)
-      .to(docContract, { scale: 0, opacity: 0, duration: 0.2, ease: 'power2.out' }, D + DUR)
-
-      // フラッシュ
-      .call(() => poipoiZone.classList.add('flash'), null, D + DUR - 0.1)
-      .call(() => poipoiZone.classList.remove('flash'), null, D + DUR + 0.5)
-
-      // タブ1: 基本情報
-      .call(() => activateTab(0), null, D + DUR + 0.3)
-      .call(() => fillFieldsInPanel(0), null, D + DUR + 0.9)
-
-      // タブ2: 在留情報
-      .call(() => activateTab(1), null, D + DUR + 2.3)
-      .call(() => fillFieldsInPanel(1), null, D + DUR + 2.9)
-
-      // タブ3: 職歴
-      .call(() => activateTab(2), null, D + DUR + 4.8)
-      .call(() => fillFieldsInPanel(2), null, D + DUR + 5.4)
-
-      // 完了トースト
-      .to(toast, {
-        opacity: 1,
-        y: 0,
-        duration: 0.6,
-        ease: 'back.out(1.7)'
-      }, D + DUR + 6.8)
-      .to(toast, {
-        opacity: 0,
-        y: -30,
-        duration: 0.5,
-        ease: 'power2.in'
-      }, D + DUR + 8.8);
-    }
-
-    function activateTab(index) {
-      tabs.forEach((t, i) => {
-        t.classList.toggle('active', i === index);
-      });
-      tabPanels.forEach((p, i) => {
-        p.classList.toggle('active', i === index);
-      });
-      tabIndicator.style.left = (index * 33.33) + '%';
-    }
-
-    function fillFieldsInPanel(panelIndex) {
-      const panel = tabPanels[panelIndex];
-      const fields = panel.querySelectorAll('.field-value');
-      fields.forEach((field, i) => {
-        const fillValue = field.dataset.fill;
-        gsap.to(field, {
-          delay: i * 0.18,
-          duration: 0.4,
-          onStart: () => {
-            field.classList.remove('empty');
-            field.textContent = fillValue;
-            gsap.fromTo(field,
-              { opacity: 0, x: -10 },
-              { opacity: 1, x: 0, duration: 0.4, ease: 'power2.out' }
-            );
-          }
-        });
-      });
-    }
-
-    function resetFields() {
-      section.querySelectorAll('.field-value').forEach(field => {
-        field.classList.add('empty');
-        field.textContent = '';
-        gsap.set(field, { opacity: 1, x: 0 });
-      });
-    }
-
-    function playPoipoiAnimation() {
-      resetAnimation();
-      buildTimeline();
-      tl.play(0);
-    }
-
-    function resetAnimation() {
-      tl.pause(0);
-      gsap.set([docZairyu, docPassport, docContract], {
-        x: 0, y: 0, rotation: 0, scale: 1, opacity: 1, clearProps: 'transform'
-      });
-      gsap.set(docZairyu, { rotation: -8 });
-      gsap.set(docPassport, { rotation: 6 });
-      gsap.set(docContract, { rotation: -4 });
-      gsap.set(toast, { opacity: 0, y: -30 });
-      poipoiZone.classList.remove('flash');
-      activateTab(0);
-      resetFields();
-      startFloating();
-    }
-
-    startFloating();
-
-    ScrollTrigger.create({
-      trigger: section,
-      start: 'top 25%',
-      end: 'bottom top',
-      onEnter: () => playPoipoiAnimation(),
-      onEnterBack: () => resetAnimation()
-    });
-  });
-
-  // ─── TOP▲ボタンの表示制御 ───
-  const backToTopBtn = document.querySelector('.back-to-top');
-  if (backToTopBtn) {
-    window.addEventListener('scroll', () => {
-      if (window.scrollY > 600) {
-        backToTopBtn.classList.add('visible');
-      } else {
-        backToTopBtn.classList.remove('visible');
+  if (window.gsap) {
+    gsap.registerPlugin(ScrollTrigger);
+    document.querySelectorAll('.poipoi-section').forEach((section) => {
+      const stage = section.querySelector('.stage');
+      const poipoiZone = section.querySelector('.poipoi-zone');
+      const docZairyu = section.querySelector('.doc-zairyu');
+      const docPassport = section.querySelector('.doc-passport');
+      const docContract = section.querySelector('.doc-contract');
+      const toast = section.querySelector('.success-toast');
+      const tabIndicator = section.querySelector('.tab-indicator');
+      const tabs = section.querySelectorAll('.tab');
+      const tabPanels = section.querySelectorAll('.tab-panel');
+      if (!stage || !poipoiZone) return;
+      let floatAnims = [];
+      const tl = gsap.timeline({ paused: true });
+      const D = 1.2; const DUR = 0.9;
+      function startFloating() {
+        stopFloating();
+        floatAnims.push(gsap.to(docZairyu,   { y: -8, rotation: -10, duration: 2.5, repeat: -1, yoyo: true, ease: 'sine.inOut' }));
+        floatAnims.push(gsap.to(docPassport, { y: 7,  rotation: 8,   duration: 2.8, repeat: -1, yoyo: true, ease: 'sine.inOut', delay: 0.3 }));
+        floatAnims.push(gsap.to(docContract, { y: -5, rotation: -6,  duration: 3.2, repeat: -1, yoyo: true, ease: 'sine.inOut', delay: 0.6 }));
       }
-    });
-    backToTopBtn.addEventListener('click', () => {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      function stopFloating() { floatAnims.forEach(a => a.kill()); floatAnims = []; }
+      function getZonePosition() {
+        const sR = stage.getBoundingClientRect();
+        const zR = poipoiZone.getBoundingClientRect();
+        return { x: zR.left - sR.left + zR.width / 2, y: zR.top - sR.top + zR.height / 2 };
+      }
+      function buildTimeline() {
+        const target = getZonePosition();
+        tl.clear();
+        tl.call(() => stopFloating(), null, D)
+          .to(docZairyu,   { x: target.x - 170, y: target.y - 180, rotation: 280,  scale: 0.25, duration: DUR, ease: 'power2.in' }, D)
+          .to(docZairyu,   { scale: 0, opacity: 0, duration: 0.2, ease: 'power2.out' }, D + DUR - 0.1)
+          .to(docPassport, { x: target.x - 215, y: target.y - 320, rotation: -260, scale: 0.25, duration: DUR, ease: 'power2.in' }, D + 0.05)
+          .to(docPassport, { scale: 0, opacity: 0, duration: 0.2, ease: 'power2.out' }, D + DUR - 0.05)
+          .to(docContract, { x: target.x - 150, y: target.y - 490, rotation: 240,  scale: 0.25, duration: DUR, ease: 'power2.in' }, D + 0.1)
+          .to(docContract, { scale: 0, opacity: 0, duration: 0.2, ease: 'power2.out' }, D + DUR)
+          .call(() => poipoiZone.classList.add('flash'), null, D + DUR - 0.1)
+          .call(() => poipoiZone.classList.remove('flash'), null, D + DUR + 0.5)
+          .call(() => activateTab(0), null, D + DUR + 0.3)
+          .call(() => fillFieldsInPanel(0), null, D + DUR + 0.9)
+          .call(() => activateTab(1), null, D + DUR + 2.3)
+          .call(() => fillFieldsInPanel(1), null, D + DUR + 2.9)
+          .call(() => activateTab(2), null, D + DUR + 4.8)
+          .call(() => fillFieldsInPanel(2), null, D + DUR + 5.4)
+          .to(toast, { opacity: 1, y: 0,   duration: 0.6, ease: 'back.out(1.7)' }, D + DUR + 6.8)
+          .to(toast, { opacity: 0, y: -30, duration: 0.5, ease: 'power2.in'      }, D + DUR + 8.8);
+      }
+      function activateTab(i) {
+        tabs.forEach((t, idx) => t.classList.toggle('active', idx === i));
+        tabPanels.forEach((p, idx) => p.classList.toggle('active', idx === i));
+        if (tabIndicator) tabIndicator.style.left = (i * 33.33) + '%';
+      }
+      function fillFieldsInPanel(panelIndex) {
+        const panel = tabPanels[panelIndex];
+        const fields = panel.querySelectorAll('.field-value');
+        fields.forEach((field, i) => {
+          const fillValue = field.dataset.fill;
+          gsap.to(field, {
+            delay: i * 0.18, duration: 0.4,
+            onStart: () => {
+              field.classList.remove('empty');
+              field.textContent = fillValue;
+              gsap.fromTo(field, { opacity: 0, x: -10 }, { opacity: 1, x: 0, duration: 0.4, ease: 'power2.out' });
+            }
+          });
+        });
+      }
+      function resetFields() {
+        section.querySelectorAll('.field-value').forEach(field => {
+          field.classList.add('empty'); field.textContent = '';
+          gsap.set(field, { opacity: 1, x: 0 });
+        });
+      }
+      function playPoipoiAnimation() { resetAnimation(); buildTimeline(); tl.play(0); }
+      function resetAnimation() {
+        tl.pause(0);
+        gsap.set([docZairyu, docPassport, docContract], { x: 0, y: 0, rotation: 0, scale: 1, opacity: 1, clearProps: 'transform' });
+        gsap.set(docZairyu,   { rotation: -8 });
+        gsap.set(docPassport, { rotation: 6 });
+        gsap.set(docContract, { rotation: -4 });
+        gsap.set(toast, { opacity: 0, y: -30 });
+        poipoiZone.classList.remove('flash');
+        activateTab(0); resetFields(); startFloating();
+      }
+      startFloating();
+      ScrollTrigger.create({
+        trigger: section, start: 'top 25%', end: 'bottom top',
+        onEnter: () => playPoipoiAnimation(),
+        onEnterBack: () => resetAnimation()
+      });
     });
   }
-</script>
-
-</body>
+})();
+</script></body>
 </html>
