@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /index-launch-eve.html
+
+Sitemap: https://clavis-note.com/sitemap.xml
