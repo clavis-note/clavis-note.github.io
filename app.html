@@ -4343,6 +4343,8 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
   function handleSelectClient(c){
     discardEmptyIfNew();
     setSelected(c);setTab("基本情報");
+    // 既存クライアント編集は従来通り（ポイポイは📷ボタン押下でのみ開く）
+    setShowPoiOverlay(false);
     if(isMobile) setShowDetail(true);
   }
   function handleAddClient(){
@@ -4362,6 +4364,8 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
     setClients(prev=>[newClient,...prev]);
     setSelected(newClient);
     setTab("基本情報");
+    // 新規登録は典型フローがポイポイ式 → エリアを最初から表示（既存編集は従来通りボタン押下）
+    setShowPoiOverlay(true);
     if(isMobile) setShowDetail(true);
   }
   function handleDeleteClient(){
@@ -4595,30 +4599,45 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
           </>
         )}
       </div>
-      {/* ポイポイ式オーバーレイ：D&Dゾーン + ファイル選択リンク */}
-      {showPoiOverlay&&(
+      {/* ポイポイ式オーバーレイ：D&Dゾーン + ファイル選択リンク。
+          新規登録時は常時表示（handleAddClientで起動）。枠内クリックで閉じ→手入力フォームへ。 */}
+      {showPoiOverlay&&(()=>{
+        const apiKey=(data.office||{}).license_key;
+        const licenseOk=!!apiKey&&isValidLicenseKeyFormat(apiKey);
+        return (
         <div onClick={()=>setShowPoiOverlay(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.45)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9200,padding:16}}>
-          <div onClick={e=>e.stopPropagation()}
-            onDragOver={e=>{e.preventDefault();e.stopPropagation();if(!poiReading)setPoiOverlayDragOver(true);}}
+          <div onClick={()=>setShowPoiOverlay(false)}
+            onDragOver={e=>{e.preventDefault();e.stopPropagation();if(!poiReading&&licenseOk)setPoiOverlayDragOver(true);}}
             onDragLeave={e=>{e.preventDefault();e.stopPropagation();setPoiOverlayDragOver(false);}}
-            onDrop={handlePoiOverlayDrop}
-            style={{borderRadius:14,padding:"32px 28px",maxWidth:460,width:"100%",border:`2px dashed ${poiOverlayDragOver?"#EF9F27":"rgba(239,159,39,0.6)"}`,textAlign:"center",boxShadow:"0 8px 32px rgba(0,0,0,0.2)",transition:"background 0.15s, border-color 0.15s",background:poiOverlayDragOver?"rgba(254,250,243,0.95)":"#fff"}}>
-            <div style={{fontSize:40,marginBottom:10,opacity:poiReading?0.4:1}}>📷</div>
-            <div style={{fontSize:16,fontWeight:600,marginBottom:6,color:"#185FA5"}}>ポイポイ式</div>
-            <div style={{fontSize:13,color:"var(--text2)",marginBottom:18,lineHeight:1.7}}>
-              在留カード・パスポート・雇用契約書などを<br/>
-              <strong style={{color:"#854F0B"}}>ここにドロップ</strong>
-              {" "}または{" "}
-              <a onClick={handlePoiOverlayPick} style={{color:"#185FA5",cursor:"pointer",textDecoration:"underline",fontWeight:500}}>ファイルを選択</a>
-            </div>
-            <div style={{fontSize:11,color:"var(--text3)",lineHeight:1.6,marginBottom:18}}>
-              1人分の書類束（在留カード+パスポート+職務履歴書など）を一括投入できます。<br/>
-              別人の書類が混ざっていた場合は警告で停止します。
-            </div>
-            <button onClick={()=>setShowPoiOverlay(false)} style={{fontSize:12,padding:"6px 20px",borderRadius:6,border:"0.5px solid var(--border)",background:"transparent",color:"var(--text2)",cursor:"pointer"}}>キャンセル</button>
+            onDrop={licenseOk?handlePoiOverlayDrop:e=>{e.preventDefault();e.stopPropagation();}}
+            style={{borderRadius:14,padding:"32px 28px",maxWidth:460,width:"100%",border:`2px dashed ${poiOverlayDragOver?"#EF9F27":"rgba(239,159,39,0.6)"}`,textAlign:"center",boxShadow:"0 8px 32px rgba(0,0,0,0.2)",transition:"background 0.15s, border-color 0.15s",background:poiOverlayDragOver?"rgba(254,250,243,0.95)":"#fff",cursor:"pointer"}}>
+            {licenseOk?(<>
+              <div style={{fontSize:40,marginBottom:10,opacity:poiReading?0.4:1}}>📷</div>
+              <div style={{fontSize:16,fontWeight:600,marginBottom:6,color:"#185FA5"}}>ポイポイ式</div>
+              <div style={{fontSize:13,color:"var(--text2)",marginBottom:18,lineHeight:1.7}}>
+                在留カード・パスポート・雇用契約書などを<br/>
+                <strong style={{color:"#854F0B"}}>ここにドロップ</strong>
+                {" "}または{" "}
+                <a onClick={e=>{e.stopPropagation();handlePoiOverlayPick();}} style={{color:"#185FA5",cursor:"pointer",textDecoration:"underline",fontWeight:500}}>ファイルを選択</a>
+              </div>
+              <div style={{fontSize:11,color:"var(--text3)",lineHeight:1.6,marginBottom:18}}>
+                1人分の書類束（在留カード+パスポート+職務履歴書など）を一括投入できます。<br/>
+                別人の書類が混ざっていた場合は警告で停止します。
+              </div>
+            </>):(<>
+              <div style={{fontSize:40,marginBottom:10}}>🔑</div>
+              <div style={{fontSize:18,fontWeight:700,marginBottom:8,color:"#854F0B"}}>ライセンスキーを有効にしてください</div>
+              <div style={{fontSize:13,color:"var(--text2)",marginBottom:14,lineHeight:1.7}}>
+                設定後、ポイポイ式（在留カード等の自動読み取り）がご利用いただけます。<br/>
+                <span style={{fontSize:11,color:"var(--text3)"}}>マスター登録 → 🏠事務所設定 → 🤖AI設定 から設定できます。</span>
+              </div>
+            </>)}
+            <div style={{fontSize:11,color:"var(--text3)",marginBottom:14}}>💡 手入力する場合は、この枠内をクリックしてください</div>
+            <button onClick={()=>setShowPoiOverlay(false)} style={{fontSize:12,padding:"6px 20px",borderRadius:6,border:"0.5px solid var(--border)",background:"transparent",color:"var(--text2)",cursor:"pointer"}}>{licenseOk?"キャンセル":"手入力で登録する"}</button>
           </div>
         </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
