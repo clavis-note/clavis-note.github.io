@@ -1169,7 +1169,7 @@ async function readDocument(fileBase64, mediaType, apiKey){
   "store": "支店・事業所名",
   "work_start_date": "YYYY-MM-DD形式（現在の勤務先の雇用開始日）",
   "work_history": [
-    {"company":"勤務先名","country":"国名","start":"YYYY-MM","end":"YYYY-MM"}
+    {"company":"勤務先名","country":"国名","start":"YYYY-MM（必ず西暦）","end":"YYYY-MM（必ず西暦。在職中はnull）"}
   ],
   "face_region": {"x_pct": 0.0, "y_pct": 0.0, "w_pct": 0.0, "h_pct": 0.0},
   "card_orientation": "portrait または landscape（在留カードの向き）",
@@ -1192,6 +1192,7 @@ async function readDocument(fileBase64, mediaType, apiKey){
 - address は日本国内の現住所のみ。退職証明書・パスポート等にある本国（海外）の住所は address に入れずnullにする
 - 雇用契約書は「現在の雇用先」→ company_name と work_start_date に入れる（work_history には入れない）
 - 退職証明書は「過去に退職した職歴」→ work_history に勤務先・start・end を入れる。現勤務先(company_name)には入れない
+- 日付はすべて西暦（グレゴリオ暦）で返す。ネパールの退職証明書等で「2078/01/10 (2021/04/23)」のようにネパール暦（ビクラム暦/Bikram Sambat。西暦+約57年で2078・2080等になる）と西暦が併記されている場合は、必ず西暦（括弧内などの20xx年）を採用する。work_history の start/end・work_start_date・その他すべての日付に適用
 - 職歴が複数あれば配列で全て返す
 - 会社情報が読み取れない場合はcompany_infoをnullに
 - work_historyが読み取れない場合はnullに
