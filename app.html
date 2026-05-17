@@ -5272,9 +5272,9 @@ function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments,templates,com
 
       {/* 追加資料対応 */}
       <div style={{background:"var(--bg)",border:"0.5px solid rgba(0,0,0,0.1)",borderRadius:10,padding:"14px 16px"}}>
-        <div onClick={()=>setAddlReqOpen(o=>!o)} style={{fontSize:12,fontWeight:500,color:"#666",marginBottom:addlReqOpen?10:0,display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer",userSelect:"none"}}>
+        <div onClick={()=>setAddlReqOpen(o=>!o)} style={{fontSize:12,fontWeight:500,color:"#666",marginBottom:addlReqOpen?10:0,display:"flex",alignItems:"center",gap:6,cursor:"pointer",userSelect:"none"}}>
+          <span style={{fontSize:10,color:"#999",width:10,display:"inline-block",textAlign:"center"}}>{addlReqOpen?"▼":"▶"}</span>
           <span>追加資料対応履歴{(c.additional_requests||[]).length>0&&<span style={{fontSize:10,color:"#A32D2D",marginLeft:6,fontWeight:500}}>{(c.additional_requests||[]).length}件</span>}</span>
-          <span style={{fontSize:11,color:"#999",fontWeight:400}}>{addlReqOpen?"▲ 閉じる":"▼ 開く"}</span>
         </div>
         {addlReqOpen&&(<>
         {(c.additional_requests||[]).map(r=>{
