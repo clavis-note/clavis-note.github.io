@@ -1330,6 +1330,16 @@ function isFollowCase(c, clients){
   if((c.company_name||"").includes("フォロー")) return true;
   return false;
 }
+// 請求の宛先表示名。bill_to_name が空でも client/case 経由で本人名（会社紐付けなら会社名）にフォールバック
+function displayBillTo(p, clients, cases){
+  if(!p) return "";
+  if(p.bill_to_name) return p.bill_to_name;
+  const cl=(clients||[]).find(c=>(p.client_ids||[]).includes(c.client_id));
+  if(cl) return cl.company_name||cl.name_roman||cl.name_kana||"";
+  const c=(cases||[]).find(x=>(p.case_ids||[]).includes(x.case_id));
+  if(c) return c.applicant||c.requester||"";
+  return "";
+}
 
 // ============================================================
 // 5. 共有UIコンポーネント
@@ -1529,7 +1539,7 @@ function payStatus(c){
   if(c.invoice_date) return "請求済";
   return "未請求";
 }
-function DashUnpaidList({payments,cases,onUpdatePayment,onClickItem}){
+function DashUnpaidList({payments,cases,clients,onUpdatePayment,onClickItem}){
   const [open,toggle]=useDashAccordion("unpaid",true);
   const unpaidPayments=payments.filter(p=>{
     const st=paymentStatus(p);
@@ -1560,6 +1570,9 @@ function DashUnpaidList({payments,cases,onUpdatePayment,onClickItem}){
   function handleSave(p){
     const amt=Number(draftAmount)||0;
     if(amt<=0) return;
+    const grand=calcGrandTotal(p.items,p.expenses,p.tax_mode||"tax_incl");
+    const already=(p.payments_history||[]).reduce((s,h)=>s+h.amount,0);
+    if(grand>0&&already+amt>grand&&!confirm(`請求額 ${fmt(grand)} を超える入金です（入金合計 ${fmt(already+amt)}）。\n\n立替金の返金など正当な過入金もありますが、金額の入力ミスがないかご確認ください。\n\nこのまま記録しますか？`)) return;
     const newHist={id:"h"+Date.now(),date:draftDate||today,amount:amt,method:draftMethod,note:draftNote};
     onUpdatePayment({...p,payments_history:[...(p.payments_history||[]),newHist]});
     handleClose();
@@ -1588,7 +1601,7 @@ function DashUnpaidList({payments,cases,onUpdatePayment,onClickItem}){
               <div key={p.payment_id} style={{borderBottom:"0.5px solid rgba(0,0,0,0.04)"}}>
                 <div style={{padding:"8px 16px",display:"flex",alignItems:"center",gap:10,background:isOpen?"var(--accent-bg)":isOverdue?"#FFF8F8":"transparent"}}>
                   <div style={{flex:1,cursor:"pointer"}} onClick={()=>{if(onClickItem)onClickItem(p);}}>
-                    <div style={{fontSize:12,fontWeight:500,color:"#1a1a1a"}}>{p.bill_to_name||"—"} <span style={{fontSize:10,color:"#aaa"}}>ℹ</span></div>
+                    <div style={{fontSize:12,fontWeight:500,color:"#1a1a1a"}}>{displayBillTo(p,clients,cases)||"—"} <span style={{fontSize:10,color:"#aaa"}}>ℹ</span></div>
                     <div style={{fontSize:11,color:"#888"}}>{caseNames}</div>
                     <div style={{fontSize:11,color:"#666",marginTop:1}}>
                       {st==="一部入金"?`入金済 ${fmt(paid)} / 残 ${fmt(remaining)}`:fmt(remaining)}
@@ -3059,7 +3072,7 @@ function Dashboard({data,setData,onNavClient,onNavCase,onNavPayment,onNavMaster}
             onPickFiles={handlePoiPickFiles} onSetup={()=>onNavMaster("office")}/>
         </div>
         <div style={{display:"flex",flexDirection:"column",gap:14}}>
-          <DashUnpaidList payments={confirmedPayments} cases={cases} onUpdatePayment={p=>setData(prev=>({...prev,payments:(prev.payments||[]).map(x=>x.payment_id===p.payment_id?p:x)}))} onClickItem={p=>setModal({type:"payment",data:p,cases})}/>
+          <DashUnpaidList payments={confirmedPayments} cases={cases} clients={clients} onUpdatePayment={p=>setData(prev=>({...prev,payments:(prev.payments||[]).map(x=>x.payment_id===p.payment_id?p:x)}))} onClickItem={p=>setModal({type:"payment",data:p,cases})}/>
           <DashProspects payments={prospectPayments} onClickItem={p=>setSelectedProspect(p)} onNew={()=>setShowNewProspect(true)}/>
           <DashQuickLinks links={links} setLinks={setLinks}/>
         </div>
@@ -3112,7 +3125,7 @@ function Dashboard({data,setData,onNavClient,onNavCase,onNavPayment,onNavMaster}
             const remaining=total-paid;
             const caseNames=p.case_ids.map(id=>cases.find(c=>c.case_id===id)).filter(Boolean).map(c=>c.applicant||c.case_title).join("、");
             return(<div>
-              <div style={{fontSize:16,fontWeight:600,marginBottom:4}}>{p.bill_to_name||"—"}</div>
+              <div style={{fontSize:16,fontWeight:600,marginBottom:4}}>{displayBillTo(p,clients,cases)||"—"}</div>
               <div style={{fontSize:13,color:"#666",marginBottom:12}}>{caseNames}</div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px 16px",fontSize:13,color:"#333"}}>
                 <div><span style={{color:"#999",fontSize:11}}>請求額</span><br/>{fmt(total)}</div>
@@ -6007,73 +6020,7 @@ function JBadge({text,colors}){
   return <span style={{fontSize:10,padding:"2px 7px",borderRadius:4,background:c.bg,color:c.color,fontWeight:500,whiteSpace:"nowrap"}}>{text}</span>;
 }
 
-function JournalModal({entry,onClose,onSave,nextNo,clients,companies}){
-  const isMobile=useMobile();
-  const isNew=!entry;
-  const [form,setForm]=useState(entry||{no:nextNo,accepted_date:new Date().toISOString().slice(0,10),applied_date:"",result_date:"",category:"国際",case_title:"",requester:"",requester_id:"",applicant:"",applicant_id:"",status:"受任",result:"",new_card:"",period:"",next_renewal:"",fee:"",paid:"",notes:"",official_req_no:"",client_id:"",template_id:null,receipt_number:"",docs:null,hearing_items:null,additional_requests:null});
-  const up=(k,v)=>setForm(p=>({...p,[k]:v}));
-  const isIntl=form.category==="国際";
-  function selectApplicant(cid){const c=clients.find(x=>x.client_id===cid);if(c){up("applicant",c.name_roman);up("applicant_id",c.client_id);}}
-  function selectRequester(coid){const co=(companies||COMPANY_DB).find(x=>x.company_id===coid);if(co){up("requester",co.name);up("requester_id",co.company_id);}}
-  function handleSave(){if(!form.case_title||(!form.requester&&!form.applicant))return;onSave({...form,case_id:entry?entry.case_id:"J"+Date.now(),fee:Number(form.fee)||0});}
-
-  return(
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,padding:isMobile?12:0}}>
-      <div style={{background:"var(--bg)",borderRadius:12,border:"0.5px solid rgba(0,0,0,0.15)",width:isMobile?"100%":580,maxWidth:580,maxHeight:"90vh",display:"flex",flexDirection:"column"}}>
-        <div style={{padding:"12px 16px",borderBottom:"0.5px solid rgba(0,0,0,0.1)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <span style={{fontSize:14,fontWeight:500}}>{isNew?"新規事件登録":"事件編集"} #{form.no}</span>
-          <button onClick={onClose} style={{border:"none",background:"none",fontSize:18,cursor:"pointer",color:"#999"}}>×</button>
-        </div>
-        <div style={{overflowY:"auto",padding:16,display:"flex",flexDirection:"column",gap:12}}>
-          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"80px 1fr 1fr",gap:10}}>
-            <div><div style={{fontSize:10,color:"#999",marginBottom:3}}>受任番号</div><input value={form.no} onChange={e=>up("no",e.target.value)} style={{width:"100%",fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",textAlign:"center"}}/></div>
-            <div><div style={{fontSize:10,color:"#999",marginBottom:3}}>受任日</div><input type="date" max="9999-12-31" min="1900-01-01" value={form.accepted_date||""} onChange={e=>up("accepted_date",e.target.value)} style={{width:"100%",fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/></div>
-            <div><div style={{fontSize:10,color:"#999",marginBottom:3}}>カテゴリー</div><select value={form.category} onChange={e=>up("category",e.target.value)} style={{width:"100%",fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}>{JOURNAL_CATEGORIES.map(c=><option key={c}>{c}</option>)}</select></div>
-          </div>
-          <div><div style={{fontSize:10,color:"#999",marginBottom:3}}>件名</div>
-            {isIntl?<div style={{display:"flex",gap:6}}><select value={INTL_PRESETS.includes(form.case_title)?form.case_title:""} onChange={e=>{if(e.target.value)up("case_title",e.target.value);}} style={{flex:1,fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}><option value="">プリセットから選択</option>{INTL_PRESETS.map(p=><option key={p}>{p}</option>)}</select><input value={form.case_title} onChange={e=>up("case_title",e.target.value)} placeholder="または直接入力" style={{flex:1,fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/></div>
-            :<input value={form.case_title} onChange={e=>up("case_title",e.target.value)} placeholder="件名を入力" style={{width:"100%",fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/>}
-          </div>
-          <div style={{background:"#F8F7F5",border:"0.5px solid rgba(0,0,0,0.08)",borderRadius:8,padding:12}}>
-            <div style={{fontSize:11,color:"#999",fontWeight:500,marginBottom:8}}>依頼主・申請人</div>
-            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10}}>
-              <div><div style={{fontSize:10,color:"#999",marginBottom:3}}>依頼主（会社・個人）</div><div style={{display:"flex",gap:4}}><select value={form.requester_id||""} onChange={e=>{if(e.target.value)selectRequester(e.target.value);else{up("requester","");up("requester_id","");}}} style={{width:120,fontSize:11,padding:"4px 6px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)"}}><option value="">会社を選択</option>{(companies||COMPANY_DB).filter(co=>co.status!=="inactive").map(co=><option key={co.company_id} value={co.company_id}>{co.name}{co.status==="changing"?" 🔄":""}</option>)}</select><input value={form.requester} onChange={e=>{up("requester",e.target.value);up("requester_id","");}} placeholder="直接入力も可" style={{flex:1,fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)"}}/></div></div>
-              <div><div style={{fontSize:10,color:"#999",marginBottom:3}}>申請人（個人名）</div><div style={{display:"flex",gap:4}}><select value={form.applicant_id||""} onChange={e=>{if(e.target.value)selectApplicant(e.target.value);else{up("applicant","");up("applicant_id","");}}} style={{width:120,fontSize:11,padding:"4px 6px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)"}}><option value="">台帳から選択</option>{clients.map(c=><option key={c.client_id} value={c.client_id}>{c.name_roman}</option>)}</select><input value={form.applicant} onChange={e=>{up("applicant",e.target.value);up("applicant_id","");}} placeholder="直接入力も可" style={{flex:1,fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)"}}/></div></div>
-            </div>
-          </div>
-          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"1fr 1fr 1fr 1fr",gap:10}}>
-            <div><div style={{fontSize:10,color:"#999",marginBottom:3}}>ステータス</div><select value={form.status} onChange={e=>up("status",e.target.value)} style={{width:"100%",fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}>{JOURNAL_STATUS_LIST.map(s=><option key={s}>{s}</option>)}</select></div>
-            <div><div style={{fontSize:10,color:"#999",marginBottom:3}}>申請日</div><input type="date" max="9999-12-31" min="1900-01-01" value={form.applied_date||""} onChange={e=>up("applied_date",e.target.value)} style={{width:"100%",fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/></div>
-            <div><div style={{fontSize:10,color:"#999",marginBottom:3}}>結果日</div><input type="date" max="9999-12-31" min="1900-01-01" value={form.result_date||""} onChange={e=>up("result_date",e.target.value)} style={{width:"100%",fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/></div>
-            <div><div style={{fontSize:10,color:"#999",marginBottom:3}}>結果</div><select value={form.result} onChange={e=>up("result",e.target.value)} style={{width:"100%",fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}>{JOURNAL_RESULT_LIST.map(r=><option key={r} value={r}>{r||"（未定）"}</option>)}</select></div>
-          </div>
-          {isIntl&&<div style={{background:"#F8F7F5",border:"0.5px solid rgba(0,0,0,0.08)",borderRadius:8,padding:12}}>
-            <div style={{fontSize:11,color:"#999",fontWeight:500,marginBottom:8}}>入管情報</div>
-            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:10}}>
-              <div><div style={{fontSize:10,color:"#999",marginBottom:3}}>新在留カード番号</div><input value={form.new_card||""} onChange={e=>up("new_card",e.target.value)} style={{width:"100%",fontSize:12,padding:"4px 6px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.12)",background:"var(--bg)"}}/></div>
-              <div><div style={{fontSize:10,color:"#999",marginBottom:3}}>期限</div><input value={form.period||""} onChange={e=>up("period",e.target.value)} placeholder="1年/3年/5年" style={{width:"100%",fontSize:12,padding:"4px 6px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.12)",background:"var(--bg)"}}/></div>
-              <div><div style={{fontSize:10,color:"#999",marginBottom:3}}>次回更新</div><input type="date" max="9999-12-31" min="1900-01-01" value={form.next_renewal||""} onChange={e=>up("next_renewal",e.target.value)} style={{width:"100%",fontSize:12,padding:"4px 6px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.12)",background:"var(--bg)"}}/></div>
-            </div>
-          </div>}
-          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:10}}>
-            <div><div style={{fontSize:10,color:"#999",marginBottom:3}}>報酬額（税込）</div><input type="number" value={form.fee} onChange={e=>up("fee",e.target.value)} style={{width:"100%",fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",textAlign:"right"}}/></div>
-            <div><div style={{fontSize:10,color:"#999",marginBottom:3}}>職務上請求番号</div><textarea value={form.official_req_no||""} onChange={e=>up("official_req_no",e.target.value)} rows={1} placeholder="複数はカンマまたは改行区切り" style={{width:"100%",fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",resize:"vertical",fontFamily:"inherit",lineHeight:1.5}}/></div>
-            <div><div style={{fontSize:10,color:"#999",marginBottom:3}}>備考</div><input value={form.notes||""} onChange={e=>up("notes",e.target.value)} style={{width:"100%",fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/></div>
-          </div>
-        </div>
-        <div style={{padding:"10px 16px",borderTop:"0.5px solid rgba(0,0,0,0.1)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          {!isNew&&<button onClick={()=>{if(confirm(`この事件を削除しますか？\n\n⚠️ 事件簿から完全に消えます。\n記録を残したい場合は「キャンセル」を押して\nステータスを「キャンセル」に変更してください。`))onSave(null);}} style={{fontSize:12,padding:"5px 14px",cursor:"pointer",borderRadius:6,border:"0.5px solid #A32D2D",background:"transparent",color:"#A32D2D"}}>削除</button>}
-          <div style={{display:"flex",gap:8,marginLeft:"auto"}}>
-            <button onClick={onClose} style={{fontSize:12,padding:"5px 14px",cursor:"pointer",borderRadius:6,border:"0.5px solid rgba(0,0,0,0.15)",background:"transparent",color:"#666"}}>キャンセル</button>
-            <button onClick={handleSave} disabled={!form.case_title||(!form.requester&&!form.applicant)} style={{fontSize:12,padding:"5px 14px",cursor:"pointer",borderRadius:6,border:"0.5px solid #378ADD",background:"#E6F1FB",color:"#185FA5",fontWeight:500,opacity:(!form.case_title||(!form.requester&&!form.applicant))?0.4:1}}>保存</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function CaseJournal({data,setData}){
+function CaseJournal({data,setData,onNavCase}){
   const isMobile=useMobile();
   const {cases,clients,companies}=data;
   const setCases=useCallback(fn=>{setData(prev=>{const nc=typeof fn==="function"?fn(prev.cases):fn;return{...prev,cases:nc};});},[setData]);
@@ -6085,8 +6032,7 @@ function CaseJournal({data,setData}){
   const [filterPayment,setFilterPayment]=useState("全て");
   const [sortKey,setSortKey]=useState("no");
   const [sortAsc,setSortAsc]=useState(false);
-  const [editEntry,setEditEntry]=useState(null);
-  const [showNew,setShowNew]=useState(false);
+  // 事件簿は cases から自動生成される法定記録（行政書士法第9条）。読み取り専用＝編集/新規/削除UIは持たない
   const [openFilter,setOpenFilter]=useState(null); // "cat"|"status"|"applicant"|null
 
   const yearOptions=useMemo(()=>{const years=new Set(cases.filter(d=>d.accepted_date).map(d=>d.accepted_date.slice(0,4)));return["全て",...[...years].sort().reverse()];},[cases]);
@@ -6115,14 +6061,6 @@ function CaseJournal({data,setData}){
 
   const summary=useMemo(()=>{const fee=filtered.reduce((s,d)=>s+(d.fee||0),0);return{fee,count:filtered.length};},[filtered]);
   function handleSort(key){if(sortKey===key)setSortAsc(!sortAsc);else{setSortKey(key);setSortAsc(key==="no"?false:true);}}
-  function handleSave(entry){
-    if(editEntry){
-      if(entry===null)setCases(prev=>prev.filter(d=>d.case_id!==editEntry.case_id));
-      else setCases(prev=>prev.map(d=>d.case_id===editEntry.case_id?entry:d));
-      setEditEntry(null);
-    } else {setCases(prev=>[entry,...prev]);setShowNew(false);}
-  }
-  const nextNo=cases.length>0?Math.max(...cases.map(d=>Number(d.no)||0))+1:1;
   const SortIcon=({col})=>sortKey!==col?<span style={{color:"#ddd",fontSize:9}}>⇅</span>:<span style={{color:"#185FA5",fontSize:9}}>{sortAsc?"▲":"▼"}</span>;
   const thS={fontSize:10,fontWeight:500,color:"#999",padding:"7px 6px",textAlign:"left",cursor:"pointer",userSelect:"none",background:"var(--bg2)",borderBottom:"0.5px solid rgba(0,0,0,0.1)",whiteSpace:"nowrap",position:"sticky",top:0,zIndex:2};
   const tdS={fontSize:12,padding:"8px 6px",borderBottom:"0.5px solid rgba(0,0,0,0.05)",whiteSpace:"nowrap"};
@@ -6278,8 +6216,8 @@ function CaseJournal({data,setData}){
           <tbody>
             {filtered.map(d=>{
               return(
-                <tr key={d.case_id} style={{cursor:"pointer"}} onClick={()=>setEditEntry(d)} onMouseEnter={e=>e.currentTarget.style.background="var(--bg2)"} onMouseLeave={e=>e.currentTarget.style.background=""}>
-                  <td style={{...tdS,textAlign:"center"}}><span style={{fontSize:10,color:"#378ADD"}}>編集</span></td>
+                <tr key={d.case_id} style={{cursor:"pointer"}} onClick={()=>onNavCase&&onNavCase(d.case_id)} onMouseEnter={e=>e.currentTarget.style.background="var(--bg2)"} onMouseLeave={e=>e.currentTarget.style.background=""}>
+                  <td style={{...tdS,textAlign:"center"}}><span style={{fontSize:10,color:"#378ADD"}} title="案件管理で開く">→</span></td>
                   <td style={{...tdS,color:"#999",fontSize:11,textAlign:"center"}}>{d.no}</td>
                   <td style={{...tdS,fontSize:11}}>{d.accepted_date||""}</td>
                   <td style={tdS}><JBadge text={d.category||"国際"} colors={JOURNAL_CAT_COLOR[d.category]}/></td>
@@ -6305,8 +6243,6 @@ function CaseJournal({data,setData}){
           <div style={{textAlign:"right"}}><div style={{fontSize:9,color:"#999"}}>報酬額計</div><div style={{fontSize:13,fontWeight:500,color:"#1a1a1a",fontVariantNumeric:"tabular-nums"}}>{fmt(summary.fee)}</div></div>
         </div>
       </div>
-      {showNew&&<JournalModal onClose={()=>setShowNew(false)} onSave={handleSave} nextNo={nextNo} clients={clients} companies={data.companies}/>}
-      {editEntry&&<JournalModal entry={editEntry} onClose={()=>setEditEntry(null)} onSave={handleSave} clients={clients} companies={data.companies}/>}
     </div>
   );
 }
@@ -6352,12 +6288,13 @@ function NewPaymentModal({onClose,onSave,cases,clients,payments,feeMaster}){
     const cl=c?clients.find(x=>x.client_id===c.client_id):null;
     const followDetected=c?isFollowCase(c,clients):false;
     setFeeCategory(followDetected?"follow":"general");
-    if(cl){
-      const dt=followDetected?"company":"individual";
-      setBillType(dt);setBillToName(dt==="company"?(cl.company_name||c.requester||""):(cl.name_roman||c.applicant||""));
-    } else if(c){
-      const dt=followDetected?"company":"individual";
-      setBillType(dt);setBillToName(dt==="company"?(c.requester||""):(c.applicant||""));
+    // 会社紐付けの有無で初期モードを自動判定（紐付けなし＝個人請求にして宛先空欄を防ぐ）
+    const coName=(cl&&cl.company_name)||(c&&c.company_name)||(followDetected&&c?c.requester:"")||"";
+    const personName=(cl&&(cl.name_roman||cl.name_kana))||(c&&c.applicant)||(c&&c.requester)||"";
+    if(coName){
+      setBillType("company");setBillToName(coName);
+    } else {
+      setBillType("individual");setBillToName(personName);
     }
   }
   function addFeeItem(key){
@@ -6429,7 +6366,7 @@ function NewPaymentModal({onClose,onSave,cases,clients,payments,feeMaster}){
               <div style={{fontSize:10,color:"var(--text3)",marginBottom:8}}>請求先</div>
               <div style={{display:"flex",gap:8,marginBottom:8}}>
                 {[["company","会社"],["individual","本人"]].map(([val,label])=>(
-                  <button key={val} onClick={()=>{setBillType(val);setBillToName(val==="company"?selClient?.company_name:selClient?.name_roman);}}
+                  <button key={val} onClick={()=>{setBillType(val);setBillToName(val==="company"?(selClient?.company_name||selCase?.company_name||selCase?.requester||""):(selClient?.name_roman||selClient?.name_kana||selCase?.applicant||""));}}
                     style={{fontSize:12,padding:"4px 12px",cursor:"pointer",borderRadius:5,border:`0.5px solid ${billType===val?"var(--accent)":"rgba(0,0,0,0.15)"}`,
                       background:billType===val?"var(--accent-bg)":"transparent",color:billType===val?"var(--accent-text)":"var(--text2)",fontWeight:billType===val?500:400}}>{label}</button>
                 ))}
@@ -7236,6 +7173,8 @@ function PaymentDetail({p,cases,clients,office,onUpdate,onDelete,onSplit,onItemS
   function addPayment(){
     if(!newPayAmt)return;
     const amt=parseInt(newPayAmt)||0;
+    const already=(p.payments_history||[]).reduce((s,h)=>s+h.amount,0);
+    if(grandTotal>0&&already+amt>grandTotal&&!confirm(`請求額 ${fmt(grandTotal)} を超える入金です（入金合計 ${fmt(already+amt)}）。\n\n立替金の返金など正当な過入金もありますが、金額の入力ミスがないかご確認ください。\n\nこのまま記録しますか？`)) return;
     const history=[...(p.payments_history||[]),{id:"h"+Date.now(),date:newPayDate,amount:amt,method:newPayMethod,note:newPayNote}];
     onUpdate({...p,payments_history:history});
     setNewPayAmt("");setNewPayNote("");setNewPayMethod("振込");
@@ -7259,7 +7198,7 @@ function PaymentDetail({p,cases,clients,office,onUpdate,onDelete,onSplit,onItemS
         <div style={{display:"flex",flexDirection:isMobile?"column":"row",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10,gap:isMobile?8:0}}>
           <div style={{flex:1}}>
             <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3,flexWrap:"wrap"}}>
-              <input type="text" value={p.bill_to_name||""} onChange={e=>update("bill_to_name",e.target.value)} placeholder="宛先名"
+              <input type="text" value={displayBillTo(p,clients,cases)} onChange={e=>update("bill_to_name",e.target.value)} placeholder="宛先名"
                 style={{fontSize:15,fontWeight:500,border:"0.5px solid rgba(0,0,0,0.1)",background:"var(--bg2)",padding:"3px 8px",borderRadius:5,flex:"1 1 180px",minWidth:0,maxWidth:260}}/>
               <select value={typeof p.honorific==="string"?p.honorific:(p.bill_type==="company"?"御中":"様")}
                 onChange={e=>update("honorific",e.target.value)}
@@ -11328,7 +11267,7 @@ function App(){
       )}
       {activeTab==="clients"&&<ClientLedger data={data} setData={setData} navigateClientId={navigateClientId} clearNavigate={()=>setNavigateClientId(null)} onNavigateToCase={handleNavigateToCase}/>}
       {activeTab==="cases"&&<CaseManagement data={data} setData={setData} navigateCaseId={navigateCaseId} clearNavigate={()=>setNavigateCaseId(null)}/>}
-      {activeTab==="journal"&&<CaseJournal data={data} setData={setData}/>}
+      {activeTab==="journal"&&<CaseJournal data={data} setData={setData} onNavCase={handleNavigateToCase}/>}
       {activeTab==="payments"&&<PaymentManagement data={data} setData={setData} navigatePaymentId={navigatePaymentId} clearNavigate={()=>setNavigatePaymentId(null)}/>}
       {SHOW_DOCS&&activeTab==="docs"&&<CompanyDocs data={data} setData={setData}/>}
       {activeTab==="master"&&<MasterRegistration data={data} setData={setData} onNavigateToClient={handleNavigateToClient}/>}
