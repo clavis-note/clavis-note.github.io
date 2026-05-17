@@ -9833,12 +9833,20 @@ function ConflictConfirmModal({info,onResolve}){
   );
 }
 
-// 閉じられない起動ゲート（初回フロー / 検証手順1,3）。
-// キャンセル・閉じるボタン・背景クリック・ESC いずれも不可。有効キー認証成功でのみ解除。
-function LicenseGate({isMobile,reason,onVerified}){
+// ライセンスキー入力ダイアログ。
+//  - onClose 無し: 閉じられない起動ゲート（初回フロー / データなし / 検証手順1,3）
+//  - onClose 有り: 閉じられる再認証ダイアログ（readonly既存ユーザーが新キー入力。
+//    閉じれば readonly のまま閲覧継続＝"人質にしない"思想を死守）
+function LicenseGate({isMobile,reason,onVerified,onClose}){
   const [key,setKey]=useState("");
   const [err,setErr]=useState(reason&&reason!=="no-key"?licenseReasonText(reason):"");
   const [busy,setBusy]=useState(false);
+  useEffect(()=>{
+    if(!onClose) return;
+    const onKey=(e)=>{ if(e.key==="Escape") onClose(); };
+    window.addEventListener("keydown",onKey);
+    return ()=>window.removeEventListener("keydown",onKey);
+  },[onClose]);
   async function submit(){
     if(busy) return;
     const k=key.trim();
@@ -9858,8 +9866,11 @@ function LicenseGate({isMobile,reason,onVerified}){
     }
   }
   return (
-    <div style={{position:"fixed",inset:0,zIndex:100000,background:"#FAF8F5",display:"flex",alignItems:"center",justifyContent:"center",padding:isMobile?20:24,overflowY:"auto"}}>
-      <div style={{maxWidth:440,width:"100%",background:"#fff",border:"0.5px solid #E8E6E0",borderRadius:16,padding:isMobile?"28px 22px":"36px 32px",boxShadow:"0 8px 30px rgba(0,0,0,0.08)"}}>
+    <div
+      onClick={onClose?(e)=>{ if(e.target===e.currentTarget&&!busy) onClose(); }:undefined}
+      style={{position:"fixed",inset:0,zIndex:100000,background:onClose?"rgba(0,0,0,0.5)":"#FAF8F5",display:"flex",alignItems:"center",justifyContent:"center",padding:isMobile?20:24,overflowY:"auto"}}>
+      <div style={{position:"relative",maxWidth:440,width:"100%",background:"#fff",border:"0.5px solid #E8E6E0",borderRadius:16,padding:isMobile?"28px 22px":"36px 32px",boxShadow:"0 8px 30px rgba(0,0,0,0.08)"}}>
+        {onClose&&<button onClick={onClose} disabled={busy} title="閉じる" aria-label="閉じる" style={{position:"absolute",top:12,right:14,width:28,height:28,padding:0,borderRadius:6,border:"none",background:"transparent",color:"#999",cursor:busy?"default":"pointer",fontSize:18,lineHeight:1}}>✕</button>}
         <div style={{fontSize:isMobile?20:22,fontWeight:700,color:"#1a1a1a",marginBottom:8}}>🔐 ライセンスキーの認証</div>
         <div style={{fontSize:13,color:"#666",lineHeight:1.7,marginBottom:20}}>
           決済完了後にメールでお送りした、<span style={{fontFamily:"monospace",color:"#185FA5",fontWeight:600}}>clv_live_</span> から始まるキーを入力してください。
@@ -9923,7 +9934,7 @@ function App(){
   // ライセンス起動ゲート: checking(検証中) / valid(全機能) / readonly(閲覧+事件簿のみ) / gate(ハードブロック)
   const [licenseState,setLicenseState]=useState(DEMO_MODE?"valid":"checking"); // 論点5: DEMO_MODEはバイパス
   const [licenseReason,setLicenseReason]=useState(null);
-  const [licenseRechecking,setLicenseRechecking]=useState(false);
+  const [showLicenseReentry,setShowLicenseReentry]=useState(false); // readonlyバナー「再認証」で新キー入力ダイアログを開く
   // 起動分岐の判定軸 = この端末にlocalStorageデータが既にあるか。
   //  データあり(既存ユーザー/既存データ端末) → 絶対にゲートでブロックしない（"人質にしない"思想）
   //  データなし(新規顧客 / 既存ユーザーの新規端末) → 初回認証ゲート（キー入力でDrive同期して復元）
@@ -10795,24 +10806,12 @@ function App(){
   const [stepperVisible,setStepperVisible]=useState(()=>localStorage.getItem("clavis-stepper")!=="hidden");
   const showStepper=stepperTab&&stepperVisible;
   function toggleStepper(){const nv=!stepperVisible;setStepperVisible(nv);localStorage.setItem("clavis-stepper",nv?"visible":"hidden");}
-
-  // readonlyバナーの「再認証」: 現在のキーで再度オンライン検証
-  async function recheckLicense(){
-    if(licenseRechecking) return;
-    const key=((data.office&&data.office.license_key)||"").trim();
-    // readonlyバナー専用導線 = 既存ユーザー（データあり）。"人質にしない"思想で絶対gateしない
-    if(!key){ setLicenseReason("no-key"); setLicenseState("readonly"); return; }
-    setLicenseRechecking(true);
-    try{
-      const r=await verifyLicenseOnline(key);
-      if(r.valid){ writeLicenseCache(key,r.plan); setLicenseReason(null); setLicenseState("valid"); }
-      else { clearLicenseCacheValidity(); setLicenseReason(r.reason||"invalid"); }
-    }catch(netErr){
-      setLicenseReason("offline-expired");
-    }finally{
-      setLicenseRechecking(false);
-    }
-  }
+  // バグ②: 常時表示の上部バナー分、ヘッダーのsticky top と固定タブコンテンツ(--header-h)を
+  // 押し下げる。これを怠ると readonly バナーがヘッダー/コンテンツ上部に被さり、
+  // 事件簿エクスポートボタン等が画面外に見切れる。全バナー(readonly/auth/swUpdate)を加算。
+  const BANNER_H = isMobile?40:48;
+  const bannerOffset = ((licenseState==="readonly"?1:0)+(showAuthBanner?1:0)+(swUpdateReady?1:0))*BANNER_H;
+  const baseHeaderH = showStepper?86:52;
 
   // ライセンス起動ゲート（論点3）。全hook呼び出し後・メインreturn前で分岐。
   if(licenseState==="checking"){
@@ -10841,7 +10840,7 @@ function App(){
   return(
     <MobileContext.Provider value={isMobile}>
     <LicenseEditContext.Provider value={canEdit}>
-    <div style={{minHeight:"100vh",background:"#eeede8",zoom:isMobile?"1":fs,"--header-h":showStepper?"86px":"52px"}}>
+    <div style={{minHeight:"100vh",background:"#eeede8",zoom:isMobile?"1":fs,"--header-h":(baseHeaderH+bannerOffset)+"px"}}>
       {!canEdit&&<style>{".lic-edit-gate{opacity:.45!important;pointer-events:none!important;filter:grayscale(.6)!important;}"}</style>}
       <ConflictConfirmModal info={conflictModalInfo} onResolve={handleConflictResolve}/>
       {/* ライセンス無効バナー（検証手順7: 起動して閲覧/事件簿のみ）。最上部・常時表示・閉じない */}
@@ -10877,19 +10876,36 @@ function App(){
               fontWeight:600,
               whiteSpace:"nowrap"
             }}>ご契約・再開</button>
-            <button onClick={recheckLicense} disabled={licenseRechecking} title="お支払い後、ここで再認証するとフル機能に戻ります" style={{
+            <button onClick={()=>setShowLicenseReentry(true)} title="お支払い後、ここで新しいライセンスキーを入力するとフル機能に戻ります" style={{
               fontSize:isMobile?11:12,
               padding:isMobile?"4px 10px":"5px 14px",
               borderRadius:6,
               border:"0.5px solid #E0A3A3",
               background:"#fff",
               color:"#7A2424",
-              cursor:licenseRechecking?"default":"pointer",
+              cursor:"pointer",
               fontWeight:500,
               whiteSpace:"nowrap"
-            }}>{licenseRechecking?"確認中…":"再認証"}</button>
+            }}>再認証</button>
           </div>
         </div>
+      )}
+      {/* バグ①: 再認証ダイアログ（closable）。新しいキーを入力→成功でvalid。
+          閉じれば readonly のまま閲覧継続＝"人質にしない"思想を死守 */}
+      {showLicenseReentry&&(
+        <LicenseGate
+          isMobile={isMobile}
+          reason={null}
+          onClose={()=>setShowLicenseReentry(false)}
+          onVerified={(k,p)=>{
+            // 認証成功時点ではまだ licenseState!=='valid'（=!canEdit）→ ガード除外で _setData
+            _setData(d=>({...d,office:{...(d.office||{}),license_key:k}}));
+            writeLicenseCache(k,p);
+            setLicenseReason(null);
+            setShowLicenseReentry(false);
+            setLicenseState("valid");
+          }}
+        />
       )}
       {/* 認証切れバナー（最上部、ヘッダーの上） */}
       {showAuthBanner&&(
@@ -10904,7 +10920,7 @@ function App(){
           fontSize:isMobile?12:13,
           minHeight:isMobile?40:48,
           position:"sticky",
-          top:0,
+          top:(licenseState==="readonly"?BANNER_H:0),
           zIndex:200,
           boxShadow:"0 1px 3px rgba(0,0,0,0.06)"
         }}>
@@ -10950,7 +10966,7 @@ function App(){
           fontSize:isMobile?12:13,
           minHeight:isMobile?40:48,
           position:"sticky",
-          top:showAuthBanner?(isMobile?40:48):0,
+          top:(licenseState==="readonly"?BANNER_H:0)+(showAuthBanner?BANNER_H:0),
           zIndex:199,
           boxShadow:"0 1px 3px rgba(0,0,0,0.06)"
         }}>
@@ -11004,7 +11020,7 @@ function App(){
         }}>📡 オフライン</div>
       )}
       {/* グローバルナビ */}
-      <div style={{background:"var(--bg)",borderBottom:"0.5px solid var(--border)",position:"sticky",top:(showAuthBanner?(isMobile?40:48):0)+(swUpdateReady?(isMobile?40:48):0),zIndex:100}}>
+      <div style={{background:"var(--bg)",borderBottom:"0.5px solid var(--border)",position:"sticky",top:bannerOffset,zIndex:100}}>
         <div style={{display:"flex",alignItems:"center",height:52,padding:"0 16px"}}>
         <div onClick={()=>setActiveTab("dashboard")} style={{fontSize:15,fontWeight:600,color:"var(--text)",marginRight:isMobile?8:24,letterSpacing:"-0.02em",flexShrink:0,cursor:"pointer",display:"flex",alignItems:"center",gap:8}}>
           <span><span style={{color:"var(--accent-text)"}}>Clavis</span> Note</span>
