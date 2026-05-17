@@ -1150,7 +1150,7 @@ async function readDocument(fileBase64, mediaType, apiKey){
 
 {
   "name_roman": "ローマ字氏名（姓 名の順、大文字）",
-  "name_kana": "カタカナ氏名（あれば）",
+  "name_kana": "カタカナ氏名のフリガナ。在留カードにフリガナ表記が無くてもローマ字氏名から読みを推定して必ず返す（推定でよい・空やnullにしない・本人確認用の下書き）",
   "nationality": "国籍・地域（日本語）",
   "date_of_birth": "YYYY-MM-DD形式",
   "gender": "男 or 女",
@@ -1190,6 +1190,7 @@ async function readDocument(fileBase64, mediaType, apiKey){
 - 職歴が複数あれば配列で全て返す
 - 会社情報が読み取れない場合はcompany_infoをnullに
 - work_historyが読み取れない場合はnullに
+- name_kana は本人確認の下書き用。在留カードにフリガナ欄が無い場合もローマ字氏名から推定したカタカナ読みを必ず返す（完璧でなくてよい・nullにしない）
 - face_regionは在留カードの顔写真エリアを0〜1の比率で。顔写真がない書類の場合はnullに`}
   ];
   let resp;
@@ -1401,16 +1402,20 @@ function DateInput({value, onChange, ...rest}){
   );
 }
 
-function Field({label,value,editMode,field,update,type="text"}){
-  const inputStyle={fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)",width:"100%"};
+function Field({label,value,editMode,field,update,type="text",estimated=false,onConfirm}){
+  // estimated: 推定値（OCRフリガナ推定等）。薄いグレー＋「推定」バッジで目視確認を促し、
+  // ユーザーがフォーカス（確認）or 編集した時点で onConfirm() を呼び通常表示に戻す。
+  const isEst = estimated && !!value;
+  const inputStyle={fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:isEst?"#9aa0a6":"var(--text)",fontStyle:isEst?"italic":"normal",width:"100%"};
+  const confirm=()=>{ if(isEst&&onConfirm) onConfirm(); };
   return(
     <div style={{display:"flex",flexDirection:"column",gap:3}}>
-      <span style={{fontSize:10,color:"var(--text3)",fontWeight:500,letterSpacing:"0.05em"}}>{label.toUpperCase()}</span>
+      <span style={{fontSize:10,color:"var(--text3)",fontWeight:500,letterSpacing:"0.05em"}}>{label.toUpperCase()}{isEst&&<span style={{marginLeft:6,fontSize:9,color:"#B0883B",background:"#FBF1DD",borderRadius:3,padding:"0 5px",fontWeight:600,letterSpacing:0}}>推定</span>}</span>
       {editMode?(
         type==="date"
           ? <DateInput value={value||""} onChange={v=>update(field,v)} max="9999-12-31" min="1900-01-01" style={inputStyle}/>
-          : <input type={type} value={value||""} onChange={e=>update(field,e.target.value)} style={inputStyle}/>
-      ):<span style={{fontSize:13,color:value?"var(--text)":"var(--text3)"}}>{value||"—"}</span>}
+          : <input type={type} value={value||""} onFocus={isEst?confirm:undefined} onChange={e=>{confirm();update(field,e.target.value);}} style={inputStyle}/>
+      ):<span style={{fontSize:13,color:isEst?"#9aa0a6":(value?"var(--text)":"var(--text3)"),fontStyle:isEst?"italic":undefined}}>{value||"—"}</span>}
     </div>
   );
 }
@@ -2562,6 +2567,11 @@ function mergeExtractedToClient(existing, extracted){
       }
     }
   });
+  // name_kana が抽出値で上書きされた場合は推定値 → 目視確認用にフラグ
+  // （既存のユーザー確定カナが残った場合は触らない＝estimatedフラグ据え置き）
+  if(extracted.name_kana && (!existing.name_kana || isPlaceholder(existing.name_kana))){
+    merged.name_kana_estimated = true;
+  }
   // 職歴は累積
   if(extracted.work_history && Array.isArray(extracted.work_history) && extracted.work_history.length>0){
     const newEntries = extracted.work_history.map((w,i)=>({
@@ -2600,6 +2610,7 @@ function createClientFromExtracted(extracted){
   return {
     client_id:id, client_type:"immigration",
     name_roman:extracted.name_roman||"", name_kana:extracted.name_kana||"",
+    name_kana_estimated:!!extracted.name_kana, // OCR由来カナは在留カードに無く推定値 → 目視確認用にフラグ
     nationality:extracted.nationality||"ネパール",
     dob:extracted.date_of_birth||"", gender:extracted.gender||"男",
     passport_number:extracted.passport_number||"", passport_expiry:extracted.passport_expiry||"",
@@ -3318,7 +3329,9 @@ function TabBasic({c,editMode,update,allClients}){
       </div>
       <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14}}>
         <Field label={isGenClient?"氏名":"氏名（ローマ字）"} value={c.name_roman} editMode={editMode} field="name_roman" update={update}/>
-        <Field label={isGenClient?"ふりがな":"氏名（カナ）"} value={c.name_kana} editMode={editMode} field="name_kana" update={update}/>
+        <Field label={isGenClient?"ふりがな":"氏名（カナ）"} value={c.name_kana} editMode={editMode} field="name_kana" update={update}
+          estimated={!!c.name_kana_estimated}
+          onConfirm={()=>{ if(c.name_kana_estimated) update("name_kana_estimated",false); }}/>
         {!isGenClient&&<Field label="国籍" value={c.nationality} editMode={editMode} field="nationality" update={update}/>}
         {!isGenClient&&<Field label="生年月日" value={c.dob} editMode={editMode} field="dob" update={update} type="date" max="9999-12-31" min="1900-01-01"/>}
         {!isGenClient&&<div>
