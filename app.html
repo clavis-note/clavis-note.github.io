@@ -1755,7 +1755,7 @@ function DashProspects({payments,onClickItem,onNew}){
         <span onClick={toggle} style={{fontSize:12,fontWeight:500,color:"#666",cursor:"pointer",flex:1}}>📋 見込案件 <span style={{color:"#999",fontWeight:400}}>({activeProspects.length}件)</span></span>
         <div style={{display:"flex",gap:6,alignItems:"center"}}>
           <span onClick={toggle} style={{fontSize:12,fontWeight:500,color:"#854F0B",cursor:"pointer"}}>{fmt(totalActive)} <span style={{fontSize:10,color:"#999"}}>{open?"▲":"▼"}</span></span>
-          <button onClick={onNew} style={{fontSize:11,padding:"3px 10px",cursor:"pointer",borderRadius:5,border:"0.5px solid #854F0B",background:"#FEF8EE",color:"#854F0B",fontWeight:500,whiteSpace:"nowrap"}}>+ 見積書作成</button>
+          <button className="lic-edit-gate" onClick={onNew} style={{fontSize:11,padding:"3px 10px",cursor:"pointer",borderRadius:5,border:"0.5px solid #854F0B",background:"#FEF8EE",color:"#854F0B",fontWeight:500,whiteSpace:"nowrap"}}>+ 見積書作成</button>
         </div>
       </div>
       {open&&<>
@@ -4410,7 +4410,7 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
             <div style={{flex:1,position:"relative"}}>
               <input type="text" placeholder="検索…" value={search} onChange={e=>setSearch(e.target.value)} style={{width:"100%",fontSize:12,padding:"5px 8px",paddingRight:search?22:8,borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)"}}/>
               {search&&<span onClick={()=>{setSearch("");setFilterStatus("全て");}} style={{position:"absolute",right:6,top:"50%",transform:"translateY(-50%)",fontSize:13,color:"var(--text3)",cursor:"pointer",lineHeight:1}}>×</span>}
-            </div>            <button onClick={handleAddClient} style={{width:26,height:26,cursor:"pointer",borderRadius:6,background:"var(--bg2)",border:"0.5px solid var(--border2)",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}} title="クライアント新規追加">+</button>
+            </div>            <button className="lic-edit-gate" onClick={handleAddClient} style={{width:26,height:26,cursor:"pointer",borderRadius:6,background:"var(--bg2)",border:"0.5px solid var(--border2)",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}} title="クライアント新規追加">+</button>
           </div>
         </div>
         {alertClients.length>0&&(
@@ -5865,7 +5865,7 @@ function CaseManagement({data,setData,navigateCaseId,clearNavigate}){
         <div style={{padding:"12px 12px 8px",borderBottom:"0.5px solid rgba(0,0,0,0.08)",flex:"0 0 auto",background:"var(--bg)"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
             <span style={{fontSize:14,fontWeight:500}}>案件管理</span>
-            <button onClick={()=>setShowNew(true)} style={{width:26,height:26,cursor:"pointer",borderRadius:6,background:"var(--bg2)",border:"0.5px solid rgba(0,0,0,0.2)",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+            <button className="lic-edit-gate" onClick={()=>setShowNew(true)} style={{width:26,height:26,cursor:"pointer",borderRadius:6,background:"var(--bg2)",border:"0.5px solid rgba(0,0,0,0.2)",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
           </div>
           {/* サブタブ */}
           <div style={{display:"flex",gap:0,marginBottom:8,borderRadius:6,overflow:"hidden",border:"0.5px solid rgba(0,0,0,0.15)"}}>
@@ -7779,7 +7779,7 @@ function PaymentManagement({data,setData,navigatePaymentId,clearNavigate}){
                   border:`0.5px solid ${mergeMode?"#A32D2D":"rgba(0,0,0,0.15)"}`,
                   background:mergeMode?"#FCEBEB":"transparent",
                   color:mergeMode?"#A32D2D":"var(--text3)",fontWeight:mergeMode?500:400}}>{mergeMode?"✕ 解除":"まとめる"}</button>
-              <button onClick={()=>setShowNew(true)} style={{width:26,height:26,cursor:"pointer",borderRadius:6,background:"var(--bg2)",border:"0.5px solid var(--border2)",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+              <button className="lic-edit-gate" onClick={()=>setShowNew(true)} style={{width:26,height:26,cursor:"pointer",borderRadius:6,background:"var(--bg2)",border:"0.5px solid var(--border2)",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
             </div>
           </div>
           <div style={{background:"#FCEBEB",borderRadius:6,padding:"7px 10px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
@@ -9043,7 +9043,7 @@ function MasterTemplate({templates,setTemplates,data,setData}){
         <div style={{padding:"10px 14px",borderBottom:"0.5px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <span style={{fontSize:12,fontWeight:500}}>テンプレート一覧</span>
           <div style={{display:"flex",gap:6}}>
-            <button onClick={()=>setShowNew(true)} style={{fontSize:11,padding:"4px 10px",borderRadius:5,border:"0.5px solid var(--accent)",background:"var(--accent-bg)",color:"var(--accent-text)",cursor:"pointer"}}>＋ 新規</button>
+            <button className="lic-edit-gate" onClick={()=>setShowNew(true)} style={{fontSize:11,padding:"4px 10px",borderRadius:5,border:"0.5px solid var(--accent)",background:"var(--accent-bg)",color:"var(--accent-text)",cursor:"pointer"}}>＋ 新規</button>
             <button onClick={resetToDefault} style={{fontSize:10,padding:"4px 8px",borderRadius:5,border:"0.5px solid #ccc",background:"#f5f5f5",color:"#666",cursor:"pointer"}}>リセット</button>
           </div>
         </div>
@@ -9677,6 +9677,10 @@ function CompanyDocs({data, setData}){
 // ── モバイル対応 ──────────────────────────────────
 const MobileContext = React.createContext(false);
 function useMobile(){ return React.useContext(MobileContext); }
+// ライセンス編集可否（Step2）。デフォルトtrue（ゲート/DEMOや旧経路で壊さない）。
+// 主要な「新規/追加」ボタンの無効表示に使う。確実な遮断は setData 構造ガード側が担保。
+const LicenseEditContext = React.createContext(true);
+function useCanEdit(){ return React.useContext(LicenseEditContext); }
 
 // Clavis Docs（企業書庫）の表示制御
 // テスター配布版ではfalse。開発環境では localStorage.setItem('clavis-dev-mode','1') で表示可能。
@@ -9889,7 +9893,7 @@ function LicenseGate({isMobile,reason,onVerified}){
 }
 
 function App(){
-  const [data,setData]=useState(getInitialData);
+  const [data,_setData]=useState(getInitialData);
   const [isMobile,setIsMobile]=useState(()=>window.innerWidth<768||/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent));
   const [activeTab,setActiveTab]=useState(()=>{
     // URLのhashを優先(/detailなどのサブパスは切り離してタブ名のみ抽出)
@@ -9917,6 +9921,21 @@ function App(){
   const [licenseState,setLicenseState]=useState(DEMO_MODE?"valid":"checking"); // 論点5: DEMO_MODEはバイパス
   const [licenseReason,setLicenseReason]=useState(null);
   const [licenseRechecking,setLicenseRechecking]=useState(false);
+  // ライセンス編集ゲート（Step2 / 型レイヤー1）。ライセンス有効 or DEMO のみ編集可。
+  // 構造1点（保存の関所＝全データ変更が必ず通る setData）でガードし、抜け漏れをゼロに。
+  // 閲覧・事件簿エクスポートは setData を経由しないため常時可（"人質にしない"思想を死守）。
+  const canEdit = DEMO_MODE || licenseState==="valid";
+  const editBlockedToastRef = useRef(0);
+  const setData = useCallback((arg)=>{
+    if(canEdit){ _setData(arg); return; }
+    // readonly中: 編集/新規/削除をブロック + 説明トースト（2秒スロットル）
+    const now=Date.now();
+    if(now-editBlockedToastRef.current>2000){
+      editBlockedToastRef.current=now;
+      const t=document.getElementById("toast");
+      if(t){ t.textContent="🔒 ライセンスが無効です。編集・新規登録には認証が必要です（閲覧と事件簿エクスポートは可能）"; t.style.opacity=1; setTimeout(()=>{t.style.opacity=0;},4000); }
+    }
+  },[canEdit]);
   const [conflictModalInfo,setConflictModalInfo]=useState(null);
   const conflictResolverRef=useRef(null);
   function showConflictModal(info){
@@ -10752,7 +10771,8 @@ function App(){
         isMobile={isMobile}
         reason={licenseReason}
         onVerified={(k,p)=>{
-          setData(d=>({...d,office:{...(d.office||{}),license_key:k}}));
+          // ガード除外: 認証成功時点ではまだ licenseState!=='valid' のため _setData を直接使う
+          _setData(d=>({...d,office:{...(d.office||{}),license_key:k}}));
           writeLicenseCache(k,p);
           setLicenseReason(null);
           setLicenseState("valid");
@@ -10763,7 +10783,9 @@ function App(){
 
   return(
     <MobileContext.Provider value={isMobile}>
+    <LicenseEditContext.Provider value={canEdit}>
     <div style={{minHeight:"100vh",background:"#eeede8",zoom:isMobile?"1":fs,"--header-h":showStepper?"86px":"52px"}}>
+      {!canEdit&&<style>{".lic-edit-gate{opacity:.45!important;pointer-events:none!important;filter:grayscale(.6)!important;}"}</style>}
       <ConflictConfirmModal info={conflictModalInfo} onResolve={handleConflictResolve}/>
       {/* ライセンス無効バナー（検証手順7: 起動して閲覧/事件簿のみ）。最上部・常時表示・閉じない */}
       {licenseState==="readonly"&&(
@@ -11155,6 +11177,7 @@ function App(){
       {/* 自動保存インジケーター */}
       <AutoSaveIndicator data={data}/>
     </div>
+    </LicenseEditContext.Provider>
     </MobileContext.Provider>
   );
 }
