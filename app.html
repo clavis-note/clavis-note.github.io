@@ -11291,6 +11291,9 @@ requestAnimationFrame(() => {
     if ("caches" in window) caches.keys().then(keys => keys.forEach(k => caches.delete(k))).catch(()=>{});
     return;
   }
+  // 初回アクセス時点でSWコントローラがあったか（=既にこのオリジンをSWが制御中か）。
+  // 初回インストールでは null。後段の controllerchange リロード判定に使う。
+  const hadControllerAtLoad = !!navigator.serviceWorker.controller;
   navigator.serviceWorker.register("/sw.js").then(reg => {
     // 5分間隔 + visibility復帰時に新版チェック
     setInterval(() => reg.update().catch(()=>{}), 5 * 60 * 1000);
@@ -11315,9 +11318,14 @@ requestAnimationFrame(() => {
     });
   }).catch(err => console.warn("SW register failed:", err));
   // skipWaiting → activate → controllerchange で自動 reload
+  // ただし「初回インストール」(元々controller無し)の clients.claim() による
+  // controllerchange ではリロードしない。これをやると初回アクセスで
+  // 数秒後にページが強制リロードされ、ライセンスゲートが消える/点滅する。
+  // 本物のアップデート(元々controllerあり→新SW activate)時のみリロード。
   let __swRefreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (__swRefreshing) return;
+    if (!hadControllerAtLoad) return; // 初回取得時は何もしない
     __swRefreshing = true;
     location.reload();
   });
