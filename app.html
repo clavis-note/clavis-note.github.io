@@ -1149,6 +1149,7 @@ async function readDocument(fileBase64, mediaType, apiKey){
 以下のフィールドを持つJSONを返してください。読み取れない項目はnullにしてください。
 
 {
+  "document_type": "この書類の種別。次のいずれか1つ: 在留カード / パスポート / 雇用契約書 / 退職証明書 / 在留申請書 / その他",
   "name_roman": "ローマ字氏名（姓 名の順、大文字）",
   "name_kana": "カタカナ氏名のフリガナ。在留カードにフリガナ表記が無くてもローマ字氏名から読みを推定して必ず返す（推定でよい・空やnullにしない・本人確認用の下書き）",
   "nationality": "国籍・地域（日本語）",
@@ -1156,17 +1157,17 @@ async function readDocument(fileBase64, mediaType, apiKey){
   "gender": "男 or 女",
   "phone": "電話番号",
   "email": "メールアドレス",
-  "postal_code": "郵便番号（ハイフンなし7桁）",
-  "address": "住所（日本語）",
+  "postal_code": "郵便番号（ハイフンなし7桁。日本国内の住所のもののみ）",
+  "address": "日本国内の現住所（日本語）。本国（海外）の住所は絶対にここへ入れずnullにする",
   "residence_status": "在留資格（日本語のみ。例: 技能、技術・人文知識・国際業務）",
   "residence_period": "在留期間（例: 1年、3年、5年、6月、11月など。在留カードの「在留期間」欄から読み取る）",
   "residence_expiry": "YYYY-MM-DD形式（在留期間の満了日）",
   "residence_card": "在留カード番号",
   "passport_number": "パスポート番号",
   "passport_expiry": "YYYY-MM-DD形式（パスポート有効期限）",
-  "company_name": "所属機関名（勤務先）",
+  "company_name": "現在の所属機関名（現在の勤務先）。退職済み・過去の勤務先はここに入れない",
   "store": "支店・事業所名",
-  "work_start_date": "YYYY-MM-DD形式（雇用開始日）",
+  "work_start_date": "YYYY-MM-DD形式（現在の勤務先の雇用開始日）",
   "work_history": [
     {"company":"勤務先名","country":"国名","start":"YYYY-MM","end":"YYYY-MM"}
   ],
@@ -1185,8 +1186,12 @@ async function readDocument(fileBase64, mediaType, apiKey){
 }
 
 注意：
+- document_type は必ず判定して返す（どうしても判別不能な時のみnull）
 - 在留資格は日本語のみ返す（英語表記は除外）
 - 日付は必ずYYYY-MM-DD形式
+- address は日本国内の現住所のみ。退職証明書・パスポート等にある本国（海外）の住所は address に入れずnullにする
+- 雇用契約書は「現在の雇用先」→ company_name と work_start_date に入れる（work_history には入れない）
+- 退職証明書は「過去に退職した職歴」→ work_history に勤務先・start・end を入れる。現勤務先(company_name)には入れない
 - 職歴が複数あれば配列で全て返す
 - 会社情報が読み取れない場合はcompany_infoをnullに
 - work_historyが読み取れない場合はnullに
@@ -2552,19 +2557,40 @@ function findMatchingClients(extracted, clients){
   return [];
 }
 
-// 抽出データを既存クライアントにマージ（先勝ち、在留・パスポート系は常時上書き）
+// 抽出データの document_type から書類種別フラグを判定。
+// AI が表記揺れを返しても拾えるよう includes で寛容に判定する。
+function classifyDocType(dt){
+  dt = String(dt||"");
+  return {
+    isResidenceCard: dt.includes("在留カード"),
+    isApplication:   dt.includes("申請"),
+    isResignation:   dt.includes("退職"),
+  };
+}
+
+// 抽出データを既存クライアントにマージ
+//  - 在留・パスポート系の在留情報は常時上書き
+//  - 住所/郵便番号は「在留カード・在留申請書」由来のみ採用（退職証明書等の本国住所混入を防ぐ）。
+//    在留カード由来は常に最新で上書き（後から在留カードをポイポイした時も住所を更新）。
+//  - 現勤務先系(company_name/store/work_start_date)は退職証明書からは採らない（退職した会社を現職にしない）。
+//  - 書類の処理順に依存せず、上記ソース規則で最終的に在留カードの住所・現職が勝つ。
 function mergeExtractedToClient(existing, extracted){
   const ALWAYS_OVERWRITE = ["residence_status","residence_period","residence_expiry","residence_card","passport_number","passport_expiry"];
   const FIELD_MAP = {"name_roman":"name_roman","name_kana":"name_kana","nationality":"nationality","date_of_birth":"dob","gender":"gender","phone":"phone","email":"email","postal_code":"postal_code","address":"address","residence_status":"residence_status","residence_period":"residence_period","residence_expiry":"residence_expiry","residence_card":"residence_card","passport_number":"passport_number","passport_expiry":"passport_expiry","company_name":"company_name","store":"store","work_start_date":"work_start_date"};
   const PLACEHOLDER_PATTERNS = ["未定","未登録","未記入","不明","N/A","未記載"];
   const isPlaceholder = v => typeof v==="string" && PLACEHOLDER_PATTERNS.some(p=>v.includes(p));
+  const dc = classifyDocType(extracted.document_type);
+  const addrAllowed = dc.isResidenceCard || dc.isApplication;
+  const currentJobAllowed = !dc.isResignation;
   const merged = {...existing};
   Object.entries(FIELD_MAP).forEach(([src,dst])=>{
-    if(extracted[src]){
-      const cur = merged[dst];
-      if(ALWAYS_OVERWRITE.includes(dst) || !cur || isPlaceholder(cur)){
-        merged[dst] = extracted[src];
-      }
+    if(!extracted[src]) return;
+    if((dst==="address"||dst==="postal_code") && !addrAllowed) return;
+    if((dst==="company_name"||dst==="store"||dst==="work_start_date") && !currentJobAllowed) return;
+    const cur = merged[dst];
+    const forceOverwrite = ALWAYS_OVERWRITE.includes(dst) || ((dst==="address"||dst==="postal_code") && dc.isResidenceCard);
+    if(forceOverwrite || !cur || isPlaceholder(cur)){
+      merged[dst] = extracted[src];
     }
   });
   // name_kana が抽出値で上書きされた場合は推定値 → 目視確認用にフラグ
@@ -2572,20 +2598,26 @@ function mergeExtractedToClient(existing, extracted){
   if(extracted.name_kana && (!existing.name_kana || isPlaceholder(existing.name_kana))){
     merged.name_kana_estimated = true;
   }
-  // 職歴は累積
+  // 職歴は累積。会社名（正規化）×開始月が一致するエントリは同一とみなし重複追加しない。
   if(extracted.work_history && Array.isArray(extracted.work_history) && extracted.work_history.length>0){
-    const newEntries = extracted.work_history.map((w,i)=>({
-      id:"wh-poi-"+Date.now()+"-"+i,
-      company_name:w.company||"",country:w.country||"",
-      start_date:w.start?w.start+"-01":"",end_date:w.end?w.end+"-01":""
-    }));
-    merged.work_history = [...(existing.work_history||[]), ...newEntries];
+    const wh0 = existing.work_history||[];
+    const sameWork = (a,b)=> normName(a.company_name)===normName(b.company_name) && (a.start_date||"")===(b.start_date||"");
+    const newEntries = extracted.work_history
+      .map((w,i)=>({
+        id:"wh-poi-"+Date.now()+"-"+i,
+        company_name:w.company||"",country:w.country||"",
+        start_date:w.start?w.start+"-01":"",end_date:w.end?w.end+"-01":""
+      }))
+      .filter(ne=> ne.company_name && !wh0.some(ex=>sameWork(ex,ne)));
+    merged.work_history = [...wh0, ...newEntries];
   }
-  // company_name + work_start_date が両方揃ったら、在職中エントリを保証（ClientLedger.update と同等）
+  // 現勤務先が確定していて、その会社の職歴が1件も無ければ在職中エントリを補う（ClientLedger.update と同等）。
+  //  merged.company_name は上のソース規則により退職証明書からは入らない＝退職した会社が在職中になることはない。
+  //  同名会社が既にあれば（end_dateの有無を問わず）追加しない＝同一会社の二重登録を防ぐ。
   if(merged.company_name && merged.work_start_date && merged.work_start_date!=="未定"){
     const wh = merged.work_history||[];
-    const currentWork = wh.find(w=>w.company_name===merged.company_name && !w.end_date);
-    if(!currentWork){
+    const exists = wh.some(w=>normName(w.company_name)===normName(merged.company_name));
+    if(!exists){
       merged.work_history = [...wh, {id:"W"+Date.now()+"-poi", company_name:merged.company_name, country:"日本", start_date:merged.work_start_date, end_date:null, job_title:"調理師"}];
     }
   }
@@ -2600,6 +2632,9 @@ function mergeExtractedToClient(existing, extracted){
 // 抽出データから新規クライアントを生成
 function createClientFromExtracted(extracted){
   const id = "C"+Date.now();
+  const dc = classifyDocType(extracted.document_type);
+  const addrAllowed = dc.isResidenceCard || dc.isApplication;
+  const currentJobAllowed = !dc.isResignation;
   const wh = (extracted.work_history && Array.isArray(extracted.work_history))
     ? extracted.work_history.map((w,i)=>({
         id:"wh-poi-"+Date.now()+"-"+i,
@@ -2619,9 +2654,9 @@ function createClientFromExtracted(extracted){
     residence_expiry:extracted.residence_expiry||"",
     residence_period:extracted.residence_period||"",
     phone:extracted.phone||"", email:extracted.email||"",
-    company_name:extracted.company_name||"", store:extracted.store||"",
-    work_start_date:extracted.work_start_date||"",
-    notes:"", address:extracted.address||"", postal_code:extracted.postal_code||"",
+    company_name:(currentJobAllowed&&extracted.company_name)||"", store:(currentJobAllowed&&extracted.store)||"",
+    work_start_date:(currentJobAllowed&&extracted.work_start_date)||"",
+    notes:"", address:(addrAllowed&&extracted.address)||"", postal_code:(addrAllowed&&extracted.postal_code)||"",
     dependent_of:null, client_status:"active", relationship:null, school_name:null,
     photo:null, archived:false, salary_history:[], work_history:wh,
     drive_path:"", drive_url:"",
@@ -2646,7 +2681,7 @@ async function readFileViaAI(file, apiKey){
         method:"POST",
         headers:{"Content-Type":"application/json","X-Clavis-License":apiKey,"X-Clavis-Feature":"poipoi","anthropic-version":"2023-06-01"},
         body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:2048,
-          messages:[{role:"user",content:`以下はExcelファイル「${file.name}」の内容です。在留申請書や入管関連書類から読み取れる情報をすべてJSON形式で返してください。余計なテキストは一切不要です。\n\n以下のフィールドを持つJSONを返してください。読み取れない項目はnullにしてください。\n{"name_roman":"ローマ字氏名","name_kana":"カタカナ氏名","nationality":"国籍","date_of_birth":"YYYY-MM-DD","gender":"男 or 女","phone":"電話番号","email":"メールアドレス","postal_code":"郵便番号（ハイフンなし7桁）","address":"住所","residence_status":"在留資格","residence_expiry":"YYYY-MM-DD","residence_card":"在留カード番号","passport_number":"パスポート番号","passport_expiry":"YYYY-MM-DD","company_name":"勤務先","store":"支店名","work_start_date":"YYYY-MM-DD","work_history":[{"company":"勤務先名","country":"国名","start":"YYYY-MM","end":"YYYY-MM"}]}\n\n【データ】\n${allText}`}]
+          messages:[{role:"user",content:`以下はExcelファイル「${file.name}」の内容です。在留申請書や入管関連書類から読み取れる情報をすべてJSON形式で返してください。余計なテキストは一切不要です。\n\n以下のフィールドを持つJSONを返してください。読み取れない項目はnullにしてください。\n{"document_type":"書類種別（在留カード/パスポート/雇用契約書/退職証明書/在留申請書/その他のいずれか1つ）","name_roman":"ローマ字氏名","name_kana":"カタカナ氏名","nationality":"国籍","date_of_birth":"YYYY-MM-DD","gender":"男 or 女","phone":"電話番号","email":"メールアドレス","postal_code":"郵便番号（ハイフンなし7桁。日本国内のもののみ）","address":"日本国内の現住所（海外・本国住所は入れずnull）","residence_status":"在留資格","residence_expiry":"YYYY-MM-DD","residence_card":"在留カード番号","passport_number":"パスポート番号","passport_expiry":"YYYY-MM-DD","company_name":"勤務先","store":"支店名","work_start_date":"YYYY-MM-DD","work_history":[{"company":"勤務先名","country":"国名","start":"YYYY-MM","end":"YYYY-MM"}]}\n\n【データ】\n${allText}`}]
         })
       });
     }catch(netErr){
@@ -4594,7 +4629,7 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
               ✅ {poiResult.filled.length}項目を読み取りました{poiResult.result.work_history&&`（職歴${poiResult.result.work_history.length}件含む）`} — 各タブで確認してください
             </div>}
             {cur.client_type!=="general"&&<div style={{padding:"5px 18px",background:"#F8F6F3",fontSize:10,color:"var(--text3)",borderBottom:"0.5px solid var(--border)"}}>
-              💡 ポイポイ式：在留カード・パスポート情報は常に最新で上書き ／ 住所・氏名等は既存の情報を維持（本国住所で上書きされません）
+              💡 ポイポイ式：在留カード・パスポート情報と住所は在留カードから常に最新で反映 ／ 氏名等は既存の情報を維持（退職証明書等の本国住所では上書きされません）
             </div>}
             <div style={{display:"flex",background:"var(--bg)",borderBottom:"0.5px solid var(--border)",padding:"0 18px"}}>
               {tabs.map(t=>(
