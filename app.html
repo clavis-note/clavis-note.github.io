@@ -1068,6 +1068,76 @@ function isValidLicenseKeyFormat(key){
   return typeof key==="string"&&/^clv_(live|test)_[A-Z2-9]{20,40}$/.test(key.trim());
 }
 
+// ============================================================
+// ライセンス検証 + 7日オフラインキャッシュ
+// ============================================================
+// 思想: ライセンスキーは「サービスを使う権利」の制御のみ。データには介入しない。
+// 改ざん防御はしない（②決定事項 論点4。"人質にしない"思想と一貫・単純実装）。
+const LICENSE_CACHE_KEY = "clavis-license-status";
+const LICENSE_EVER_VALID_KEY = "clavis-license-ever-valid"; // 一度でもオンライン検証を通った端末か
+const LICENSE_CACHE_MS = 7*24*60*60*1000; // 7日
+
+function readLicenseCache(){
+  try{ const r=localStorage.getItem(LICENSE_CACHE_KEY); return r?JSON.parse(r):null; }catch(e){ return null; }
+}
+function writeLicenseCache(key, plan){
+  try{
+    localStorage.setItem(LICENSE_CACHE_KEY, JSON.stringify({valid:true, key, plan:plan||null, verifiedAt:new Date().toISOString()}));
+    localStorage.setItem(LICENSE_EVER_VALID_KEY, "1");
+  }catch(e){ console.warn("writeLicenseCache failed:",e); }
+}
+function clearLicenseCacheValidity(){
+  try{ localStorage.removeItem(LICENSE_CACHE_KEY); }catch(e){}
+}
+// キャッシュが「同じキー・有効・7日以内」なら true（→ Workers検証スキップ）
+function isLicenseCacheFresh(cache, key){
+  if(!cache || !cache.valid || cache.key!==key) return false;
+  const t=Date.parse(cache.verifiedAt||"");
+  if(isNaN(t)) return false;
+  return (Date.now()-t) < LICENSE_CACHE_MS;
+}
+// オンライン検証。POST /license/verify を叩く。
+//   返り値: {valid:true, plan} | {valid:false, reason}
+//   ネット到達不可 / 5xx は throw（呼び出し側でオフライン分岐 → キャッシュ依存へ）
+async function verifyLicenseOnline(key){
+  let resp;
+  try{
+    resp=await fetch("https://api.clavis-note.com/license/verify",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({license_key:key})
+    });
+  }catch(netErr){
+    const err=new Error("license verify unreachable: "+(netErr&&netErr.message||netErr));
+    err.kind="OFFLINE"; throw err;
+  }
+  // 5xx はライセンス無効と区別できない → オフライン扱いでキャッシュにフォールバック
+  if(resp.status>=500){
+    const err=new Error("license verify server error "+resp.status);
+    err.kind="OFFLINE"; throw err;
+  }
+  if(resp.ok){
+    let j={}; try{ j=await resp.json(); }catch(e){}
+    return {valid:!!j.valid, plan:j.plan||null};
+  }
+  // 4xx（401 not_found/inactive/suspended, 403 pending_verification, 400 等）→ 無効
+  let j={}; try{ j=await resp.json(); }catch(e){}
+  return {valid:false, reason:j.reason||("http_"+resp.status)};
+}
+// reason → ユーザー向け文言
+function licenseReasonText(reason){
+  switch(reason){
+    case "no-key": return "ライセンスキーが未入力です。";
+    case "suspended": return "このライセンスは停止されています。お支払い状況をご確認ください。";
+    case "inactive": return "このライセンスは現在ご利用いただけません。";
+    case "pending_verification": return "ライセンスが有効化待ちです。少し時間をおいて再度お試しください。";
+    case "not_found": return "このライセンスキーは登録されていません。キーをご確認ください。";
+    case "offline-expired": return "オフライン期間が7日を超えました。ネットに繋がる場所で再認証してください。";
+    case "offline-firsttime": return "初回の認証にはインターネット接続が必要です。ネット環境でお試しください。";
+    default: return "ライセンスを確認できませんでした。キーをご確認ください。";
+  }
+}
+
 async function readDocument(fileBase64, mediaType, apiKey){
   const isPDF=mediaType==="application/pdf";
   const content=[
@@ -9759,6 +9829,65 @@ function ConflictConfirmModal({info,onResolve}){
   );
 }
 
+// 閉じられない起動ゲート（初回フロー / 検証手順1,3）。
+// キャンセル・閉じるボタン・背景クリック・ESC いずれも不可。有効キー認証成功でのみ解除。
+function LicenseGate({isMobile,reason,onVerified}){
+  const [key,setKey]=useState("");
+  const [err,setErr]=useState(reason&&reason!=="no-key"?licenseReasonText(reason):"");
+  const [busy,setBusy]=useState(false);
+  async function submit(){
+    if(busy) return;
+    const k=key.trim();
+    if(!isValidLicenseKeyFormat(k)){
+      setErr("キーの形式が正しくありません（clv_live_ から始まるキーです）。");
+      return;
+    }
+    setBusy(true); setErr("");
+    try{
+      const r=await verifyLicenseOnline(k);
+      if(r.valid){ onVerified(k,r.plan); return; }
+      setErr(licenseReasonText(r.reason));
+    }catch(netErr){
+      setErr(licenseReasonText("offline-firsttime"));
+    }finally{
+      setBusy(false);
+    }
+  }
+  return (
+    <div style={{position:"fixed",inset:0,zIndex:100000,background:"#FAF8F5",display:"flex",alignItems:"center",justifyContent:"center",padding:isMobile?20:24,overflowY:"auto"}}>
+      <div style={{maxWidth:440,width:"100%",background:"#fff",border:"0.5px solid #E8E6E0",borderRadius:16,padding:isMobile?"28px 22px":"36px 32px",boxShadow:"0 8px 30px rgba(0,0,0,0.08)"}}>
+        <div style={{fontSize:isMobile?20:22,fontWeight:700,color:"#1a1a1a",marginBottom:8}}>🔐 ライセンスキーの認証</div>
+        <div style={{fontSize:13,color:"#666",lineHeight:1.7,marginBottom:20}}>
+          決済完了後にメールでお送りした、<span style={{fontFamily:"monospace",color:"#185FA5",fontWeight:600}}>clv_live_</span> から始まるキーを入力してください。
+        </div>
+        <input
+          type="text"
+          value={key}
+          onChange={e=>setKey(e.target.value)}
+          onKeyDown={e=>{ if(e.key==="Enter") submit(); }}
+          autoFocus
+          spellCheck={false}
+          autoCapitalize="off"
+          autoCorrect="off"
+          placeholder="clv_live_..."
+          disabled={busy}
+          style={{width:"100%",boxSizing:"border-box",padding:"12px 14px",fontFamily:"monospace",fontSize:14,border:"0.5px solid #E8E6E0",borderRadius:8,background:"#FAF8F5",color:"#1a1a1a",outline:"none"}}
+        />
+        {err&&<div style={{marginTop:12,fontSize:12,color:"#A32D2D",lineHeight:1.6}}>{err}</div>}
+        <button
+          onClick={submit}
+          disabled={busy}
+          style={{marginTop:20,width:"100%",padding:"13px 0",fontSize:15,fontWeight:600,color:"#fff",background:busy?"#9CC4EC":"#378ADD",border:"none",borderRadius:8,cursor:busy?"default":"pointer",transition:"background 0.15s"}}
+        >{busy?"認証中…":"認証してはじめる"}</button>
+        <div style={{marginTop:18,fontSize:11,color:"#999",lineHeight:1.7}}>
+          キーが分からない場合は、決済完了メールをご確認いただくか、サポートまでお問い合わせください。<br/>
+          ※ キーはこの端末のlocalStorageにのみ保存されます。
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function App(){
   const [data,setData]=useState(getInitialData);
   const [isMobile,setIsMobile]=useState(()=>window.innerWidth<768||/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent));
@@ -9784,6 +9913,10 @@ function App(){
   const [gdriveSyncing,setGdriveSyncing]=useState(false);
   const [gdriveLastSync,setGdriveLastSync]=useState(()=>localStorage.getItem("clavis-gdrive-last-sync")||null);
   const [showAuthBanner,setShowAuthBanner]=useState(false);
+  // ライセンス起動ゲート: checking(検証中) / valid(全機能) / readonly(閲覧+事件簿のみ) / gate(ハードブロック)
+  const [licenseState,setLicenseState]=useState(DEMO_MODE?"valid":"checking"); // 論点5: DEMO_MODEはバイパス
+  const [licenseReason,setLicenseReason]=useState(null);
+  const [licenseRechecking,setLicenseRechecking]=useState(false);
   const [conflictModalInfo,setConflictModalInfo]=useState(null);
   const conflictResolverRef=useRef(null);
   function showConflictModal(info){
@@ -9816,6 +9949,7 @@ function App(){
   const skipAutoUpRef=useRef(false);
   const hasMountedRef=useRef(false);
   const initialSyncCheckedRef=useRef(false);
+  const driveInitStartedRef=useRef(false); // Drive初期化は1回だけ（ライセンス検証後に発火）
 
   // ブラウザバック対応（PWA / Web）
   // 履歴管理方針:
@@ -9955,11 +10089,50 @@ function App(){
     }).catch(()=>location.reload());
   };
 
+  // ライセンス起動検証（論点3: Drive初期化より「前」に必ず走らせる）
+  // 判定フロー:
+  //  - DEMO_MODE → 何もせず valid（state初期値で確定済み・このeffectはreturn）
+  //  - キー無し → gate（初回フロー / 検証手順1）
+  //  - キャッシュが同キー・有効・7日以内 → valid（Workers検証スキップ / 検証手順4,5）
+  //  - 要(再)検証 → /license/verify
+  //      valid   → キャッシュ更新 + valid
+  //      invalid → ever-valid端末は readonly（検証手順7: 起動して閲覧/事件簿のみ）、未検証端末は gate（検証手順3）
+  //      offline → ever-valid端末は readonly（オフライン7日超 = 再ログイン要バナー）、未検証端末は gate
+  useEffect(()=>{
+    if(DEMO_MODE) return; // 論点5: 初期stateで既にvalid
+    let cancelled=false;
+    (async()=>{
+      const key=((data.office&&data.office.license_key)||"").trim();
+      const everValid=localStorage.getItem(LICENSE_EVER_VALID_KEY)==="1";
+      if(!key){ setLicenseReason("no-key"); setLicenseState("gate"); return; }
+      const cache=readLicenseCache();
+      if(isLicenseCacheFresh(cache,key)){ setLicenseState("valid"); return; }
+      try{
+        const r=await verifyLicenseOnline(key);
+        if(cancelled) return;
+        if(r.valid){ writeLicenseCache(key,r.plan); setLicenseState("valid"); return; }
+        clearLicenseCacheValidity();
+        setLicenseReason(r.reason||"invalid");
+        setLicenseState(everValid?"readonly":"gate");
+      }catch(netErr){
+        if(cancelled) return;
+        // オフライン / サーバー障害 → キャッシュ依存
+        setLicenseReason(everValid?"offline-expired":"offline-firsttime");
+        setLicenseState(everValid?"readonly":"gate");
+      }
+    })();
+    return ()=>{ cancelled=true; };
+  },[]);
+
   // Google Drive初期化
   // GISライブラリの読込完了を最大3秒リトライで待つ。失敗してもアプリ本体はクラッシュしない。
   // DEMO_MODE時は初期化スキップ（ダミーデータをDriveに上げないため）
+  // ライセンス: 論点3で valid 確定後にのみ発火（readonly/gate中はDrive初期化しない=Googleバックアップ❌）
   useEffect(()=>{
     if(DEMO_MODE) return;
+    if(licenseState!=="valid") return;
+    if(driveInitStartedRef.current) return;
+    driveInitStartedRef.current=true;
     let cancelled = false;
     const init = async () => {
       let ok = false;
@@ -10014,7 +10187,7 @@ function App(){
     };
     init();
     return ()=>{ cancelled = true; };
-  },[]);
+  },[licenseState]);
 
   async function handleGdriveSignIn(){
     try {
@@ -10548,10 +10721,84 @@ function App(){
   const showStepper=stepperTab&&stepperVisible;
   function toggleStepper(){const nv=!stepperVisible;setStepperVisible(nv);localStorage.setItem("clavis-stepper",nv?"visible":"hidden");}
 
+  // readonlyバナーの「再認証」: 現在のキーで再度オンライン検証
+  async function recheckLicense(){
+    if(licenseRechecking) return;
+    const key=((data.office&&data.office.license_key)||"").trim();
+    if(!key){ setLicenseReason("no-key"); setLicenseState("gate"); return; }
+    setLicenseRechecking(true);
+    try{
+      const r=await verifyLicenseOnline(key);
+      if(r.valid){ writeLicenseCache(key,r.plan); setLicenseReason(null); setLicenseState("valid"); }
+      else { clearLicenseCacheValidity(); setLicenseReason(r.reason||"invalid"); }
+    }catch(netErr){
+      setLicenseReason("offline-expired");
+    }finally{
+      setLicenseRechecking(false);
+    }
+  }
+
+  // ライセンス起動ゲート（論点3）。全hook呼び出し後・メインreturn前で分岐。
+  if(licenseState==="checking"){
+    return (
+      <div style={{position:"fixed",inset:0,background:"#FAF8F5",display:"flex",alignItems:"center",justifyContent:"center"}}>
+        <div style={{fontSize:13,color:"#999"}}>ライセンスを確認しています…</div>
+      </div>
+    );
+  }
+  if(licenseState==="gate"){
+    return (
+      <LicenseGate
+        isMobile={isMobile}
+        reason={licenseReason}
+        onVerified={(k,p)=>{
+          setData(d=>({...d,office:{...(d.office||{}),license_key:k}}));
+          writeLicenseCache(k,p);
+          setLicenseReason(null);
+          setLicenseState("valid");
+        }}
+      />
+    );
+  }
+
   return(
     <MobileContext.Provider value={isMobile}>
     <div style={{minHeight:"100vh",background:"#eeede8",zoom:isMobile?"1":fs,"--header-h":showStepper?"86px":"52px"}}>
       <ConflictConfirmModal info={conflictModalInfo} onResolve={handleConflictResolve}/>
+      {/* ライセンス無効バナー（検証手順7: 起動して閲覧/事件簿のみ）。最上部・常時表示・閉じない */}
+      {licenseState==="readonly"&&(
+        <div style={{
+          background:"#FCE9E9",
+          borderBottom:"1px solid #E0A3A3",
+          color:"#7A2424",
+          padding:isMobile?"8px 12px":"10px 16px",
+          display:"flex",
+          alignItems:"center",
+          gap:isMobile?8:12,
+          fontSize:isMobile?12:13,
+          minHeight:isMobile?40:48,
+          position:"sticky",
+          top:0,
+          zIndex:201,
+          boxShadow:"0 1px 3px rgba(0,0,0,0.06)"
+        }}>
+          <span style={{fontSize:isMobile?14:16,flexShrink:0}}>⚠️</span>
+          <span style={{flex:1,lineHeight:1.5}}>
+            {licenseReasonText(licenseReason)} 現在は<strong>閲覧と事件簿エクスポートのみ</strong>ご利用いただけます。
+          </span>
+          <button onClick={recheckLicense} disabled={licenseRechecking} style={{
+            fontSize:isMobile?11:12,
+            padding:isMobile?"4px 10px":"5px 14px",
+            borderRadius:6,
+            border:"0.5px solid #E0A3A3",
+            background:"#fff",
+            color:"#7A2424",
+            cursor:licenseRechecking?"default":"pointer",
+            fontWeight:500,
+            flexShrink:0
+          }}>{licenseRechecking?"確認中…":"再認証"}</button>
+        </div>
+      )}
       {/* 認証切れバナー（最上部、ヘッダーの上） */}
       {showAuthBanner&&(
         <div style={{
