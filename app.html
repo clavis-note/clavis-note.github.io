@@ -1407,7 +1407,7 @@ function DateInput({value, onChange, ...rest}){
   );
 }
 
-function Field({label,value,editMode,field,update,type="text",estimated=false,onConfirm}){
+function Field({label,value,editMode,field,update,type="text",estimated=false,onConfirm,placeholder=""}){
   // estimated: 推定値（OCRフリガナ推定等）。薄いグレー＋「推定」バッジで目視確認を促し、
   // ユーザーがフォーカス（確認）or 編集した時点で onConfirm() を呼び通常表示に戻す。
   const isEst = estimated && !!value;
@@ -1419,7 +1419,7 @@ function Field({label,value,editMode,field,update,type="text",estimated=false,on
       {editMode?(
         type==="date"
           ? <DateInput value={value||""} onChange={v=>update(field,v)} max="9999-12-31" min="1900-01-01" style={inputStyle}/>
-          : <input type={type} value={value||""} onFocus={isEst?confirm:undefined} onChange={e=>{confirm();update(field,e.target.value);}} style={inputStyle}/>
+          : <input type={type} value={value||""} placeholder={placeholder} onFocus={isEst?confirm:undefined} onChange={e=>{confirm();update(field,e.target.value);}} style={inputStyle}/>
       ):<span style={{fontSize:13,color:isEst?"#9aa0a6":(value?"var(--text)":"var(--text3)"),fontStyle:isEst?"italic":undefined}}>{value||"—"}</span>}
     </div>
   );
@@ -2618,7 +2618,7 @@ function mergeExtractedToClient(existing, extracted){
     const wh = merged.work_history||[];
     const exists = wh.some(w=>normName(w.company_name)===normName(merged.company_name));
     if(!exists){
-      merged.work_history = [...wh, {id:"W"+Date.now()+"-poi", company_name:merged.company_name, country:"日本", start_date:merged.work_start_date, end_date:null, job_title:"調理師"}];
+      merged.work_history = [...wh, {id:"W"+Date.now()+"-poi", company_name:merged.company_name, country:"日本", start_date:merged.work_start_date, end_date:null, job_title:""}];
     }
   }
   // 在留資格・在留期限が両方揃ったら COE フェーズを自動OFF
@@ -3367,11 +3367,11 @@ function TabBasic({c,editMode,update,allClients}){
         <Field label={isGenClient?"ふりがな":"氏名（カナ）"} value={c.name_kana} editMode={editMode} field="name_kana" update={update}
           estimated={!!c.name_kana_estimated}
           onConfirm={()=>{ if(c.name_kana_estimated) update("name_kana_estimated",false); }}/>
-        {!isGenClient&&<Field label="国籍" value={c.nationality} editMode={editMode} field="nationality" update={update}/>}
+        {!isGenClient&&<Field label="国籍" value={c.nationality} editMode={editMode} field="nationality" update={update} placeholder="例: ベトナム"/>}
         {!isGenClient&&<Field label="生年月日" value={c.dob} editMode={editMode} field="dob" update={update} type="date" max="9999-12-31" min="1900-01-01"/>}
         {!isGenClient&&<div>
           <div style={{fontSize:10,color:"var(--text3)",fontWeight:500,marginBottom:3,letterSpacing:"0.05em"}}>性別</div>
-          {editMode?<select value={c.gender||"男"} onChange={e=>update("gender",e.target.value)} style={{fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)",width:"100%"}}><option value="男">男</option><option value="女">女</option></select>
+          {editMode?<select value={c.gender||""} onChange={e=>update("gender",e.target.value)} style={{fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)",width:"100%"}}><option value="">選択してください</option><option value="男">男</option><option value="女">女</option></select>
           :<div style={{fontSize:13,color:c.gender?"var(--text)":"var(--text3)"}}>{c.gender||"—"}</div>}
         </div>}
         <Field label="電話番号" value={c.phone} editMode={editMode} field="phone" update={update}/>
@@ -4362,7 +4362,7 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
         if(currentWork){
           updated.work_history=wh.map(w=>w.id===currentWork.id?{...w,start_date:updated.work_start_date,company_name:updated.company_name,country:w.country||"日本",job_title:w.job_title||"調理師"}:w);
         }else{
-          updated.work_history=[...wh,{id:"W"+Date.now(),company_name:updated.company_name,country:"日本",start_date:updated.work_start_date,end_date:null,job_title:"調理師"}];
+          updated.work_history=[...wh,{id:"W"+Date.now(),company_name:updated.company_name,country:"日本",start_date:updated.work_start_date,end_date:null,job_title:""}];
         }
       }
       // COE自動OFF: 在留資格と在留期限が両方埋まったら、COEチェックを自動的に外す（確認なし）
@@ -4399,9 +4399,9 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
     discardEmptyIfNew();
     const newId="C"+Date.now();
     const newClient={
-      client_id:newId, client_type:"immigration", name_roman:"", name_kana:"", nationality:"ネパール", dob:"", gender:"男",
+      client_id:newId, client_type:"immigration", name_roman:"", name_kana:"", nationality:"", dob:"", gender:"",
       passport_number:"", passport_expiry:"", entry_date:"", residence_card:"",
-      residence_status:"技能", residence_expiry:"", phone:"", email:"",
+      residence_status:"", residence_expiry:"", phone:"", email:"",
       company_name:"", store:"", work_start_date:"", notes:"", address:"", postal_code:"",
       dependent_of:null, client_status:"active", relationship:null, school_name:null,
       coe_phase:false, coe_category:null,
