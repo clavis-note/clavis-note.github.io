@@ -5266,7 +5266,7 @@ function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments,templates,com
                   <div key={p.payment_id} onClick={()=>setOpenPaymentModal(p)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 12px",background:"var(--bg2)",borderRadius:6,cursor:"pointer",border:"0.5px solid rgba(0,0,0,0.05)"}}>
                     <div style={{display:"flex",alignItems:"center",gap:10,minWidth:0,flex:1}}>
                       <span style={{fontSize:11,fontWeight:500,padding:"2px 8px",borderRadius:3,background:stBg,color:stColor,whiteSpace:"nowrap"}}>{status}</span>
-                      <span style={{fontSize:12,color:"#666",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.bill_to_name||"—"}{isBundle&&<span style={{fontSize:10,marginLeft:4,color:"#999"}}>まとめ{p.case_ids.length}件</span>}</span>
+                      <span style={{fontSize:12,color:"#666",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{displayBillTo(p,clients)||"—"}{isBundle&&<span style={{fontSize:10,marginLeft:4,color:"#999"}}>まとめ{p.case_ids.length}件</span>}</span>
                     </div>
                     <div style={{display:"flex",gap:14,alignItems:"center",fontSize:12,whiteSpace:"nowrap"}}>
                       <span style={{color:"#666"}}>請求 <strong>{fmt(total)}</strong></span>
@@ -5445,7 +5445,7 @@ function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments,templates,com
           <div onClick={()=>setOpenPaymentModal(null)} style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.35)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9000}}>
             <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg)",borderRadius:12,padding:24,maxWidth:480,width:"90%",position:"relative"}}>
               <button onClick={()=>setOpenPaymentModal(null)} style={{position:"absolute",top:12,right:14,fontSize:16,background:"transparent",border:"none",cursor:"pointer",color:"#999"}}>✕</button>
-              <div style={{fontSize:16,fontWeight:600,marginBottom:4}}>{p.bill_to_name||"—"}</div>
+              <div style={{fontSize:16,fontWeight:600,marginBottom:4}}>{displayBillTo(p,clients)||"—"}</div>
               <div style={{fontSize:13,color:"#666",marginBottom:12}}>{caseNames}</div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px 16px",fontSize:13,color:"#333"}}>
                 <div><span style={{color:"#999",fontSize:11}}>請求額</span><br/>{fmt(total)}</div>
@@ -5817,7 +5817,7 @@ function GeneralCaseDetail({c,onUpdate,onDelete,clients,payments}){
                   <div key={p.payment_id} onClick={()=>setOpenPaymentModal(p)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 12px",background:"var(--bg2)",borderRadius:6,cursor:"pointer",border:"0.5px solid rgba(0,0,0,0.05)"}}>
                     <div style={{display:"flex",alignItems:"center",gap:10,minWidth:0,flex:1}}>
                       <span style={{fontSize:11,fontWeight:500,padding:"2px 8px",borderRadius:3,background:stBg,color:stColor,whiteSpace:"nowrap"}}>{status}</span>
-                      <span style={{fontSize:12,color:"#666",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.bill_to_name||"—"}{isBundle&&<span style={{fontSize:10,marginLeft:4,color:"#999"}}>まとめ{p.case_ids.length}件</span>}</span>
+                      <span style={{fontSize:12,color:"#666",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{displayBillTo(p,clients)||"—"}{isBundle&&<span style={{fontSize:10,marginLeft:4,color:"#999"}}>まとめ{p.case_ids.length}件</span>}</span>
                     </div>
                     <div style={{display:"flex",gap:14,alignItems:"center",fontSize:12,whiteSpace:"nowrap"}}>
                       <span style={{color:"#666"}}>請求 <strong>{fmt(total)}</strong></span>
@@ -5878,7 +5878,7 @@ function GeneralCaseDetail({c,onUpdate,onDelete,clients,payments}){
           <div onClick={()=>setOpenPaymentModal(null)} style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.35)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9000}}>
             <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg)",borderRadius:12,padding:24,maxWidth:480,width:"90%",position:"relative"}}>
               <button onClick={()=>setOpenPaymentModal(null)} style={{position:"absolute",top:12,right:14,fontSize:16,background:"transparent",border:"none",cursor:"pointer",color:"#999"}}>✕</button>
-              <div style={{fontSize:16,fontWeight:600,marginBottom:4}}>{p.bill_to_name||"—"}</div>
+              <div style={{fontSize:16,fontWeight:600,marginBottom:4}}>{displayBillTo(p,clients)||"—"}</div>
               <div style={{fontSize:13,color:"#666",marginBottom:12}}>{c.applicant||c.case_title||""}</div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px 16px",fontSize:13,color:"#333"}}>
                 <div><span style={{color:"#999",fontSize:11}}>請求額</span><br/>{fmt(total)}</div>
@@ -6320,7 +6320,7 @@ function NewPaymentModal({onClose,onSave,cases,clients,payments,feeMaster}){
       payment_id:"P"+Date.now(),
       case_ids:caseIds,client_ids:clientIds,
       bill_type:mode==="bundle"?"company":billType,
-      bill_to_name:mode==="bundle"?"株式会社フォロー":billToName,
+      bill_to_name:mode==="bundle"?"株式会社フォロー":(billToName||selClient?.name_roman||selClient?.name_kana||selCase?.applicant||selCase?.requester||""),
       tax_mode:taxMode,
       invoice_number:"INV-"+new Date().getFullYear()+"-"+String(Date.now()).slice(-3),
       invoice_date:invoiceDate,due_date:dueDate,
@@ -7496,8 +7496,8 @@ function PaymentDetail({p,cases,clients,office,onUpdate,onDelete,onSplit,onItemS
         <button onClick={()=>{
           const histCount=(p.payments_history||[]).length;
           const msg=histCount>0
-            ?`「${p.bill_to_name} 宛」（${p.invoice_number}）を削除しますか？\n\n⚠ 入金履歴 ${histCount}件も一緒に削除されます。`
-            :`「${p.bill_to_name} 宛」（${p.invoice_number}）を削除しますか？`;
+            ?`「${displayBillTo(p,clients,cases)} 宛」（${p.invoice_number}）を削除しますか？\n\n⚠ 入金履歴 ${histCount}件も一緒に削除されます。`
+            :`「${displayBillTo(p,clients,cases)} 宛」（${p.invoice_number}）を削除しますか？`;
           if(confirm(msg)) onDelete(p.payment_id);
         }} style={{fontSize:11,padding:"4px 12px",cursor:"pointer",borderRadius:5,border:"0.5px solid #A32D2D",background:"transparent",color:"#A32D2D"}}>
           この請求を削除
@@ -7848,7 +7848,7 @@ function PaymentManagement({data,setData,navigatePaymentId,clearNavigate}){
                   {mergeIds.includes(p.payment_id)&&<span style={{color:"#fff",fontSize:10}}>✓</span>}
                 </div>}
                 <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:12,fontWeight:500,marginBottom:3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.bill_to_name||"—"} 宛</div>
+                <div style={{fontSize:12,fontWeight:500,marginBottom:3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{displayBillTo(p,clients,cases)||"—"} 宛</div>
                 <div style={{fontSize:11,color:"var(--text3)",marginBottom:4,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{caseNames||"—"}</div>
                 <div style={{display:"flex",gap:5,alignItems:"center",marginBottom:3}}>
                   <span style={{fontSize:10,padding:"2px 7px",borderRadius:4,background:scBadge.bg,color:scBadge.color,fontWeight:500}}>{st}</span>
