@@ -4773,6 +4773,10 @@ function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments,templates,com
   const [newReqNote,setNewReqNote]=useState("");
   const [newReqMemo,setNewReqMemo]=useState("");
   const [editReqId,setEditReqId]=useState(null);
+  // 追加資料対応履歴は使わない案件も多い → 折りたたみ可能に。
+  // 既存履歴があれば開く / 無ければ畳む。案件切替時に再判定（CaseDetailはkey無しで再マウントされないため）。
+  const [addlReqOpen,setAddlReqOpen]=useState(()=>(c.additional_requests||[]).length>0);
+  useEffect(()=>{ setAddlReqOpen((c.additional_requests||[]).length>0); },[c.case_id]);
 
   function cycleDoc(docId){onUpdate({...c,docs:c.docs.map(d=>d.id!==docId?d:{...d,status:DOC_STATUS_CYCLE[d.status]||"未取得"})});}
   function setDocStatus(docId,status){onUpdate({...c,docs:c.docs.map(d=>d.id===docId?{...d,status}:d)});}
@@ -5268,7 +5272,11 @@ function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments,templates,com
 
       {/* 追加資料対応 */}
       <div style={{background:"var(--bg)",border:"0.5px solid rgba(0,0,0,0.1)",borderRadius:10,padding:"14px 16px"}}>
-        <div style={{fontSize:12,fontWeight:500,color:"#666",marginBottom:10}}>追加資料対応履歴</div>
+        <div onClick={()=>setAddlReqOpen(o=>!o)} style={{fontSize:12,fontWeight:500,color:"#666",marginBottom:addlReqOpen?10:0,display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer",userSelect:"none"}}>
+          <span>追加資料対応履歴{(c.additional_requests||[]).length>0&&<span style={{fontSize:10,color:"#A32D2D",marginLeft:6,fontWeight:500}}>{(c.additional_requests||[]).length}件</span>}</span>
+          <span style={{fontSize:11,color:"#999",fontWeight:400}}>{addlReqOpen?"▲ 閉じる":"▼ 開く"}</span>
+        </div>
+        {addlReqOpen&&(<>
         {(c.additional_requests||[]).map(r=>{
           const isSubmitted=!!r.submitted_date;
           const deadlineDays=r.deadline_date?Math.ceil((new Date(r.deadline_date)-new Date(new Date().toDateString()))/86400000):null;
@@ -5352,6 +5360,7 @@ function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments,templates,com
             <button onClick={addAdditionalRequest} style={{fontSize:12,padding:"4px 12px",cursor:"pointer",borderRadius:5,border:"0.5px solid #A32D2D",background:"#FCEBEB",color:"#A32D2D",whiteSpace:"nowrap"}}>{editReqId?"更新":"記録"}</button>
           </div>
         </div>
+        </>)}
       </div>
 
       {/* 備考 */}
@@ -6339,8 +6348,8 @@ function NewPaymentModal({onClose,onSave,cases,clients,payments,feeMaster}){
   const expBillable=calcExpBillable(expenses);
 
   return(
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200}}>
-      <div style={{background:"var(--bg)",borderRadius:12,border:"0.5px solid rgba(0,0,0,0.15)",width:540,maxHeight:"88vh",display:"flex",flexDirection:"column"}}>
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",display:"flex",alignItems:"flex-start",justifyContent:"center",zIndex:200,padding:"20px 16px",overflowY:"auto"}}>
+      <div style={{background:"var(--bg)",borderRadius:12,border:"0.5px solid rgba(0,0,0,0.15)",width:540,maxWidth:"100%",maxHeight:"calc(100vh - 40px)",display:"flex",flexDirection:"column"}}>
         <div style={{padding:"12px 16px",borderBottom:"0.5px solid rgba(0,0,0,0.1)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <span style={{fontSize:14,fontWeight:500}}>新規請求作成</span>
           <button onClick={onClose} style={{border:"none",background:"none",fontSize:18,cursor:"pointer",color:"#999"}}>×</button>
@@ -6354,7 +6363,7 @@ function NewPaymentModal({onClose,onSave,cases,clients,payments,feeMaster}){
           ))}
         </div>
 
-        <div style={{overflowY:"auto",padding:16,display:"flex",flexDirection:"column",gap:14}}>
+        <div style={{overflowY:"auto",padding:16,display:"flex",flexDirection:"column",gap:14,flex:1,minHeight:0}}>
           {mode==="single"&&<>
             <div>
               <div style={{fontSize:10,color:"var(--text3)",marginBottom:4}}>案件</div>
