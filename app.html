@@ -7840,7 +7840,7 @@ function PaymentManagement({data,setData,navigatePaymentId,clearNavigate}){
       due_date:"",
       items:targets.flatMap((t,ti)=>{
         const caseLabel=t.case_ids.length===1
-          ?(cases.find(c=>c.case_id===t.case_ids[0])?.applicant||t.bill_to_name||"").split(" ")[0]
+          ?(cases.find(c=>c.case_id===t.case_ids[0])?.applicant||t.bill_to_name||"")
           :t.bill_to_name||"";
         return t.items.map((item,ii)=>({...item,id:"i"+ti+"_"+ii,
           original_date:item.original_date||t.invoice_date||"",
