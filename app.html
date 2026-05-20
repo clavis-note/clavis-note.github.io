@@ -6510,8 +6510,10 @@ function NewPaymentModal({onClose,onSave,cases,clients,payments,feeMaster}){
                         background:exp.billable?"#3B6D11":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
                       {exp.billable&&<span style={{color:"#fff",fontSize:9}}>✓</span>}
                     </div>
-                    <span style={{fontSize:12,flex:1}}>{exp.name}</span>
-                    <span style={{fontSize:12,fontWeight:500}}>{fmt(exp.amount)}</span>
+                    <input value={exp.name} onChange={e=>setExpenses(p=>p.map(x=>x.id===exp.id?{...x,name:e.target.value}:x))}
+                      style={{flex:1,minWidth:0,fontSize:12,padding:"3px 6px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.12)",background:"var(--bg)"}}/>
+                    <input type="number" value={exp.amount} onChange={e=>setExpenses(p=>p.map(x=>x.id===exp.id?{...x,amount:parseInt(e.target.value)||0}:x))}
+                      style={{width:80,fontSize:12,padding:"3px 6px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.12)",background:"var(--bg)",textAlign:"right"}}/>
                     <button onClick={()=>setExpenses(p=>p.filter(e=>e.id!==exp.id))} style={{border:"none",background:"none",cursor:"pointer",color:"#ccc",fontSize:14}}>×</button>
                   </div>
                 ))}
@@ -7188,6 +7190,7 @@ function PaymentDetail({p,cases,clients,office,onUpdate,onDelete,onSplit,onItemS
   }
   function toggleExpBillable(id){onUpdate({...p,expenses:(p.expenses||[]).map(e=>e.id===id?{...e,billable:!e.billable}:e)});}
   function removeExpense(id){onUpdate({...p,expenses:(p.expenses||[]).filter(e=>e.id!==id)});}
+  function updateExpenseField(id,field,val){onUpdate({...p,expenses:(p.expenses||[]).map(e=>e.id===id?{...e,[field]:val}:e)});}
 
   const scBadge=PAY_STATUS_COLORS[paymentStatus(p)]||{bg:"#F1EFE8",color:"#5F5E5A"};
 
@@ -7403,8 +7406,10 @@ function PaymentDetail({p,cases,clients,office,onUpdate,onDelete,onSplit,onItemS
                 {exp.billable&&<span style={{color:"#fff",fontSize:9}}>✓</span>}
               </div>
               <span style={{fontSize:11,color:"var(--text3)"}}>{exp.date}</span>
-              <span style={{fontSize:12}}>{exp.name}</span>
-              <span style={{fontSize:12,textAlign:"right",fontWeight:500}}>{fmt(exp.amount)}</span>
+              <input value={exp.name} onChange={e=>updateExpenseField(exp.id,"name",e.target.value)}
+                style={{minWidth:0,fontSize:12,padding:"3px 6px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.12)",background:"var(--bg)"}}/>
+              <input type="number" value={exp.amount} onChange={e=>updateExpenseField(exp.id,"amount",parseInt(e.target.value)||0)}
+                style={{minWidth:0,fontSize:12,padding:"3px 6px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.12)",background:"var(--bg)",textAlign:"right"}}/>
               <button onClick={()=>removeExpense(exp.id)} style={{border:"none",background:"none",cursor:"pointer",color:"#ccc",fontSize:14}}>×</button>
             </div>
           ))}
