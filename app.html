@@ -4822,6 +4822,9 @@ function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments,templates,com
   const isMobile=useMobile();
   const client=clients.find(x=>x.client_id===c.client_id);
   const tmpl=templates[c.template_id];
+  // 古い一般業務案件等で docs/hearing_items が null/undefined のまま CaseDetail に流入するとクラッシュするためガード
+  const cDocs=c.docs||[];
+  const cHearing=c.hearing_items||[];
   const [showPreview,setShowPreview]=useState(false);
   const [showClientModal,setShowClientModal]=useState(false);
   const [openPaymentModal,setOpenPaymentModal]=useState(null);
@@ -4840,11 +4843,11 @@ function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments,templates,com
   const [addlReqOpen,setAddlReqOpen]=useState(()=>(c.additional_requests||[]).length>0);
   useEffect(()=>{ setAddlReqOpen((c.additional_requests||[]).length>0); },[c.case_id]);
 
-  function cycleDoc(docId){onUpdate({...c,docs:c.docs.map(d=>d.id!==docId?d:{...d,status:DOC_STATUS_CYCLE[d.status]||"未取得"})});}
-  function setDocStatus(docId,status){onUpdate({...c,docs:c.docs.map(d=>d.id===docId?{...d,status}:d)});}
-  function addDoc(){if(!newDocName.trim())return;onUpdate({...c,docs:[...c.docs,{id:"x"+Date.now(),name:newDocName.trim(),group:null,status:"未取得"}]});setNewDocName("");}
+  function cycleDoc(docId){onUpdate({...c,docs:(c.docs||[]).map(d=>d.id!==docId?d:{...d,status:DOC_STATUS_CYCLE[d.status]||"未取得"})});}
+  function setDocStatus(docId,status){onUpdate({...c,docs:(c.docs||[]).map(d=>d.id===docId?{...d,status}:d)});}
+  function addDoc(){if(!newDocName.trim())return;onUpdate({...c,docs:[...(c.docs||[]),{id:"x"+Date.now(),name:newDocName.trim(),group:null,status:"未取得"}]});setNewDocName("");}
   function updateHearing(i,field,val){
-    const items=[...c.hearing_items];
+    const items=[...(c.hearing_items||[])];
     items[i]={...items[i],[field]:val};
     onUpdate({...c,hearing_items:items});
     // クライアント台帳への自動反映（先勝ち方式）
@@ -4869,8 +4872,8 @@ function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments,templates,com
   }
   function startEditReq(r){setEditReqId(r.id);setNewReqDate(r.requested_date||new Date().toISOString().slice(0,10));setNewReqDeadline(r.deadline_date||"");setNewReqDocs(Array.isArray(r.requested_docs)?r.requested_docs:[r.requested_docs||""]);setNewReqSubmitDate(r.submitted_date||"");setNewReqMethod(r.submission_method||"");setNewReqTracking(r.tracking_number||"");setNewReqNote(r.note||"");setNewReqMemo(r.memo||"");}
 
-  const total=c.docs.length,submitted=c.docs.filter(d=>d.status==="提出済").length,pct=Math.round((submitted/total)*100)||0;
-  const groups=[...new Set(c.docs.map(d=>d.group))];
+  const total=cDocs.length,submitted=cDocs.filter(d=>d.status==="提出済").length,pct=Math.round((submitted/total)*100)||0;
+  const groups=[...new Set(cDocs.map(d=>d.group))];
   const YEARS=Array.from({length:50},(_,i)=>String(new Date().getFullYear()-i));
   const MONTHS=Array.from({length:12},(_,i)=>String(i+1).padStart(2,"0"));
 
@@ -5294,7 +5297,7 @@ function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments,templates,com
         {groups.map(group=>(
           <div key={group||"none"}>
             {group&&<div style={{fontSize:11,color:"#999",fontWeight:500,marginBottom:4,marginTop:8,paddingLeft:6,borderLeft:"2px solid #D3D1C7"}}>{group}</div>}
-            {c.docs.filter(d=>d.group===group).map(doc=>{
+            {cDocs.filter(d=>d.group===group).map(doc=>{
               const s=DOC_STATUS_STYLE[doc.status]||DOC_STATUS_STYLE["未取得"];
               const isIrr=doc.status==="不要";
               return(
@@ -5318,10 +5321,10 @@ function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments,templates,com
       </div>
 
       {/* ヒアリング */}
-      {c.hearing_items&&c.hearing_items.length>0&&(
+      {cHearing.length>0&&(
         <div style={{background:"var(--bg)",border:"0.5px solid rgba(0,0,0,0.1)",borderRadius:10,padding:"14px 16px"}}>
           <div style={{fontSize:12,fontWeight:500,color:"#666",marginBottom:10}}>ヒアリング項目</div>
-          {c.hearing_items.map((item,i)=>(
+          {cHearing.map((item,i)=>(
             <div key={i} style={{marginBottom:12}}>
               <div style={{fontSize:12,color:"#444",marginBottom:5}}>{item.label}</div>
               {item.type==="date"?(
@@ -5947,7 +5950,8 @@ function CaseManagement({data,setData,navigateCaseId,clearNavigate}){
   const activeStatuses=["全て",...new Set(currentCases.map(c=>c.status))];
   const sel=cases.find(c=>c.case_id===selected?.case_id)||null;
   const nextNo=cases.length>0?Math.max(...cases.map(d=>Number(d.no)||0))+1:1;
-  const isGeneral=sel?.case_type==="general"||(!sel?.template_id&&sel?.category!=="国際"&&sel?.case_id?.startsWith("G"));
+  // template_idがない案件は構造上入管(CaseDetail)で扱えないため一般扱いに寄せる（クラッシュ防止）
+  const isGeneral=sel?.case_type==="general"||!sel?.template_id;
 
   return(
     <div style={{position:isMobile?"relative":"fixed",top:isMobile?undefined:"var(--header-h)",left:isMobile?undefined:0,right:isMobile?undefined:0,bottom:isMobile?undefined:0,height:isMobile?"calc(100vh - var(--header-h))":undefined,display:"flex",background:"#eeede8"}}>
