@@ -6035,9 +6035,9 @@ function CaseJournal({data,setData,onNavCase}){
   const [filterYM,setFilterYM]=useState("全て");          // 受任年は単一（上位縛り）
   const [filterPayment,setFilterPayment]=useState("全て");
   const [sortKey,setSortKey]=useState("accepted_date");
-  const [sortAsc,setSortAsc]=useState(true);
+  const [sortAsc,setSortAsc]=useState(false);
   // 事件簿は cases から自動生成される法定記録（行政書士法第9条）。読み取り専用＝編集/新規/削除UIは持たない
-  // デフォルト並び順は「受任日昇順」(帳簿型・時系列で古→新)
+  // デフォルト並び順は「受任日降順」(新→古、最新案件が一番上)
   const [openFilter,setOpenFilter]=useState(null); // "cat"|"status"|"applicant"|null
 
   const yearOptions=useMemo(()=>{const years=new Set(cases.filter(d=>d.accepted_date).map(d=>d.accepted_date.slice(0,4)));return["全て",...[...years].sort().reverse()];},[cases]);
