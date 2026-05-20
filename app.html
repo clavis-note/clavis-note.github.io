@@ -6263,6 +6263,8 @@ function NewPaymentModal({onClose,onSave,cases,clients,payments,feeMaster}){
   const [expSuffix,setExpSuffix]=useState("");
   const [customName,setCustomName]=useState("");
   const [customPrice,setCustomPrice]=useState("");
+  const [customExpName,setCustomExpName]=useState("");
+  const [customExpAmount,setCustomExpAmount]=useState("");
   const [invoiceDate,setInvoiceDate]=useState(new Date().toISOString().slice(0,10));
   const [dueDate,setDueDate]=useState("");
 
@@ -6310,6 +6312,12 @@ function NewPaymentModal({onClose,onSave,cases,clients,payments,feeMaster}){
   function addExpensePreset(preset){
     const suffix=expSuffix?`（${expSuffix}分）`:"";
     setExpenses(p=>[...p,{id:"e"+Date.now(),date:new Date().toISOString().slice(0,10),name:preset.name+suffix,amount:preset.price,billable:true}]);
+  }
+  function addCustomExpense(){
+    if(!customExpName||!customExpAmount)return;
+    const suffix=expSuffix?`（${expSuffix}分）`:"";
+    setExpenses(p=>[...p,{id:"e"+Date.now(),date:new Date().toISOString().slice(0,10),name:customExpName+suffix,amount:parseInt(customExpAmount)||0,billable:true}]);
+    setCustomExpName("");setCustomExpAmount("");
   }
 
   function handleSave(){
@@ -6494,13 +6502,23 @@ function NewPaymentModal({onClose,onSave,cases,clients,payments,feeMaster}){
                   style={{width:120,fontSize:11,padding:"3px 6px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.12)",background:"var(--bg)"}}/>
                 {expSuffix&&<span style={{fontSize:10,color:"#854F0B"}}>→「○○（{expSuffix}分）」</span>}
               </div>
-              <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:10}}>
+              <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:6}}>
                 {EXPENSE_PRESETS.map((pr,i)=>(
                   <button key={i} onClick={()=>addExpensePreset(pr)}
                     style={{fontSize:10,padding:"3px 8px",cursor:"pointer",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.12)",background:"var(--bg)",color:"var(--text2)"}}>
                     + {pr.name}{pr.price>0?`（${fmt(pr.price)}）`:""}
                   </button>
                 ))}
+              </div>
+              <div style={{display:"flex",gap:4,marginBottom:10}}>
+                <input value={customExpName} onChange={e=>setCustomExpName(e.target.value)} placeholder="その他の経費名"
+                  style={{flex:1,minWidth:0,fontSize:11,padding:"3px 6px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.12)",background:"var(--bg)"}}
+                  onKeyDown={e=>e.key==="Enter"&&addCustomExpense()}/>
+                <input type="number" value={customExpAmount} onChange={e=>setCustomExpAmount(e.target.value)} placeholder="金額"
+                  style={{width:80,fontSize:11,padding:"3px 6px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.12)",background:"var(--bg)",textAlign:"right"}}
+                  onKeyDown={e=>e.key==="Enter"&&addCustomExpense()}/>
+                <button onClick={addCustomExpense}
+                  style={{fontSize:10,padding:"3px 8px",cursor:"pointer",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.12)",background:"var(--bg)",color:"#854F0B"}}>+ 追加</button>
               </div>
               {expenses.length>0&&<div style={{marginBottom:10}}>
                 {expenses.map(exp=>(
@@ -7137,6 +7155,8 @@ function PaymentDetail({p,cases,clients,office,onUpdate,onDelete,onSplit,onItemS
   const [newPayNote,setNewPayNote]=useState("");
   const [newItemName,setNewItemName]=useState("");
   const [newItemPrice,setNewItemPrice]=useState("");
+  const [newExpName,setNewExpName]=useState("");
+  const [newExpAmount,setNewExpAmount]=useState("");
   const [expSuffix,setExpSuffix]=useState("");
   const [estimateLang,setEstimateLang]=useState("en");
   const [invoiceLang,setInvoiceLang]=useState("en");
@@ -7191,6 +7211,12 @@ function PaymentDetail({p,cases,clients,office,onUpdate,onDelete,onSplit,onItemS
   function toggleExpBillable(id){onUpdate({...p,expenses:(p.expenses||[]).map(e=>e.id===id?{...e,billable:!e.billable}:e)});}
   function removeExpense(id){onUpdate({...p,expenses:(p.expenses||[]).filter(e=>e.id!==id)});}
   function updateExpenseField(id,field,val){onUpdate({...p,expenses:(p.expenses||[]).map(e=>e.id===id?{...e,[field]:val}:e)});}
+  function addCustomExpense(){
+    if(!newExpName||!newExpAmount)return;
+    const suffix=expSuffix?`（${expSuffix}分）`:"";
+    onUpdate({...p,expenses:[...(p.expenses||[]),{id:"e"+Date.now(),date:new Date().toISOString().slice(0,10),name:newExpName+suffix,amount:parseInt(newExpAmount)||0,billable:true}]});
+    setNewExpName("");setNewExpAmount("");
+  }
 
   const scBadge=PAY_STATUS_COLORS[paymentStatus(p)]||{bg:"#F1EFE8",color:"#5F5E5A"};
 
@@ -7425,7 +7451,7 @@ function PaymentDetail({p,cases,clients,office,onUpdate,onDelete,onSplit,onItemS
             style={{width:120,fontSize:11,padding:"3px 6px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.12)",background:"var(--bg)"}}/>
           {expSuffix&&<span style={{fontSize:10,color:"#854F0B"}}>→「○○（{expSuffix}分）」</span>}
         </div>
-        <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+        <div style={{display:"flex",gap:4,flexWrap:"wrap",marginBottom:6}}>
           {EXPENSE_PRESETS.slice(0,6).map((pr,i)=>(
             <button key={i} onClick={()=>{
               const suffix=expSuffix?`（${expSuffix}分）`:"";
@@ -7434,6 +7460,16 @@ function PaymentDetail({p,cases,clients,office,onUpdate,onDelete,onSplit,onItemS
               + {pr.name}
             </button>
           ))}
+        </div>
+        <div style={{display:"flex",gap:4}}>
+          <input value={newExpName} onChange={e=>setNewExpName(e.target.value)} placeholder="その他の経費名"
+            style={{flex:1,minWidth:0,fontSize:11,padding:"3px 6px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.12)",background:"var(--bg)"}}
+            onKeyDown={e=>e.key==="Enter"&&addCustomExpense()}/>
+          <input type="number" value={newExpAmount} onChange={e=>setNewExpAmount(e.target.value)} placeholder="金額"
+            style={{width:80,fontSize:11,padding:"3px 6px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.12)",background:"var(--bg)",textAlign:"right"}}
+            onKeyDown={e=>e.key==="Enter"&&addCustomExpense()}/>
+          <button onClick={addCustomExpense}
+            style={{fontSize:10,padding:"3px 8px",cursor:"pointer",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.12)",background:"#FBF9F5",color:"#854F0B"}}>+ 追加</button>
         </div>
       </div>
 
