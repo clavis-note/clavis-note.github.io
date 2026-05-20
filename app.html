@@ -5899,7 +5899,7 @@ function GeneralCaseDetail({c,onUpdate,onDelete,clients,payments}){
   );
 }
 
-function CaseManagement({data,setData,navigateCaseId,clearNavigate,openNewOnMount,clearOpenNew}){
+function CaseManagement({data,setData,navigateCaseId,clearNavigate}){
   const isMobile=useMobile();
   const {clients,cases,companies,payments}=data;
   const setCases=useCallback(fn=>{setData(prev=>{const nc=typeof fn==="function"?fn(prev.cases):fn;return{...prev,cases:nc};});},[setData]);
@@ -5926,13 +5926,6 @@ function CaseManagement({data,setData,navigateCaseId,clearNavigate,openNewOnMoun
       if(clearNavigate)clearNavigate();
     }
   },[navigateCaseId]);
-  // 報酬管理側「+新規案件を作る」からの遷移で新規モーダルを自動起動
-  useEffect(()=>{
-    if(openNewOnMount){
-      setShowNew(true);
-      if(clearOpenNew)clearOpenNew();
-    }
-  },[openNewOnMount]);
 
   // ブラウザバック対応: 詳細画面が開いた瞬間にpushState、戻るで閉じる
   const prevShowDetailRef=useRef(null);
@@ -6261,7 +6254,7 @@ function CaseJournal({data,setData,onNavCase}){
 // ============================================================
 // 10. 報酬管理（サイドバー＋詳細ビュー）
 // ============================================================
-function NewPaymentModal({onClose,onSave,cases,clients,payments,feeMaster,onNavigateToNewCase}){
+function NewPaymentModal({onClose,onSave,cases,clients,payments,feeMaster}){
   const [mode,setMode]=useState("single");
   const [caseId,setCaseId]=useState("");
   const [selectedCaseIds,setSelectedCaseIds]=useState([]);
@@ -6278,11 +6271,6 @@ function NewPaymentModal({onClose,onSave,cases,clients,payments,feeMaster,onNavi
   const [customExpAmount,setCustomExpAmount]=useState("");
   const [invoiceDate,setInvoiceDate]=useState(new Date().toISOString().slice(0,10));
   const [dueDate,setDueDate]=useState("");
-  // 「一般業務として記録」用: 案件選択なしで案件+請求書を同時生成する最小フォーム
-  const [createMode,setCreateMode]=useState(null); // null | "general"
-  const [gcTitle,setGcTitle]=useState("");
-  const [gcRequester,setGcRequester]=useState("");
-  const [gcFee,setGcFee]=useState("");
 
   // 案件リスト（すでに請求に紐づいてる案件は除外）
   const billedCaseIds=new Set((payments||[]).flatMap(p=>p.case_ids));
@@ -6337,46 +6325,9 @@ function NewPaymentModal({onClose,onSave,cases,clients,payments,feeMaster,onNavi
   }
 
   function handleSave(){
-    // 「一般業務として記録」モード: 案件未紐付け請求書を作らず、案件+請求書を同時生成
-    if(mode==="single"&&createMode==="general"){
-      if(!gcTitle.trim()){alert("件名を入力してください");return;}
-      if(!gcRequester.trim()){alert("依頼者を入力してください");return;}
-      const feeNum=parseInt(gcFee)||0;
-      const lineItems=items.length>0?items:(feeNum>0?[{id:"i"+Date.now(),name:gcTitle.trim(),unit_price:feeNum,quantity:1}]:[]);
-      if(lineItems.length===0){alert("報酬額または明細を入力してください");return;}
-      const newCaseId="G"+Date.now().toString().slice(-4);
-      const newCase={
-        case_id:newCaseId,no:0,category:"一般",client_id:"",template_id:null,
-        case_title:gcTitle.trim(),
-        status:"受任",
-        accepted_date:new Date().toISOString().slice(0,10),
-        applied_date:null,result_date:null,
-        receipt_number:"",result:"",new_card:"",period:"",next_renewal:"",
-        fee:feeNum,paid:0,
-        applicant:gcRequester.trim(),applicant_id:"",
-        requester:gcRequester.trim(),requester_id:"",
-        notes:"",official_req_no:"",doc_count:"",
-        docs:[],hearing_items:[],additional_requests:[],
-        contacts:[],comm_log:[],
-        case_type:"general"
-      };
-      onSave({
-        payment_id:"P"+Date.now(),
-        case_ids:[newCaseId],client_ids:[],
-        bill_type:billType,
-        bill_to_name:billToName||gcRequester.trim(),
-        tax_mode:taxMode,
-        invoice_number:"INV-"+new Date().getFullYear()+"-"+String(Date.now()).slice(-3),
-        invoice_date:invoiceDate,due_date:dueDate,
-        items:lineItems.map(it=>({...it,original_date:invoiceDate})),
-        expenses,payments_history:[],notes:""
-      },newCase);
-      return;
-    }
     const caseIds=mode==="single"?[caseId]:selectedCaseIds;
     const clientIds=mode==="single"&&selCase?[selCase.client_id]:[...new Set(selectedCaseIds.map(id=>cases.find(x=>x.case_id===id)?.client_id).filter(Boolean))];
-    if(caseIds.length===0||caseIds[0]===""){alert("案件を選択してください");return;}
-    if(items.length===0){alert("報酬明細を1つ以上追加してください");return;}
+    if(caseIds.length===0||items.length===0) return;
     onSave({
       payment_id:"P"+Date.now(),
       case_ids:caseIds,client_ids:clientIds,
@@ -6390,7 +6341,7 @@ function NewPaymentModal({onClose,onSave,cases,clients,payments,feeMaster,onNavi
     });
   }
 
-  const hasContent=(mode==="single"&&(caseId||createMode==="general"))||(mode==="bundle"&&selectedCaseIds.length>0);
+  const hasContent=(mode==="single"&&caseId)||(mode==="bundle"&&selectedCaseIds.length>0);
   const total=calcItemsTotal(items);
   const expBillable=calcExpBillable(expenses);
 
@@ -6413,42 +6364,15 @@ function NewPaymentModal({onClose,onSave,cases,clients,payments,feeMaster,onNavi
         <div style={{overflowY:"auto",padding:16,display:"flex",flexDirection:"column",gap:14,flex:1,minHeight:0}}>
           {mode==="single"&&<>
             <div>
-              <div style={{fontSize:10,color:"var(--text3)",marginBottom:4}}>案件 <span style={{color:"#A32D2D"}}>*</span></div>
-              {createMode!=="general"&&<select value={caseId} onChange={e=>handleCaseChange(e.target.value)}
+              <div style={{fontSize:10,color:"var(--text3)",marginBottom:4}}>案件</div>
+              <select value={caseId} onChange={e=>handleCaseChange(e.target.value)}
                 style={{width:"100%",fontSize:13,padding:"6px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)"}}>
                 <option value="">選択してください</option>
                 {availableCases.map(c=>{
                   const applicantName=c.applicant||(clients.find(x=>x.client_id===c.client_id)?.name_roman)||"";
                   return <option key={c.case_id} value={c.case_id}>{applicantName?`${applicantName} ／ `:""}{c.case_title}</option>;
                 })}
-              </select>}
-              {!caseId&&createMode===null&&<div style={{display:"flex",gap:6,marginTop:6,flexWrap:"wrap"}}>
-                <button onClick={()=>{onClose();if(onNavigateToNewCase)onNavigateToNewCase();}}
-                  style={{fontSize:11,padding:"5px 10px",cursor:"pointer",borderRadius:5,border:"0.5px solid #378ADD",background:"#E6F1FB",color:"#185FA5"}}>
-                  + 新規案件を作る
-                </button>
-                <button onClick={()=>setCreateMode("general")}
-                  style={{fontSize:11,padding:"5px 10px",cursor:"pointer",borderRadius:5,border:"0.5px solid #854F0B",background:"#FEF8EE",color:"#854F0B"}}>
-                  + 一般業務として記録
-                </button>
-                {availableCases.length===0&&<span style={{fontSize:10,color:"var(--text3)",alignSelf:"center"}}>未請求の案件がありません</span>}
-              </div>}
-              {createMode==="general"&&<div style={{marginTop:6,padding:10,background:"var(--bg2)",borderRadius:6,border:"0.5px solid rgba(133,79,11,0.2)"}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-                  <span style={{fontSize:11,color:"#854F0B",fontWeight:500}}>📄 一般業務として記録（案件＋請求書を同時作成）</span>
-                  <button onClick={()=>{setCreateMode(null);setGcTitle("");setGcRequester("");setGcFee("");setItems([]);setExpenses([]);setBillToName("");}}
-                    style={{fontSize:10,padding:"2px 8px",cursor:"pointer",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"transparent",color:"#666"}}>キャンセル</button>
-                </div>
-                <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                  <input value={gcTitle} onChange={e=>setGcTitle(e.target.value)} placeholder="件名（例: 車庫証明申請） *"
-                    style={{fontSize:12,padding:"5px 8px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)"}}/>
-                  <input value={gcRequester} onChange={e=>{setGcRequester(e.target.value);if(!billToName)setBillToName(e.target.value);}} placeholder="依頼者（例: 山田太郎 / ABC株式会社） *"
-                    style={{fontSize:12,padding:"5px 8px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)"}}/>
-                  <input type="number" value={gcFee} onChange={e=>setGcFee(e.target.value)} placeholder="報酬額"
-                    style={{fontSize:12,padding:"5px 8px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)",textAlign:"right"}}/>
-                </div>
-                <div style={{fontSize:10,color:"#999",marginTop:6}}>※ 「一般業務」案件と請求書が同時に作成されます。明細・立替金は下で追加・編集できます。詳細は後から案件管理で編集可能。</div>
-              </div>}
+              </select>
             </div>
             {caseId&&<div style={{background:"var(--bg2)",borderRadius:8,padding:"10px 12px"}}>
               <div style={{fontSize:10,color:"var(--text3)",marginBottom:8}}>請求先</div>
@@ -7688,7 +7612,7 @@ function MergeConfirmModal({targets,billCandidates,onClose,onConfirm}){
   );
 }
 
-function PaymentManagement({data,setData,navigatePaymentId,clearNavigate,onNavigateToNewCase}){
+function PaymentManagement({data,setData,navigatePaymentId,clearNavigate}){
   const isMobile=useMobile();
   const {cases,clients,payments}=data;
   const [selectedId,setSelectedId]=useState(()=>{
@@ -7734,13 +7658,8 @@ function PaymentManagement({data,setData,navigatePaymentId,clearNavigate,onNavig
     setData(prev=>({...prev,payments:(prev.payments||[]).filter(p=>p.payment_id!==paymentId)}));
     setSelectedId(null);
   }
-  function handleNew(np,newCase){
-    setData(prev=>{
-      const nextCases=newCase
-        ?[{...newCase,no:Math.max(0,...((prev.cases||[]).map(c=>Number(c.no)||0)))+1},...(prev.cases||[])]
-        :prev.cases;
-      return{...prev,payments:[np,...(prev.payments||[])],cases:nextCases};
-    });
+  function handleNew(np){
+    setData(prev=>({...prev,payments:[np,...(prev.payments||[])]}));
     setSelectedId(np.payment_id);
     setShowNew(false);
   }
@@ -7863,7 +7782,7 @@ function PaymentManagement({data,setData,navigatePaymentId,clearNavigate,onNavig
     const merged={
       payment_id:"PM_MERGED_"+Date.now(),
       case_ids:[...new Set(targets.flatMap(t=>t.case_ids))],
-      client_ids:[...new Set(targets.flatMap(t=>t.client_ids||[]))],
+      client_ids:[...new Set(targets.flatMap(t=>t.client_ids))],
       bill_type:billType,
       bill_to_name:billToName,
       tax_mode:(targets.find(t=>t.bill_type==="company")||targets[0]).tax_mode||"tax_incl",
@@ -8013,7 +7932,7 @@ function PaymentManagement({data,setData,navigatePaymentId,clearNavigate,onNavig
         }
       </div>
 
-      {showNew&&<NewPaymentModal onClose={()=>setShowNew(false)} onSave={handleNew} cases={cases} clients={clients} payments={allPayments} feeMaster={data.fee_master} onNavigateToNewCase={onNavigateToNewCase}/>}
+      {showNew&&<NewPaymentModal onClose={()=>setShowNew(false)} onSave={handleNew} cases={cases} clients={clients} payments={allPayments} feeMaster={data.fee_master}/>}
       {mergeConfirm&&<MergeConfirmModal targets={mergeConfirm.targets} billCandidates={mergeConfirm.billCandidates}
         onClose={()=>setMergeConfirm(null)} onConfirm={handleMergeExecute}/>}
     </div>
@@ -10068,7 +9987,6 @@ function App(){
   const [navigateClientId,setNavigateClientId]=useState(null);
   const [navigateCaseId,setNavigateCaseId]=useState(null);
   const [navigatePaymentId,setNavigatePaymentId]=useState(null);
-  const [navigateOpenNewCase,setNavigateOpenNewCase]=useState(false);
   const [gdriveReady,setGdriveReady]=useState(false);
   const [gdriveSignedIn,setGdriveSignedIn]=useState(false);
   const [gdriveSyncing,setGdriveSyncing]=useState(false);
@@ -10117,7 +10035,6 @@ function App(){
   function handleNavigateToClient(clientId){setNavigateClientId(clientId);setActiveTab("clients");}
   function handleNavigateToCase(caseId){setNavigateCaseId(caseId);setActiveTab("cases");}
   function handleNavigateToPayment(paymentId){setNavigatePaymentId(paymentId);setActiveTab("payments");}
-  function handleNavigateToNewCase(){setNavigateOpenNewCase(true);setActiveTab("cases");}
   function handleNavigateToMaster(subtab){
     if(subtab){
       try{ location.hash="#master/"+subtab; }catch(e){}
@@ -11394,9 +11311,9 @@ function App(){
         </div>
       )}
       {activeTab==="clients"&&<ClientLedger data={data} setData={setData} navigateClientId={navigateClientId} clearNavigate={()=>setNavigateClientId(null)} onNavigateToCase={handleNavigateToCase}/>}
-      {activeTab==="cases"&&<CaseManagement data={data} setData={setData} navigateCaseId={navigateCaseId} clearNavigate={()=>setNavigateCaseId(null)} openNewOnMount={navigateOpenNewCase} clearOpenNew={()=>setNavigateOpenNewCase(false)}/>}
+      {activeTab==="cases"&&<CaseManagement data={data} setData={setData} navigateCaseId={navigateCaseId} clearNavigate={()=>setNavigateCaseId(null)}/>}
       {activeTab==="journal"&&<CaseJournal data={data} setData={setData} onNavCase={handleNavigateToCase}/>}
-      {activeTab==="payments"&&<PaymentManagement data={data} setData={setData} navigatePaymentId={navigatePaymentId} clearNavigate={()=>setNavigatePaymentId(null)} onNavigateToNewCase={handleNavigateToNewCase}/>}
+      {activeTab==="payments"&&<PaymentManagement data={data} setData={setData} navigatePaymentId={navigatePaymentId} clearNavigate={()=>setNavigatePaymentId(null)}/>}
       {SHOW_DOCS&&activeTab==="docs"&&<CompanyDocs data={data} setData={setData}/>}
       {activeTab==="master"&&<MasterRegistration data={data} setData={setData} onNavigateToClient={handleNavigateToClient}/>}
       </div>
