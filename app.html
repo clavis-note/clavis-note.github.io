@@ -3033,11 +3033,15 @@ function Dashboard({data,setData,onNavClient,onNavCase,onNavPayment,onNavMaster}
     setData(prev=>{
       const newClients=newClientObj?[...prev.clients,newClientObj]:prev.clients;
       const newCases=newCaseObj?[...prev.cases,newCaseObj]:prev.cases;
+      let promotedPayment=null;
       const newPayments=(prev.payments||[]).map(x=>{
         if(x.payment_id!==promotingProspect.payment_id) return x;
-        return {...x,is_prospect:false,prospect_archived:false,case_ids:[caseId],client_ids:[clientId]};
+        promotedPayment={...x,is_prospect:false,prospect_archived:false,case_ids:[caseId],client_ids:[clientId]};
+        return promotedPayment;
       });
-      return {...prev,clients:newClients,cases:newCases,payments:newPayments};
+      // 案件化と同時に紐付け先案件のfee/invoice情報も同期
+      const syncedCases=promotedPayment?syncCaseFromPayment(newCases,promotedPayment):newCases;
+      return {...prev,clients:newClients,cases:syncedCases,payments:newPayments};
     });
     setPromotingProspect(null);
     setSelectedProspect(null);
@@ -6323,7 +6327,9 @@ function NewPaymentModal({onClose,onSave,cases,clients,payments,feeMaster}){
   function handleSave(){
     const caseIds=mode==="single"?[caseId]:selectedCaseIds;
     const clientIds=mode==="single"&&selCase?[selCase.client_id]:[...new Set(selectedCaseIds.map(id=>cases.find(x=>x.case_id===id)?.client_id).filter(Boolean))];
-    if(caseIds.length===0||items.length===0) return;
+    if(mode==="single"&&!caseId){alert("案件を選択してください");return;}
+    if(mode==="bundle"&&selectedCaseIds.length===0){alert("案件を1件以上選択してください");return;}
+    if(items.length===0){alert("報酬明細を1つ以上追加してください");return;}
     onSave({
       payment_id:"P"+Date.now(),
       case_ids:caseIds,client_ids:clientIds,
@@ -6360,15 +6366,18 @@ function NewPaymentModal({onClose,onSave,cases,clients,payments,feeMaster}){
         <div style={{overflowY:"auto",padding:16,display:"flex",flexDirection:"column",gap:14,flex:1,minHeight:0}}>
           {mode==="single"&&<>
             <div>
-              <div style={{fontSize:10,color:"var(--text3)",marginBottom:4}}>案件</div>
-              <select value={caseId} onChange={e=>handleCaseChange(e.target.value)}
+              <div style={{fontSize:10,color:"var(--text3)",marginBottom:4}}>案件 <span style={{color:"#A32D2D"}}>*</span></div>
+              {availableCases.length>0?<select value={caseId} onChange={e=>handleCaseChange(e.target.value)}
                 style={{width:"100%",fontSize:13,padding:"6px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)"}}>
                 <option value="">選択してください</option>
                 {availableCases.map(c=>{
                   const applicantName=c.applicant||(clients.find(x=>x.client_id===c.client_id)?.name_roman)||"";
                   return <option key={c.case_id} value={c.case_id}>{applicantName?`${applicantName} ／ `:""}{c.case_title}</option>;
                 })}
-              </select>
+              </select>:<div style={{padding:"10px 12px",background:"#FEF8EE",borderRadius:6,fontSize:12,color:"#854F0B",border:"0.5px solid #F5D9A4",lineHeight:1.6}}>
+                💡 紐付け可能な案件がありません。<br/>
+                先に「📁 案件管理」タブで案件を作成してから、この画面に戻ってきてください。
+              </div>}
             </div>
             {caseId&&<div style={{background:"var(--bg2)",borderRadius:8,padding:"10px 12px"}}>
               <div style={{fontSize:10,color:"var(--text3)",marginBottom:8}}>請求先</div>
@@ -6405,12 +6414,16 @@ function NewPaymentModal({onClose,onSave,cases,clients,payments,feeMaster}){
           {mode==="bundle"&&<>
             <div>
               <div style={{fontSize:10,color:"var(--text3)",marginBottom:6,display:"flex",alignItems:"center",gap:8}}>
-                <span>案件を選択</span>
+                <span>案件を選択 <span style={{color:"#A32D2D"}}>*</span></span>
                 <select value={feeCategory} onChange={e=>setFeeCategory(e.target.value)}
                   style={{padding:"2px 8px",borderRadius:3,cursor:"pointer",border:"0.5px solid var(--border)",fontSize:10,fontWeight:500,background:"var(--bg2)",color:"var(--text)"}}>
                   {immigrationCategories.map(([id,cat])=><option key={id} value={id}>{cat.label}</option>)}
                 </select>
               </div>
+              {availableCases.filter(c=>c.template_id).length===0&&<div style={{padding:"10px 12px",background:"#FEF8EE",borderRadius:6,fontSize:12,color:"#854F0B",border:"0.5px solid #F5D9A4",lineHeight:1.6}}>
+                💡 まとめ請求可能な入管案件がありません。<br/>
+                先に「📁 案件管理」タブで案件を作成してから、この画面に戻ってきてください。
+              </div>}
               {availableCases.filter(c=>c.template_id).map(c=>{
                 const checked=selectedCaseIds.includes(c.case_id);
                 const cl=clients.find(x=>x.client_id===c.client_id);
@@ -6565,7 +6578,11 @@ function NewPaymentModal({onClose,onSave,cases,clients,payments,feeMaster}){
           </div>
           <div style={{display:"flex",gap:8}}>
             <button onClick={onClose} style={{fontSize:12,padding:"5px 14px",cursor:"pointer",borderRadius:6,border:"0.5px solid rgba(0,0,0,0.15)",background:"transparent",color:"var(--text2)"}}>キャンセル</button>
-            <button onClick={handleSave} style={{fontSize:12,padding:"5px 14px",cursor:"pointer",borderRadius:6,border:"0.5px solid var(--accent)",background:"var(--accent-bg)",color:"var(--accent-text)",fontWeight:500}}>作成</button>
+            {(()=>{const canSave=(mode==="single"&&caseId)||(mode==="bundle"&&selectedCaseIds.length>0);const hasItems=items.length>0;const enabled=canSave&&hasItems;return(
+              <button onClick={handleSave} disabled={!enabled}
+                title={!canSave?"案件を選択してください":(!hasItems?"報酬明細を1つ以上追加してください":"")}
+                style={{fontSize:12,padding:"5px 14px",cursor:enabled?"pointer":"not-allowed",borderRadius:6,border:"0.5px solid var(--accent)",background:"var(--accent-bg)",color:"var(--accent-text)",fontWeight:500,opacity:enabled?1:0.45}}>作成</button>
+            );})()}
           </div>
         </div>
       </div>
@@ -7608,6 +7625,34 @@ function MergeConfirmModal({targets,billCandidates,onClose,onConfirm}){
   );
 }
 
+// 請求書 → 紐付け案件への書き込み（個別請求はfee含め全項目、まとめ請求はinvoice情報のみ）
+function syncCaseFromPayment(prevCases,payment){
+  if(!payment||payment.is_prospect) return prevCases;
+  const caseIds=payment.case_ids||[];
+  if(caseIds.length===0) return prevCases;
+  const totalFee=calcGrandTotal(payment.items||[],payment.expenses||[],payment.tax_mode||"tax_incl");
+  return prevCases.map(c=>{
+    if(!caseIds.includes(c.case_id)) return c;
+    if(caseIds.length===1){
+      // 個別請求: fee + invoice情報を全部書き込み
+      return{...c,
+        fee:totalFee,
+        invoice_no:payment.invoice_number||c.invoice_no||"",
+        invoice_date:payment.invoice_date||c.invoice_date||"",
+        bill_to_name:payment.bill_to_name||c.bill_to_name||"",
+        expenses:payment.expenses||c.expenses||[]
+      };
+    } else {
+      // まとめ請求: 各案件には invoice情報のみ書き込み (feeは触らない、按分が複雑なため)
+      return{...c,
+        invoice_no:payment.invoice_number||c.invoice_no||"",
+        invoice_date:payment.invoice_date||c.invoice_date||"",
+        bill_to_name:payment.bill_to_name||c.bill_to_name||""
+      };
+    }
+  });
+}
+
 function PaymentManagement({data,setData,navigatePaymentId,clearNavigate}){
   const isMobile=useMobile();
   const {cases,clients,payments}=data;
@@ -7648,14 +7693,22 @@ function PaymentManagement({data,setData,navigatePaymentId,clearNavigate}){
   const selected=(payments||[]).find(p=>p.payment_id===selectedId&&!p.is_prospect)||null;
 
   function handleUpdate(updated){
-    setData(prev=>({...prev,payments:(prev.payments||[]).map(p=>p.payment_id===updated.payment_id?updated:p)}));
+    setData(prev=>({
+      ...prev,
+      payments:(prev.payments||[]).map(p=>p.payment_id===updated.payment_id?updated:p),
+      cases:syncCaseFromPayment(prev.cases||[],updated)
+    }));
   }
   function handleDelete(paymentId){
     setData(prev=>({...prev,payments:(prev.payments||[]).filter(p=>p.payment_id!==paymentId)}));
     setSelectedId(null);
   }
   function handleNew(np){
-    setData(prev=>({...prev,payments:[np,...(prev.payments||[])]}));
+    setData(prev=>({
+      ...prev,
+      payments:[np,...(prev.payments||[])],
+      cases:syncCaseFromPayment(prev.cases||[],np)
+    }));
     setSelectedId(np.payment_id);
     setShowNew(false);
   }
