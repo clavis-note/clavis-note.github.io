@@ -3904,7 +3904,7 @@ function TabWorkHistory({c,editMode,update,companies}){
       <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:8,marginBottom:8}}>
         <div><div style={{fontSize:10,color:"var(--text3)",marginBottom:2}}>開始日</div><DateInput max="9999-12-31" min="1900-01-01" value={wf.start_date||""} onChange={v=>setWf(p=>({...p,start_date:v}))} style={inputS}/></div>
         <div><div style={{fontSize:10,color:"var(--text3)",marginBottom:2}}>終了日（空欄=在職中）</div><DateInput max="9999-12-31" min="1900-01-01" value={wf.end_date||""} onChange={v=>setWf(p=>({...p,end_date:v}))} style={inputS}/></div>
-        <div><div style={{fontSize:10,color:"var(--text3)",marginBottom:2}}>職種</div><IMEInput value={wf.job_title||""} onChange={v=>setWf(p=>({...p,job_title:v}))} placeholder="調理師" style={inputS}/></div>
+        <div><div style={{fontSize:10,color:"var(--text3)",marginBottom:2}}>職種</div><IMEInput value={wf.job_title||""} onChange={v=>setWf(p=>({...p,job_title:v}))} placeholder="例: コック / 通訳 / エンジニア" style={inputS}/></div>
       </div>
       <div style={{marginBottom:8}}>
         <label style={{fontSize:11,display:"flex",alignItems:"center",gap:5,cursor:"pointer",color:"var(--text2)"}}>
@@ -4381,7 +4381,7 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
         const wh=updated.work_history||[];
         const currentWork=wh.find(w=>w.company_name===updated.company_name && !w.end_date);
         if(currentWork){
-          updated.work_history=wh.map(w=>w.id===currentWork.id?{...w,start_date:updated.work_start_date,company_name:updated.company_name,country:w.country||"日本",job_title:w.job_title||"調理師"}:w);
+          updated.work_history=wh.map(w=>w.id===currentWork.id?{...w,start_date:updated.work_start_date,company_name:updated.company_name,country:w.country||"日本",job_title:w.job_title||""}:w);
         }else{
           updated.work_history=[...wh,{id:"W"+Date.now(),company_name:updated.company_name,country:"日本",start_date:updated.work_start_date,end_date:null,job_title:""}];
         }
