@@ -3507,7 +3507,7 @@ function TabBasic({c,editMode,update,allClients}){
           <div style={{fontSize:10,color:"var(--text3)",fontWeight:500,marginBottom:3,letterSpacing:"0.05em"}}>📁 Googleドライブ</div>
           {editMode?(
             <div style={{display:"flex",flexDirection:"column",gap:6}}>
-              <div><div style={{fontSize:10,color:"var(--text3)",marginBottom:2}}>ローカルパス（エクスプローラー用）</div><input value={c.drive_path||""} onChange={e=>update("drive_path",e.target.value)} placeholder="例: G:\マイドライブ\01_フォロー\SAPKOTA DIPAK" style={{fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)",width:"100%"}}/></div>
+              <div><div style={{fontSize:10,color:"var(--text3)",marginBottom:2}}>ローカルパス（エクスプローラー用）</div><input value={c.drive_path||""} onChange={e=>update("drive_path",e.target.value)} placeholder="例: G:\マイドライブ\01_フォロー\THAPA RAM" style={{fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)",width:"100%"}}/></div>
               <div><div style={{fontSize:10,color:"var(--text3)",marginBottom:2}}>Web URL（ブラウザ用）</div><input value={c.drive_url||""} onChange={e=>update("drive_url",e.target.value)} placeholder="https://drive.google.com/drive/folders/..." style={{fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)",width:"100%"}}/></div>
             </div>
           ):(
@@ -5206,7 +5206,7 @@ function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments,templates,com
         <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10,marginBottom:10}}>
           <div>
             <div style={{fontSize:10,color:"#999",marginBottom:3}}>申請人</div>
-            <input value={c.applicant||""} onChange={e=>updateField("applicant",e.target.value)} placeholder="申請人名（例: SAPKOTA DIPAK+BHAGAWATI）" style={{fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",width:"100%"}}/>
+            <input value={c.applicant||""} onChange={e=>updateField("applicant",e.target.value)} placeholder="申請人名（例: THAPA RAM+SITA）" style={{fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",width:"100%"}}/>
           </div>
           <div>
             <div style={{fontSize:10,color:"#999",marginBottom:3}}>依頼主（会社・個人）</div>
@@ -6524,7 +6524,7 @@ function NewPaymentModal({onClose,onSave,cases,clients,payments,feeMaster}){
               <div style={{fontSize:11,color:"#854F0B",fontWeight:500,marginBottom:8}}>立替金・経費</div>
               <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:6}}>
                 <span style={{fontSize:10,color:"var(--text3)",whiteSpace:"nowrap"}}>付記：</span>
-                <input value={expSuffix} onChange={e=>setExpSuffix(e.target.value)} placeholder="例: SAPKOTA"
+                <input value={expSuffix} onChange={e=>setExpSuffix(e.target.value)} placeholder="例: THAPA"
                   style={{width:120,fontSize:11,padding:"3px 6px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.12)",background:"var(--bg)"}}/>
                 {expSuffix&&<span style={{fontSize:10,color:"#854F0B"}}>→「○○（{expSuffix}分）」</span>}
               </div>
@@ -7477,7 +7477,7 @@ function PaymentDetail({p,cases,clients,office,onUpdate,onDelete,onSplit,onItemS
         {/* プリセット追加 */}
         <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:6}}>
           <span style={{fontSize:10,color:"var(--text3)",whiteSpace:"nowrap"}}>付記：</span>
-          <input value={expSuffix} onChange={e=>setExpSuffix(e.target.value)} placeholder="例: SAPKOTA"
+          <input value={expSuffix} onChange={e=>setExpSuffix(e.target.value)} placeholder="例: THAPA"
             style={{width:120,fontSize:11,padding:"3px 6px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.12)",background:"var(--bg)"}}/>
           {expSuffix&&<span style={{fontSize:10,color:"#854F0B"}}>→「○○（{expSuffix}分）」</span>}
         </div>
