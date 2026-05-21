@@ -3926,7 +3926,7 @@ function TabWorkHistory({c,editMode,update,companies}){
             <div><div style={{fontSize:9,color:"var(--text3)",marginBottom:2}}>月給</div><input type="number" value={wf.init_monthly_salary||""} onChange={e=>setWf(p=>({...p,init_monthly_salary:e.target.value}))} placeholder="例: 200000" style={{...inputS,fontSize:11,textAlign:"right"}}/></div>
             <div><div style={{fontSize:9,color:"var(--text3)",marginBottom:2}}>時給（月給なしの場合）</div><input type="number" value={wf.init_hourly_wage||""} onChange={e=>setWf(p=>({...p,init_hourly_wage:e.target.value}))} placeholder={wfAutoHourly?"自動: ¥"+wfAutoHourly:""} style={{...inputS,fontSize:11,textAlign:"right"}}/></div>
             <div><div style={{fontSize:9,color:"var(--text3)",marginBottom:2}}>週時間</div><input type="number" value={wf.init_weekly_hours||""} onChange={e=>setWf(p=>({...p,init_weekly_hours:e.target.value}))} style={{...inputS,fontSize:11,textAlign:"right"}}/></div>
-            <div><div style={{fontSize:9,color:"var(--text3)",marginBottom:2}}>雇用形態</div><select value={wf.init_employment_type||"正社員"} onChange={e=>setWf(p=>({...p,init_employment_type:e.target.value}))} style={{...inputS,fontSize:11}}><option>正社員</option><option>パート</option><option>アルバイト</option></select></div>
+            <div><div style={{fontSize:9,color:"var(--text3)",marginBottom:2}}>雇用形態</div><input list="employment-types" value={wf.init_employment_type||""} onChange={e=>setWf(p=>({...p,init_employment_type:e.target.value}))} style={{...inputS,fontSize:11}}/></div>
             <div><div style={{fontSize:9,color:"var(--text3)",marginBottom:2}}>勤務地</div><select value={wf.init_pref||"東京都"} onChange={e=>setWf(p=>({...p,init_pref:e.target.value}))} style={{...inputS,fontSize:11}}>{loadMinWages().map(w=><option key={w.pref} value={w.pref}>{w.pref}</option>)}</select></div>
           </div>
           {wfHourlyForCheck>0&&(
@@ -3971,7 +3971,7 @@ function TabWorkHistory({c,editMode,update,companies}){
         <div><div style={{fontSize:9,color:"var(--text3)",marginBottom:2}}>月給</div><input type="number" value={sf.monthly_salary||""} onChange={e=>setSf(p=>({...p,monthly_salary:e.target.value}))} style={{...inputS,fontSize:11,textAlign:"right"}}/></div>
         <div><div style={{fontSize:9,color:"var(--text3)",marginBottom:2}}>時給（月給なしの場合）</div><input type="number" value={sf.hourly_wage||""} onChange={e=>setSf(p=>({...p,hourly_wage:e.target.value}))} placeholder={sfAutoHourly?"自動: ¥"+sfAutoHourly:""} style={{...inputS,fontSize:11,textAlign:"right"}}/></div>
         <div><div style={{fontSize:9,color:"var(--text3)",marginBottom:2}}>週時間</div><input type="number" value={sf.weekly_hours||""} onChange={e=>setSf(p=>({...p,weekly_hours:e.target.value}))} style={{...inputS,fontSize:11,textAlign:"right"}}/></div>
-        <div><div style={{fontSize:9,color:"var(--text3)",marginBottom:2}}>雇用形態</div><select value={sf.employment_type||"正社員"} onChange={e=>setSf(p=>({...p,employment_type:e.target.value}))} style={{...inputS,fontSize:11}}><option>正社員</option><option>パート</option><option>アルバイト</option></select></div>
+        <div><div style={{fontSize:9,color:"var(--text3)",marginBottom:2}}>雇用形態</div><input list="employment-types" value={sf.employment_type||""} onChange={e=>setSf(p=>({...p,employment_type:e.target.value}))} style={{...inputS,fontSize:11}}/></div>
         <div><div style={{fontSize:9,color:sf.pref?"var(--text3)":"#A32D2D",marginBottom:2}}>勤務地{!sf.pref&&" ⚠"}</div><select value={sf.pref||""} onChange={e=>setSf(p=>({...p,pref:e.target.value}))} style={{...inputS,fontSize:11,borderColor:sf.pref?"rgba(0,0,0,0.15)":"#A32D2D"}}><option value="">選択してください</option>{loadMinWages().map(w=><option key={w.pref} value={w.pref}>{w.pref}</option>)}</select></div>
       </div>
       {/* 自動計算プレビュー */}
@@ -4000,6 +4000,15 @@ function TabWorkHistory({c,editMode,update,companies}){
 
   return(
     <div>
+      {/* 雇用形態の候補リスト（datalist）。職歴追加/給与追加の input list="employment-types" から共有参照。
+          datalist は候補表示のみで自由入力可能。新規候補を追加する時はこの option を増やすだけでOK。 */}
+      <datalist id="employment-types">
+        <option value="正社員"/>
+        <option value="パート・アルバイト"/>
+        <option value="派遣社員"/>
+        <option value="業務委託"/>
+        <option value="その他"/>
+      </datalist>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
         <span style={{fontSize:12,fontWeight:500,color:"var(--text2)"}}>職歴・給与</span>
         <div style={{display:"flex",gap:8,alignItems:"center"}}>
