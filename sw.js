@@ -3,7 +3,7 @@
 
 // CACHE_VERSION はデプロイ毎に手動で上げるか、ビルド時置換するのが理想だが、
 // 現状は本ファイルのcommit hash相当の文字列を直書き。新版時はここを書き換える。
-const CACHE_VERSION = 'v47-2026-05-21-journal-default-sort-accepted-desc';
+const CACHE_VERSION = 'v48-2026-05-21-dateinput-unified';
 const CACHE_NAME = 'clavis-note-' + CACHE_VERSION;
 
 // 起動に必要な最小資産（pre-cache）。CDN資産は runtime cache に任せる

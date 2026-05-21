@@ -1401,6 +1401,9 @@ function trimDateYear(v){if(!v||v.length<=10)return v;const p=v.split("-");p[0]=
 // 内部でローカル state を持ち、フォーカスが外れた時にだけ親に通知する。
 // 入力中は親 state が更新されないので、Android picker が安定して編集できる。
 // 外部から value が変わった時（ポイポイ式の自動入力等）はローカルにも反映する。
+// ⚠️ 日付入力欄を追加する時は必ず DateInput を使うこと。生 <input type="date"> は
+// 年欄6桁バグ（Android Chrome）の温床なので禁止。max="9999-12-31" min="1900-01-01"
+// も併用すること（二重防御）。詳細経緯は Notion タスク「DateInput統一」参照。
 function DateInput({value, onChange, ...rest}){
   const [localValue, setLocalValue] = useState(value || "");
   useEffect(() => { setLocalValue(value || ""); }, [value]);
@@ -1629,7 +1632,7 @@ function DashUnpaidList({payments,cases,clients,onUpdatePayment,onClickItem}){
                     </div>
                     <div>
                       <div style={{fontSize:10,color:"var(--text3)",marginBottom:3}}>入金日</div>
-                      <input type="date" max="9999-12-31" min="1900-01-01" value={draftDate} onChange={e=>setDraftDate(e.target.value)}
+                      <DateInput max="9999-12-31" min="1900-01-01" value={draftDate} onChange={v=>setDraftDate(v)}
                         style={{fontSize:13,padding:"6px 8px",borderRadius:6,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)"}}/>
                     </div>
                     <div>
@@ -2045,11 +2048,11 @@ function NewProspectModal({onClose,onSave,feeMaster,clients}){
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
             <div>
               <div style={{fontSize:11,color:"#666",marginBottom:4}}>見積日</div>
-              <input type="date" value={estimateDate} onChange={e=>setEstimateDate(e.target.value)} style={{width:"100%",fontSize:12,padding:"6px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/>
+              <DateInput max="9999-12-31" min="1900-01-01" value={estimateDate} onChange={v=>setEstimateDate(v)} style={{width:"100%",fontSize:12,padding:"6px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/>
             </div>
             <div>
               <div style={{fontSize:11,color:"#666",marginBottom:4}}>見積有効期限</div>
-              <input type="date" value={estimateValid} onChange={e=>setEstimateValid(e.target.value)} style={{width:"100%",fontSize:12,padding:"6px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/>
+              <DateInput max="9999-12-31" min="1900-01-01" value={estimateValid} onChange={v=>setEstimateValid(v)} style={{width:"100%",fontSize:12,padding:"6px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/>
             </div>
           </div>
 
@@ -2204,11 +2207,11 @@ function ProspectDetailModal({prospect,clients,onUpdate,onDelete,onGenerate,onPr
             </div>
             <div>
               <div style={{fontSize:10,color:"#999",marginBottom:3}}>見積日</div>
-              <input type="date" value={p.estimate_date||""} onChange={e=>up("estimate_date",e.target.value)} style={{width:"100%",fontSize:12,padding:"5px 8px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/>
+              <DateInput max="9999-12-31" min="1900-01-01" value={p.estimate_date||""} onChange={v=>up("estimate_date",v)} style={{width:"100%",fontSize:12,padding:"5px 8px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/>
             </div>
             <div>
               <div style={{fontSize:10,color:"#999",marginBottom:3}}>有効期限</div>
-              <input type="date" value={p.estimate_valid||""} onChange={e=>up("estimate_valid",e.target.value)} style={{width:"100%",fontSize:12,padding:"5px 8px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/>
+              <DateInput max="9999-12-31" min="1900-01-01" value={p.estimate_valid||""} onChange={v=>up("estimate_valid",v)} style={{width:"100%",fontSize:12,padding:"5px 8px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/>
             </div>
           </div>
 
@@ -2505,7 +2508,7 @@ function PromoteProspectModal({prospect,clients,cases,onPromote,onClose}){
                     <option>書類作成中</option>
                     <option>申請中</option>
                   </select>
-                  <input type="date" value={newCase.accepted_date} onChange={e=>setNewCase({...newCase,accepted_date:e.target.value})} style={{fontSize:12,padding:"5px 8px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/>
+                  <DateInput max="9999-12-31" min="1900-01-01" value={newCase.accepted_date} onChange={v=>setNewCase({...newCase,accepted_date:v})} style={{fontSize:12,padding:"5px 8px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/>
                 </div>
                 <div style={{fontSize:10,color:"#999",marginTop:4}}>※ 詳細は案件管理ページで後から追加編集できます</div>
               </div>
@@ -3899,8 +3902,8 @@ function TabWorkHistory({c,editMode,update,companies}){
         <div><div style={{fontSize:10,color:"var(--text3)",marginBottom:2}}>国</div><select value={wf.country||"日本"} onChange={e=>setWf(p=>({...p,country:e.target.value}))} style={inputS}><option value="日本">🇯🇵 日本</option><option value="ネパール">🇳🇵 ネパール</option><option value="インド">🇮🇳 インド</option><option value="中国">🇨🇳 中国</option><option value="ベトナム">🇻🇳 ベトナム</option><option value="フィリピン">🇵🇭 フィリピン</option><option value="ミャンマー">🇲🇲 ミャンマー</option><option value="バングラデシュ">🇧🇩 バングラデシュ</option><option value="スリランカ">🇱🇰 スリランカ</option></select></div>
       </div>
       <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:8,marginBottom:8}}>
-        <div><div style={{fontSize:10,color:"var(--text3)",marginBottom:2}}>開始日</div><input type="date" max="9999-12-31" min="1900-01-01" value={wf.start_date||""} onChange={e=>setWf(p=>({...p,start_date:e.target.value}))} style={inputS}/></div>
-        <div><div style={{fontSize:10,color:"var(--text3)",marginBottom:2}}>終了日（空欄=在職中）</div><input type="date" max="9999-12-31" min="1900-01-01" value={wf.end_date||""} onChange={e=>setWf(p=>({...p,end_date:e.target.value}))} style={inputS}/></div>
+        <div><div style={{fontSize:10,color:"var(--text3)",marginBottom:2}}>開始日</div><DateInput max="9999-12-31" min="1900-01-01" value={wf.start_date||""} onChange={v=>setWf(p=>({...p,start_date:v}))} style={inputS}/></div>
+        <div><div style={{fontSize:10,color:"var(--text3)",marginBottom:2}}>終了日（空欄=在職中）</div><DateInput max="9999-12-31" min="1900-01-01" value={wf.end_date||""} onChange={v=>setWf(p=>({...p,end_date:v}))} style={inputS}/></div>
         <div><div style={{fontSize:10,color:"var(--text3)",marginBottom:2}}>職種</div><IMEInput value={wf.job_title||""} onChange={v=>setWf(p=>({...p,job_title:v}))} placeholder="調理師" style={inputS}/></div>
       </div>
       <div style={{marginBottom:8}}>
@@ -3964,7 +3967,7 @@ function TabWorkHistory({c,editMode,update,companies}){
     <div style={{background:"#FEFAF3",border:"0.5px solid #EF9F27",borderRadius:6,padding:10,marginTop:6}}>
       <div style={{fontSize:10,fontWeight:500,color:"#854F0B",marginBottom:6}}>{editSalaryId?"給与編集":"給与追加"}</div>
       <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"100px 1fr 1fr 80px 90px 100px",gap:6,marginBottom:6}}>
-        <div><div style={{fontSize:9,color:"var(--text3)",marginBottom:2}}>適用日</div><input type="date" max="9999-12-31" min="1900-01-01" value={sf.effective_date||""} onChange={e=>setSf(p=>({...p,effective_date:e.target.value}))} style={{...inputS,fontSize:11}}/></div>
+        <div><div style={{fontSize:9,color:"var(--text3)",marginBottom:2}}>適用日</div><DateInput max="9999-12-31" min="1900-01-01" value={sf.effective_date||""} onChange={v=>setSf(p=>({...p,effective_date:v}))} style={{...inputS,fontSize:11}}/></div>
         <div><div style={{fontSize:9,color:"var(--text3)",marginBottom:2}}>月給</div><input type="number" value={sf.monthly_salary||""} onChange={e=>setSf(p=>({...p,monthly_salary:e.target.value}))} style={{...inputS,fontSize:11,textAlign:"right"}}/></div>
         <div><div style={{fontSize:9,color:"var(--text3)",marginBottom:2}}>時給（月給なしの場合）</div><input type="number" value={sf.hourly_wage||""} onChange={e=>setSf(p=>({...p,hourly_wage:e.target.value}))} placeholder={sfAutoHourly?"自動: ¥"+sfAutoHourly:""} style={{...inputS,fontSize:11,textAlign:"right"}}/></div>
         <div><div style={{fontSize:9,color:"var(--text3)",marginBottom:2}}>週時間</div><input type="number" value={sf.weekly_hours||""} onChange={e=>setSf(p=>({...p,weekly_hours:e.target.value}))} style={{...inputS,fontSize:11,textAlign:"right"}}/></div>
@@ -5224,7 +5227,7 @@ function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments,templates,com
         <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:10,marginBottom:10}}>
           {[["受任日","accepted_date"],["申請日","applied_date"],["結果日","result_date"]].map(([label,field])=>(
             <div key={field}><div style={{fontSize:10,color:"#999",marginBottom:3}}>{label}</div>
-              <input type="date" max="9999-12-31" min="1900-01-01" value={c[field]||""} onChange={e=>updateField(field,e.target.value||null)} style={{fontSize:12,padding:"4px 6px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",width:"100%"}}/></div>
+              <DateInput max="9999-12-31" min="1900-01-01" value={c[field]||""} onChange={v=>updateField(field,v||null)} style={{fontSize:12,padding:"4px 6px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",width:"100%"}}/></div>
           ))}
         </div>
         <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10,marginBottom:10}}>
@@ -5370,8 +5373,8 @@ function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments,templates,com
         <div style={{background:"var(--bg2)",borderRadius:8,padding:"10px 12px"}}>
           <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}><span style={{fontSize:10,color:editReqId?"#185FA5":"#999",fontWeight:editReqId?500:400}}>{editReqId?"記録を編集中":"追加資料要請を記録"}</span>{editReqId&&<button onClick={resetReqForm} style={{fontSize:10,padding:"1px 7px",cursor:"pointer",borderRadius:3,border:"0.5px solid rgba(0,0,0,0.15)",background:"transparent",color:"#999"}}>キャンセル</button>}</div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:6}}>
-            <div><div style={{fontSize:10,color:"#999",marginBottom:2}}>要請日</div><input type="date" max="9999-12-31" min="1900-01-01" value={newReqDate} onChange={e=>setNewReqDate(e.target.value)} style={{width:"100%",fontSize:12,padding:"4px 6px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)"}}/></div>
-            <div><div style={{fontSize:10,color:"#999",marginBottom:2}}>提出締切日</div><input type="date" max="9999-12-31" min="1900-01-01" value={newReqDeadline} onChange={e=>setNewReqDeadline(e.target.value)} style={{width:"100%",fontSize:12,padding:"4px 6px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)"}}/></div>
+            <div><div style={{fontSize:10,color:"#999",marginBottom:2}}>要請日</div><DateInput max="9999-12-31" min="1900-01-01" value={newReqDate} onChange={v=>setNewReqDate(v)} style={{width:"100%",fontSize:12,padding:"4px 6px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)"}}/></div>
+            <div><div style={{fontSize:10,color:"#999",marginBottom:2}}>提出締切日</div><DateInput max="9999-12-31" min="1900-01-01" value={newReqDeadline} onChange={v=>setNewReqDeadline(v)} style={{width:"100%",fontSize:12,padding:"4px 6px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)"}}/></div>
           </div>
           <div style={{marginBottom:6}}>
             <div style={{fontSize:10,color:"#999",marginBottom:4}}>要請された書類</div>
@@ -5416,7 +5419,7 @@ function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments,templates,com
             <button onClick={()=>setNewReqDocs([...newReqDocs,""])} style={{fontSize:11,padding:"3px 10px",cursor:"pointer",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",color:"#666"}}>+ 書類を追加</button>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:6}}>
-            <div><div style={{fontSize:10,color:"#999",marginBottom:2}}>提出日</div><input type="date" max="9999-12-31" min="1900-01-01" value={newReqSubmitDate} onChange={e=>setNewReqSubmitDate(e.target.value)} style={{width:"100%",fontSize:12,padding:"4px 6px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)"}}/></div>
+            <div><div style={{fontSize:10,color:"#999",marginBottom:2}}>提出日</div><DateInput max="9999-12-31" min="1900-01-01" value={newReqSubmitDate} onChange={v=>setNewReqSubmitDate(v)} style={{width:"100%",fontSize:12,padding:"4px 6px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)"}}/></div>
             <div><div style={{fontSize:10,color:"#999",marginBottom:2}}>提出方法</div><select value={newReqMethod} onChange={e=>setNewReqMethod(e.target.value)} style={{width:"100%",fontSize:12,padding:"4px 6px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)"}}><option value="">選択</option><option value="オンラインシステム">オンラインシステム</option><option value="レターパック">レターパック</option></select></div>
           </div>
           {newReqMethod==="レターパック"&&<div style={{marginBottom:6}}><div style={{fontSize:10,color:"#999",marginBottom:2}}>追跡番号</div><input value={newReqTracking} onChange={e=>setNewReqTracking(e.target.value)} style={{width:"100%",fontSize:12,padding:"4px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)"}}/></div>}
@@ -5558,7 +5561,7 @@ function CommLogSection({logs,contacts,onChange}){
       {showForm&&(
         <div style={{padding:10,background:"#FAFAF8",borderRadius:6,border:"0.5px solid rgba(0,0,0,0.1)",marginBottom:8}}>
           <div style={{display:"grid",gridTemplateColumns:"120px 1fr 100px",gap:8,marginBottom:8}}>
-            <div><div style={{fontSize:10,color:"#999",marginBottom:2}}>日付</div><input type="date" max="9999-12-31" value={form.date} onChange={e=>up("date",e.target.value)} style={{width:"100%",fontSize:12,padding:"4px 6px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)"}}/></div>
+            <div><div style={{fontSize:10,color:"#999",marginBottom:2}}>日付</div><DateInput max="9999-12-31" min="1900-01-01" value={form.date} onChange={v=>up("date",v)} style={{width:"100%",fontSize:12,padding:"4px 6px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)"}}/></div>
             <div><div style={{fontSize:10,color:"#999",marginBottom:2}}>相手</div>
               {contacts.length>0?<select value={form.contact_name} onChange={e=>up("contact_name",e.target.value)} style={{width:"100%",fontSize:12,padding:"4px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)"}}><option value="">選択 or 直接入力↓</option>{contacts.map(ct=><option key={ct.id} value={ct.name}>{ct.name}{ct.role?" ("+ct.role+")":""}</option>)}</select>
               :<input value={form.contact_name} onChange={e=>up("contact_name",e.target.value)} placeholder="相手の名前" style={{width:"100%",fontSize:12,padding:"4px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)"}}/>}
@@ -5770,7 +5773,7 @@ function GeneralCaseDetail({c,onUpdate,onDelete,clients,payments}){
         <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:10,marginBottom:10}}>
           {[["受任日","accepted_date"],["申請日","applied_date"],["完了日","result_date"]].map(([label,field])=>(
             <div key={field}><div style={{fontSize:10,color:"#999",marginBottom:3}}>{label}</div>
-              <input type="date" max="9999-12-31" min="1900-01-01" value={c[field]||""} onChange={e=>updateField(field,e.target.value||null)} style={{fontSize:12,padding:"4px 6px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",width:"100%"}}/></div>
+              <DateInput max="9999-12-31" min="1900-01-01" value={c[field]||""} onChange={v=>updateField(field,v||null)} style={{fontSize:12,padding:"4px 6px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",width:"100%"}}/></div>
           ))}
         </div>
         <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10,marginBottom:10}}>
@@ -6559,12 +6562,12 @@ function NewPaymentModal({onClose,onSave,cases,clients,payments,feeMaster}){
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
               <div>
                 <div style={{fontSize:10,color:"var(--text3)",marginBottom:4}}>請求日</div>
-                <input type="date" max="9999-12-31" min="1900-01-01" value={invoiceDate} onChange={e=>setInvoiceDate(e.target.value)}
+                <DateInput max="9999-12-31" min="1900-01-01" value={invoiceDate} onChange={v=>setInvoiceDate(v)}
                   style={{width:"100%",fontSize:12,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/>
               </div>
               <div>
                 <div style={{fontSize:10,color:"var(--text3)",marginBottom:4}}>支払期限</div>
-                <input type="date" max="9999-12-31" min="1900-01-01" value={dueDate} onChange={e=>setDueDate(e.target.value)}
+                <DateInput max="9999-12-31" min="1900-01-01" value={dueDate} onChange={v=>setDueDate(v)}
                   style={{width:"100%",fontSize:12,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/>
               </div>
             </div>
@@ -7396,7 +7399,7 @@ function PaymentDetail({p,cases,clients,office,onUpdate,onDelete,onSplit,onItemS
                   <input value={item.name||""} onChange={e=>updateItem(item.id,"name",e.target.value)} placeholder="項目名"
                     style={{fontSize:12,lineHeight:"1.3",padding:"2px 6px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.12)",background:"var(--bg2)",width:"100%",boxSizing:"border-box"}}/>
                 </div>
-                {hasOrigDate&&<input type="date" value={item.original_date||""} onChange={e=>updateItem(item.id,"original_date",e.target.value)}
+                {hasOrigDate&&<DateInput max="9999-12-31" min="1900-01-01" value={item.original_date||""} onChange={v=>updateItem(item.id,"original_date",v)}
                   style={{fontSize:10,padding:"1px 2px",borderRadius:3,border:"0.5px solid rgba(0,0,0,0.12)",background:"var(--bg2)",color:"var(--text3)",width:82}}/>}
                 <input type="number" value={item.unit_price} onChange={e=>updateItem(item.id,"unit_price",parseInt(e.target.value)||0)}
                   style={{fontSize:12,padding:"2px 4px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",textAlign:"right",width:"100%"}}/>
@@ -7528,7 +7531,7 @@ function PaymentDetail({p,cases,clients,office,onUpdate,onDelete,onSplit,onItemS
         <div style={{background:"var(--bg2)",borderRadius:8,padding:"10px 12px"}}>
           <div style={{fontSize:10,color:"var(--text3)",marginBottom:8}}>入金を追加</div>
           <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"110px 100px 90px 1fr 60px",gap:8,alignItems:"center"}}>
-            <input type="date" max="9999-12-31" min="1900-01-01" value={newPayDate} onChange={e=>setNewPayDate(e.target.value)}
+            <DateInput max="9999-12-31" min="1900-01-01" value={newPayDate} onChange={v=>setNewPayDate(v)}
               style={{fontSize:12,padding:"4px 6px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)"}}/>
             <input type="number" value={newPayAmt} onChange={e=>setNewPayAmt(e.target.value)} placeholder="金額"
               style={{fontSize:12,padding:"4px 6px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)",textAlign:"right"}}/>
@@ -8084,7 +8087,7 @@ function MasterOffice({office,setOffice}){
           <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:16}}>
             <div>
               <div style={labelS}>届出済証明書 有効期限</div>
-              <input type="date" value={o.credential_expiry||""} onChange={e=>up("credential_expiry",e.target.value)} style={inputS}/>
+              <DateInput max="9999-12-31" min="1900-01-01" value={o.credential_expiry||""} onChange={v=>up("credential_expiry",v)} style={inputS}/>
               {o.credential_expiry&&(()=>{
                 const d=Math.ceil((new Date(o.credential_expiry)-new Date(new Date().toDateString()))/86400000);
                 const col=d<=0?"#A32D2D":d<=90?"#A32D2D":d<=180?"#854F0B":"#3B6D11";
@@ -8973,8 +8976,10 @@ function MasterMinWage({data,setData}){
                 <input type="number" defaultValue={w.wage} style={{...inputS,width:80}}
                   onBlur={e=>handleSave(i,e.target.value,w.effective)}
                   onKeyDown={e=>e.key==="Enter"&&e.target.blur()}/>
-                <input type="date" max="9999-12-31" min="1900-01-01" defaultValue={w.effective} style={{...inputS,width:110,textAlign:"left"}}
-                  onBlur={e=>{handleSave(i,w.wage,e.target.value);setEditIdx(null);}}/>
+                {/* DateInput onChange は onBlur 起点なので handleSave+編集解除を一括実行（値未変更でblurした場合は ✓ ボタンで解除） */}
+                <DateInput max="9999-12-31" min="1900-01-01" value={w.effective||""}
+                  onChange={v=>{handleSave(i,w.wage,v);setEditIdx(null);}}
+                  style={{...inputS,width:110,textAlign:"left"}}/>
                 <button onClick={()=>setEditIdx(null)} style={{fontSize:10,padding:"2px 6px",borderRadius:3,border:"0.5px solid var(--border)",background:"transparent",color:"var(--text3)",cursor:"pointer"}}>✓</button>
               </>
             ):(
