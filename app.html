@@ -933,6 +933,16 @@ function migrateData(saved){
     if(c.custody_returned_date===undefined) c.custody_returned_date = "";
     return c;
   });
+  // v16: 預り証の履歴（複数回の預り↔返却サイクルを記録）。既存の単一フィールドから移行。
+  if(saved.clients) saved.clients = saved.clients.map(c=>{
+    if(c.custody_history===undefined){
+      c.custody_history = [];
+      if(c.custody_received_date){
+        c.custody_history.push({ id:"CU"+(c.client_id||"x")+"-0", received_date:c.custody_received_date, return_due:c.custody_return_due||"", reason:c.custody_reason||"", returned_date:c.custody_returned_date||"" });
+      }
+    }
+    return c;
+  });
   return saved;
 }
 
@@ -4451,7 +4461,7 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
       photo:null, archived:false, salary_history:[], work_history:[],
       drive_path:"", drive_url:"",
       education_school:"", education_date:"",
-      custody_status:null, custody_received_date:"", custody_return_due:"", custody_reason:"", custody_returned_date:""
+      custody_status:null, custody_received_date:"", custody_return_due:"", custody_reason:"", custody_returned_date:"", custody_history:[]
     };
     setClients(prev=>[newClient,...prev]);
     setSelected(newClient);
@@ -4859,17 +4869,44 @@ function CustodyReceiptModal({client, office, onClose, onIssue, onReturn}){
     inp.click();
   }
 
+  function buildFileName(){
+    const nm=(client.name_roman||client.name_kana||"預り証").replace(/[\\/:*?"<>|]/g,"").trim();
+    const ymd=(receivedDate||today).replace(/-/g,"");
+    return `${nm}_預り証_${ymd}発行`;
+  }
+
   function handlePrint(){
-    // 発行＝預り中として記録（ステータス・日付・理由のみ。画像は保存しない）
-    onIssue({custody_status:"active",custody_received_date:receivedDate,custody_return_due:returnDue,custody_reason:reason});
+    // 発行＝預り中として記録 + 履歴へ反映（ステータス・日付・理由のみ。画像は保存しない）
+    const hist=(client.custody_history||[]).slice();
+    const ai=hist.findIndex(h=>!h.returned_date); // 返却前のエントリ（=現在の預り）
+    if(ai>=0) hist[ai]={...hist[ai],received_date:receivedDate,return_due:returnDue,reason:reason};
+    else hist.unshift({id:"CU"+Date.now(),received_date:receivedDate,return_due:returnDue,reason:reason,returned_date:""});
+    onIssue({custody_status:"active",custody_received_date:receivedDate,custody_return_due:returnDue,custody_reason:reason,custody_history:hist});
+    // PDF保存時の既定ファイル名はドキュメントtitle由来。Chromeはiframe印刷でも親ページの
+    // titleを使うため、印刷直前に親(と念のためiframe)のtitleを差し替え→afterprint等で復元。
+    const fname=buildFileName();
     const ifr=previewRef.current;
-    try{ ifr.contentWindow.focus(); ifr.contentWindow.print(); }
-    catch(e){ const w=window.open("","_blank"); if(w){ w.document.write(html); w.document.close(); } }
+    const prevTitle=document.title;
+    const restore=()=>{ document.title=prevTitle; };
+    try{
+      document.title=fname;
+      try{ if(ifr.contentDocument) ifr.contentDocument.title=fname; }catch(e){}
+      const w=ifr.contentWindow;
+      w.onafterprint=restore;
+      w.focus(); w.print();
+      setTimeout(restore,2000);
+    }catch(e){
+      restore();
+      const win=window.open("","_blank"); if(win){ win.document.write(html); win.document.title=fname; win.document.close(); }
+    }
   }
 
   function handleReturn(){
     if(!returnDate){ alert("返却日を入力してください"); return; }
-    onReturn({custody_status:"returned",custody_returned_date:returnDate});
+    const hist=(client.custody_history||[]).slice();
+    const ai=hist.findIndex(h=>!h.returned_date);
+    if(ai>=0) hist[ai]={...hist[ai],returned_date:returnDate};
+    onReturn({custody_status:"returned",custody_returned_date:returnDate,custody_history:hist});
     onClose();
   }
 
@@ -4921,6 +4958,18 @@ function CustodyReceiptModal({client, office, onClose, onIssue, onReturn}){
               <DateInput value={returnDue} onChange={setReturnDue} max="9999-12-31" min="1900-01-01" style={dateS}/>
             </div>
             <div style={{fontSize:10,color:"var(--text3)",lineHeight:1.6,marginTop:6}}>※ アップロードした画像は印刷用に一時利用するだけで、Clavis Note には保存されません（閉じると破棄）。</div>
+            {client.custody_history&&client.custody_history.length>0&&<div style={{marginTop:14,borderTop:"0.5px solid var(--border)",paddingTop:12}}>
+              <div style={{fontSize:11,fontWeight:600,color:"var(--text2)",marginBottom:6}}>📋 預り履歴</div>
+              {client.custody_history.map((h,i)=>(
+                <div key={h.id||i} style={{fontSize:11,color:"var(--text2)",lineHeight:1.8,display:"flex",gap:6,alignItems:"baseline",flexWrap:"wrap"}}>
+                  <span style={{color:"var(--text3)"}}>{(h.received_date||"—").replace(/-/g,"/")}</span>
+                  <span style={{color:"var(--text3)"}}>→</span>
+                  {h.returned_date
+                    ?<span>{h.returned_date.replace(/-/g,"/")} 返却済</span>
+                    :<span style={{color:"#854F0B",fontWeight:600}}>預り中{h.return_due?`（返却予定 ${h.return_due.replace(/-/g,"/")}）`:""}</span>}
+                </div>
+              ))}
+            </div>}
           </div>
           <div style={{flex:1,background:"#e9e7e2",overflowY:"auto",padding:12,minHeight:isMobile?420:0}}>
             <iframe ref={previewRef} srcDoc={html} title="預り証プレビュー" style={{width:"100%",height:"100%",minHeight:isMobile?400:520,border:"none",background:"#fff",display:"block"}}/>
