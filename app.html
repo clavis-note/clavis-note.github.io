@@ -2734,7 +2734,7 @@ async function readFileViaAI(file, apiKey){
 
 function DashPoiPoiZone({apiKey, reading, dragOver, onDragOver, onDragLeave, onDrop, onPickFiles, onSetup}){
   return(
-    <div style={{background:"#FEFAF3",border:"0.5px solid #EF9F27",borderRadius:10,padding:14}}>
+    <div data-tour="poipoi-dashboard" style={{background:"#FEFAF3",border:"0.5px solid #EF9F27",borderRadius:10,padding:14}}>
       <div style={{fontSize:11,fontWeight:500,color:"#854F0B",marginBottom:8,display:"flex",alignItems:"center",gap:6}}>
         <span style={{fontSize:13}}>📷</span> ポイポイ式（書類を投げ込んで自動読取）
       </div>
@@ -4492,7 +4492,7 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
             <div style={{flex:1,position:"relative"}}>
               <input type="text" placeholder="検索…" value={search} onChange={e=>setSearch(e.target.value)} style={{width:"100%",fontSize:12,padding:"5px 8px",paddingRight:search?22:8,borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)"}}/>
               {search&&<span onClick={()=>{setSearch("");setFilterStatus("全て");}} style={{position:"absolute",right:6,top:"50%",transform:"translateY(-50%)",fontSize:13,color:"var(--text3)",cursor:"pointer",lineHeight:1}}>×</span>}
-            </div>            <button className="lic-edit-gate" onClick={handleAddClient} style={{width:26,height:26,cursor:"pointer",borderRadius:6,background:"var(--bg2)",border:"0.5px solid var(--border2)",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}} title="クライアント新規追加">+</button>
+            </div>            <button data-tour="client-add" className="lic-edit-gate" onClick={handleAddClient} style={{width:26,height:26,cursor:"pointer",borderRadius:6,background:"var(--bg2)",border:"0.5px solid var(--border2)",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}} title="クライアント新規追加">+</button>
           </div>
         </div>
         {alertClients.length>0&&(
@@ -4637,7 +4637,7 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
                   <button onClick={archiveClient} style={{fontSize:12,padding:"4px 10px",cursor:"pointer",borderRadius:6,border:"0.5px solid var(--border)",background:"transparent",color:"var(--text3)"}}>{cur.archived?"復元":"アーカイブ"}</button>
                 </>}
                 {cur.client_type!=="general"&&<>
-                  <button onClick={handlePoipoi} disabled={poiReading} style={{fontSize:11,padding:"4px 12px",cursor:poiReading?"wait":"pointer",borderRadius:6,border:"none",background:poiReading?"#ccc":"linear-gradient(135deg,#378ADD,#2563EB)",color:"#fff",fontWeight:600,display:"flex",alignItems:"center",gap:4,boxShadow:"0 1px 4px rgba(55,138,221,0.3)"}}>
+                  <button data-tour="client-poipoi" onClick={handlePoipoi} disabled={poiReading} style={{fontSize:11,padding:"4px 12px",cursor:poiReading?"wait":"pointer",borderRadius:6,border:"none",background:poiReading?"#ccc":"linear-gradient(135deg,#378ADD,#2563EB)",color:"#fff",fontWeight:600,display:"flex",alignItems:"center",gap:4,boxShadow:"0 1px 4px rgba(55,138,221,0.3)"}}>
                     {poiReading?<><span style={{display:"inline-block",width:12,height:12,border:"2px solid #fff",borderTopColor:"transparent",borderRadius:"50%",animation:"spin 0.8s linear infinite"}}></span> 読取中</>:"📷 ポイポイ式"}
                   </button>
                   {!isMobile&&<span style={{fontSize:10,color:"var(--text3)"}}>D&Dも可</span>}
@@ -10129,6 +10129,135 @@ function OnboardingFlow({isMobile,licenseAlreadyValid,office,onLicenseVerified,o
   );
 }
 
+// ⑨-B 機能ツアーガイド。スポットライト・ツールチップ型の「見せる型」ガイド（実データは触らせない）。
+//  8ステップ（group）／9パネル。Step3 は ＋ボタン → ポイポイエリア の2パネルでフェード切替。
+//  target があれば対象要素をスポットライト、無ければ画面中央モーダル。
+const TOUR_STEPS = [
+  {group:1, tab:"dashboard", target:null,
+    title:"Clavis Note へようこそ 🎉",
+    body:"主な機能を3分でツアーします。実際のデータには触れないので、安心してご覧ください。"},
+  {group:2, tab:"dashboard", target:'[data-tour="poipoi-dashboard"]',
+    title:"ポイポイ式（ダッシュボード）",
+    body:"ダッシュボード（ホーム画面）のポイポイエリアに書類をポイッ！で、即、クライアント登録できます（在留カードの更新も可能）。"},
+  {group:3, tab:"clients", target:'[data-tour="client-add"]',
+    title:"クライアント — 手入力で追加",
+    body:"この「＋」ボタンから、手入力でクライアントを追加することもできます。"},
+  {group:3, tab:"clients", target:'[data-tour="client-poipoi"]',
+    title:"クライアント — ポイポイ式",
+    body:"ここにも同じポイポイエリアがあります。書類を投げ込むだけで自動読み取りできます。"},
+  {group:4, tab:"cases", target:'[data-tour="tab-cases"]',
+    title:"案件管理",
+    body:"クライアントができたら、ここで案件を作ります。"},
+  {group:5, tab:"payments", target:'[data-tour="tab-payments"]',
+    title:"報酬管理",
+    body:"案件ができたら、ここで請求書発行・入金管理ができます。"},
+  {group:6, tab:"master", target:'[data-tour="tab-master"]',
+    title:"マスター登録",
+    body:"書類テンプレ・料金マスタ・事務所設定はここから。"},
+  {group:7, tab:"journal", target:null,
+    title:"事件簿は自動生成",
+    body:"クライアント・案件・報酬が揃うと、事件簿が自動で生成されます。"},
+  {group:8, tab:"dashboard", target:null,
+    title:"ツアー完了 🎊",
+    body:"おつかれさまでした！もう一度見たい場合は、上部のステップバー右端の「？」アイコンからいつでも呼び出せます。"},
+];
+
+function TourGuide({stepIndex,setStepIndex,setActiveTab,onClose,isMobile}){
+  const steps=TOUR_STEPS;
+  const panel=steps[stepIndex]||steps[0];
+  const [rect,setRect]=useState(null);
+  const [vp,setVp]=useState(()=>({w:window.innerWidth,h:window.innerHeight}));
+
+  // ステップ変更: タブ遷移 → 対象要素を測定（タブ内容のマウント待ちでリトライ）
+  useEffect(()=>{
+    let cancelled=false;
+    if(panel.tab) setActiveTab(panel.tab);
+    setVp({w:window.innerWidth,h:window.innerHeight});
+    if(!panel.target){ setRect(null); return; }
+    let tries=0;
+    const measure=()=>{
+      if(cancelled) return;
+      const el=document.querySelector(panel.target);
+      if(el){
+        try{ el.scrollIntoView({block:"center",inline:"center"}); }catch(e){}
+        requestAnimationFrame(()=>{
+          if(cancelled) return;
+          const r=el.getBoundingClientRect();
+          setRect({top:r.top,left:r.left,width:r.width,height:r.height});
+        });
+      }else if(tries++<25){ setTimeout(measure,70); }
+      else { setRect(null); } // 対象が無ければ中央モーダルにフォールバック
+    };
+    measure();
+    return ()=>{ cancelled=true; };
+  },[stepIndex]);
+
+  // リサイズ / スクロール追従
+  useEffect(()=>{
+    const onMove=()=>{
+      setVp({w:window.innerWidth,h:window.innerHeight});
+      if(!panel.target) return;
+      const el=document.querySelector(panel.target);
+      if(el){ const r=el.getBoundingClientRect(); setRect({top:r.top,left:r.left,width:r.width,height:r.height}); }
+    };
+    window.addEventListener("resize",onMove);
+    window.addEventListener("scroll",onMove,true);
+    return ()=>{ window.removeEventListener("resize",onMove); window.removeEventListener("scroll",onMove,true); };
+  },[stepIndex]);
+
+  const isFirst=stepIndex===0;
+  const isLast=stepIndex===steps.length-1;
+  const Z=99990;
+  const pad=6;
+  const accent="#378ADD";
+  const hasSpot=!!(panel.target&&rect&&rect.width>0);
+
+  // ツールチップ / モーダルの配置
+  const ttW=Math.min(isMobile?300:360, vp.w-24);
+  let ttStyle;
+  if(hasSpot){
+    const centerY=rect.top+rect.height/2;
+    const below=centerY < vp.h/2; // 対象が画面上半分なら下に、下半分なら上に出す
+    const left=Math.max(12, Math.min(rect.left+rect.width/2-ttW/2, vp.w-ttW-12));
+    ttStyle = below
+      ? {position:"fixed",top:rect.top+rect.height+pad+14,left,width:ttW}
+      : {position:"fixed",bottom:(vp.h-rect.top+pad+14),left,width:ttW};
+  }else{
+    ttStyle={position:"fixed",top:"50%",left:"50%",transform:"translate(-50%,-50%)",width:ttW};
+  }
+
+  const card={background:"#fff",border:"0.5px solid #E8E6E0",borderRadius:14,padding:isMobile?"18px 18px":"20px 22px",boxShadow:"0 10px 40px rgba(0,0,0,0.18)",zIndex:Z+2,boxSizing:"border-box"};
+  const primaryBtn={padding:"9px 18px",fontSize:14,fontWeight:600,color:"#fff",background:accent,border:"none",borderRadius:8,cursor:"pointer"};
+  const ghostBtn={padding:"9px 16px",fontSize:13,fontWeight:500,color:"#666",background:"transparent",border:"0.5px solid #E8E6E0",borderRadius:8,cursor:"pointer"};
+  const skipLink={fontSize:12,color:"#999",background:"transparent",border:"none",cursor:"pointer",textDecoration:"underline",padding:4};
+
+  return (
+    <div style={{position:"fixed",inset:0,zIndex:Z}}>
+      {/* クリックブロッカー（実データを触らせない）。spotlight時は透明=box-shadowで暗転、モーダル時は暗幕 */}
+      <div style={{position:"fixed",inset:0,zIndex:Z,background:hasSpot?"transparent":"rgba(0,0,0,0.55)"}}/>
+      {/* スポットライト */}
+      {hasSpot&&(
+        <div style={{position:"fixed",top:rect.top-pad,left:rect.left-pad,width:rect.width+pad*2,height:rect.height+pad*2,borderRadius:10,boxShadow:"0 0 0 9999px rgba(0,0,0,0.55)",border:`2px solid ${accent}`,zIndex:Z+1,pointerEvents:"none",transition:"all 0.3s ease"}}/>
+      )}
+      {/* ツールチップ / モーダル */}
+      <div style={{...card,...ttStyle}}>
+        <div style={{fontSize:11,color:accent,fontWeight:600,letterSpacing:"0.04em",marginBottom:6}}>ステップ {panel.group} / 8</div>
+        <div style={{fontSize:isMobile?16:17,fontWeight:700,color:"#1a1a1a",marginBottom:8}}>{panel.title}</div>
+        <div style={{fontSize:13,color:"#555",lineHeight:1.75,marginBottom:16}}>{panel.body}</div>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
+          {!isLast ? <button onClick={onClose} style={skipLink}>スキップ</button> : <span/>}
+          <div style={{display:"flex",gap:8}}>
+            {!isFirst&&!isLast&&<button onClick={()=>setStepIndex(i=>Math.max(0,i-1))} style={ghostBtn}>前へ</button>}
+            {isLast
+              ? <button onClick={onClose} style={primaryBtn}>完了</button>
+              : <button onClick={()=>setStepIndex(i=>Math.min(steps.length-1,i+1))} style={primaryBtn}>{isFirst?"ツアー開始":"次へ"}</button>}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function App(){
   const [data,_setData]=useState(getInitialData);
   const [isMobile,setIsMobile]=useState(()=>window.innerWidth<768||/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent));
@@ -11029,6 +11158,15 @@ function App(){
   const [stepperVisible,setStepperVisible]=useState(()=>localStorage.getItem("clavis-stepper")!=="hidden");
   const showStepper=stepperTab&&stepperVisible;
   function toggleStepper(){const nv=!stepperVisible;setStepperVisible(nv);localStorage.setItem("clavis-stepper",nv?"visible":"hidden");}
+  // ⑨-B 機能ツアーガイド。⑨-A 完了画面の「はい」または ステップバーの「？」から起動。
+  const [tourActive,setTourActive]=useState(false);
+  const [tourStep,setTourStep]=useState(0);
+  const startTour=useCallback(()=>{ setTourStep(0); setTourActive(true); },[]);
+  const closeTour=useCallback(()=>{
+    setTourActive(false);
+    _setData(d=>({...d,office:{...(d.office||{}),tour_completed:true}}));
+    setActiveTab("dashboard");
+  },[]);
   // バグ②: 常時表示の上部バナー分、ヘッダーのsticky top と固定タブコンテンツ(--header-h)を
   // 押し下げる。これを怠ると readonly バナーがヘッダー/コンテンツ上部に被さり、
   // 事件簿エクスポートボタン等が画面外に見切れる。全バナー(readonly/auth/swUpdate)を加算。
@@ -11066,11 +11204,9 @@ function App(){
           _setData(d=>({...d,office:{...(d.office||{}),name:vals.name,representative:vals.representative}}));
         }}
         onComplete={(wantsTour)=>{
-          _setData(d=>({...d,office:{...(d.office||{}),onboarding_completed:true}}));
-          if(wantsTour){
-            // ⑨-B ツアーガイド起動ポイント（本体は別タスクで実装）。実装時はこのフラグを拾って起動する。
-            try{ localStorage.setItem("clavis-pending-tour","1"); }catch(e){}
-          }
+          // 「はい」→ ツアー起動。「いいえ」→ ツアーは完了扱い（次回も再表示しない）。
+          _setData(d=>({...d,office:{...(d.office||{}),onboarding_completed:true,...(wantsTour?{}:{tour_completed:true})}}));
+          if(wantsTour){ startTour(); }
         }}
       />
     );
@@ -11282,7 +11418,7 @@ function App(){
         </div>
         {!isMobile&&<div style={{display:"flex",gap:2,flex:1}}>
           {TABS.map(t=>(
-            <button key={t.id} onClick={()=>setActiveTab(t.id)}
+            <button key={t.id} data-tour={"tab-"+t.id} onClick={()=>setActiveTab(t.id)}
               style={{fontSize:12,padding:"6px 14px",cursor:"pointer",border:"none",borderRadius:6,
                 background:activeTab===t.id?"var(--accent-bg)":"transparent",
                 color:activeTab===t.id?"var(--accent-text)":"var(--text2)",
@@ -11293,7 +11429,7 @@ function App(){
         </div>}
         {isMobile&&<div style={{display:"flex",gap:0,flex:1}}>
           {TABS.map(t=>(
-            <button key={t.id} onClick={()=>setActiveTab(t.id)}
+            <button key={t.id} data-tour={"tab-"+t.id} onClick={()=>setActiveTab(t.id)}
               style={{fontSize:16,padding:"4px 5px",cursor:"pointer",border:"none",borderRadius:6,flexShrink:0,
                 background:activeTab===t.id?"var(--accent-bg)":"transparent",
                 color:activeTab===t.id?"var(--accent-text)":"var(--text2)"}}>
@@ -11491,6 +11627,7 @@ function App(){
                 ];
               }).flat().filter(Boolean)}
             </div>
+            {!DEMO_MODE&&<button onClick={startTour} title="ツアーガイドを再表示" aria-label="ツアーガイドを再表示" style={{position:"absolute",right:isMobile?34:46,top:"50%",transform:"translateY(-50%)",width:20,height:20,borderRadius:"50%",border:"0.5px solid var(--accent)",background:"var(--accent-bg)",cursor:"pointer",color:"var(--accent-text)",fontSize:11,fontWeight:700,padding:0,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1}}>?</button>}
             <button onClick={toggleStepper} title="ガイドを非表示" style={{position:"absolute",right:isMobile?8:16,top:"50%",transform:"translateY(-50%)",border:"none",background:"transparent",cursor:"pointer",color:"var(--text3)",fontSize:12,opacity:0.4,padding:4}}>▲</button>
           </div>
         )}
@@ -11512,6 +11649,10 @@ function App(){
       </div>
       {/* 困ったときはFAQモーダル */}
       {showFaq&&<FaqModal onClose={()=>setShowFaq(false)} isMobile={isMobile}/>}
+      {/* ⑨-B 機能ツアーガイド（DEMOサイトでは動作させない） */}
+      {tourActive&&!DEMO_MODE&&(
+        <TourGuide stepIndex={tourStep} setStepIndex={setTourStep} setActiveTab={setActiveTab} onClose={closeTour} isMobile={isMobile}/>
+      )}
       {/* トースト通知 */}
       <div id="toast" style={{position:"fixed",bottom:24,left:"50%",transform:"translateX(-50%)",background:"#1a1a1a",color:"#fff",padding:"8px 20px",borderRadius:8,fontSize:13,fontWeight:500,opacity:0,transition:"opacity 0.3s",pointerEvents:"none",zIndex:9999}}/>
       {/* 自動保存インジケーター */}
