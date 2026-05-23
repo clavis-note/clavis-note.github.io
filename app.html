@@ -10031,6 +10031,104 @@ function LicenseGate({isMobile,reason,onVerified,onClose}){
   );
 }
 
+// ⑨-A オンボーディング画面（初回起動時のフルスクリーン3画面）。
+//  画面①ライセンス認証（必須・LicenseGate のロジックを流用）→ 画面②事務所情報（任意・スキップ可）→ 画面③完了。
+//  表示するか否かは App 側で判定（新規端末＝既存データ無し ∧ onboarding_completed 未セット）。
+//  完了フラグは画面③で「はい/いいえ」を選んだ時点でセット＝2回目以降は表示しない。
+function OnboardingFlow({isMobile,licenseAlreadyValid,office,onLicenseVerified,onSaveOffice,onComplete}){
+  const [step,setStep]=useState(licenseAlreadyValid?2:1);
+  // 画面①
+  const [key,setKey]=useState("");
+  const [err,setErr]=useState("");
+  const [busy,setBusy]=useState(false);
+  // 画面②（既存の事務所情報があれば初期表示）
+  const [name,setName]=useState((office&&office.name)||"");
+  const [rep,setRep]=useState((office&&office.representative)||"");
+
+  async function submitLicense(){
+    if(busy) return;
+    const k=key.trim();
+    if(!isValidLicenseKeyFormat(k)){ setErr("キーの形式が正しくありません（clv_live_ から始まるキーです）。"); return; }
+    setBusy(true); setErr("");
+    try{
+      const r=await verifyLicenseOnline(k);
+      if(r.valid){ onLicenseVerified(k,r.plan); setStep(2); return; }
+      setErr(licenseReasonText(r.reason));
+    }catch(e){
+      setErr(licenseReasonText("offline-firsttime"));
+    }finally{
+      setBusy(false);
+    }
+  }
+
+  const cardS={position:"relative",maxWidth:480,width:"100%",background:"#fff",border:"0.5px solid #E8E6E0",borderRadius:16,padding:isMobile?"28px 22px":"36px 32px",boxShadow:"0 8px 30px rgba(0,0,0,0.08)"};
+  const inputS={width:"100%",boxSizing:"border-box",padding:"11px 13px",fontSize:14,border:"0.5px solid #E8E6E0",borderRadius:8,background:"#FAF8F5",color:"#1a1a1a",outline:"none"};
+  const labelS={fontSize:11,color:"#999",fontWeight:600,marginBottom:6,letterSpacing:"0.04em"};
+  const primaryBtn={width:"100%",padding:"13px 0",fontSize:15,fontWeight:600,color:"#fff",background:"#378ADD",border:"none",borderRadius:8,cursor:"pointer",transition:"background 0.15s"};
+  const ghostBtn={width:"100%",padding:"12px 0",fontSize:14,fontWeight:500,color:"#666",background:"transparent",border:"0.5px solid #E8E6E0",borderRadius:8,cursor:"pointer"};
+
+  return (
+    <div style={{position:"fixed",inset:0,zIndex:100000,background:"#FAF8F5",display:"flex",alignItems:"center",justifyContent:"center",padding:isMobile?20:24,overflowY:"auto"}}>
+      <div style={cardS}>
+        {/* 進捗インジケータ */}
+        <div style={{display:"flex",gap:7,justifyContent:"center",marginBottom:24}}>
+          {[1,2,3].map(n=>(
+            <div key={n} style={{width:n===step?22:7,height:7,borderRadius:4,background:n===step?"#378ADD":(n<step?"#9CC4EC":"#E0DED7"),transition:"all 0.2s"}}/>
+          ))}
+        </div>
+
+        {step===1&&(<React.Fragment>
+          <div style={{fontSize:isMobile?20:22,fontWeight:700,color:"#1a1a1a",marginBottom:8}}>🔐 ライセンスキーの認証</div>
+          <div style={{fontSize:13,color:"#666",lineHeight:1.7,marginBottom:20}}>
+            決済後にメールでお知らせした、<span style={{fontFamily:"monospace",color:"#185FA5",fontWeight:600}}>clv_live_</span> から始まるライセンスキーを入力してください。
+          </div>
+          <input type="text" value={key} onChange={e=>setKey(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter") submitLicense(); }} autoFocus spellCheck={false} autoCapitalize="off" autoCorrect="off" placeholder="clv_live_..." disabled={busy} style={{...inputS,fontFamily:"monospace"}}/>
+          {err&&<div style={{marginTop:12,fontSize:12,color:"#A32D2D",lineHeight:1.6}}>{err}</div>}
+          <button onClick={submitLicense} disabled={busy} style={{...primaryBtn,marginTop:20,background:busy?"#9CC4EC":"#378ADD",cursor:busy?"default":"pointer"}}>{busy?"認証中…":"認証して次へ"}</button>
+          <div style={{marginTop:18,fontSize:12,lineHeight:1.7}}>
+            <a href={SUBSCRIBE_URL} target="_blank" rel="noopener" style={{color:"#185FA5",fontWeight:600,textDecoration:"none"}}>まだご契約がお済みでない方はこちら（30日間無料）→</a>
+          </div>
+          <div style={{marginTop:12,fontSize:11,color:"#999",lineHeight:1.7}}>
+            キーが分からない場合は、決済完了メールをご確認いただくか、サポートまでお問い合わせください。
+          </div>
+        </React.Fragment>)}
+
+        {step===2&&(<React.Fragment>
+          <div style={{fontSize:isMobile?20:22,fontWeight:700,color:"#1a1a1a",marginBottom:8}}>🏠 事務所情報の登録</div>
+          <div style={{fontSize:13,color:"#666",lineHeight:1.7,marginBottom:20}}>
+            請求書・見積書に表示される基本情報です。まずはこの2つだけ。あとから変更・追加もできます。
+          </div>
+          <div style={{marginBottom:14}}>
+            <div style={labelS}>事務所名</div>
+            <input value={name} onChange={e=>setName(e.target.value)} placeholder="○○行政書士事務所" style={inputS}/>
+          </div>
+          <div style={{marginBottom:18}}>
+            <div style={labelS}>行政書士名（請求書表示名）</div>
+            <input value={rep} onChange={e=>setRep(e.target.value)} placeholder="行政書士　山田　太郎" style={inputS}/>
+          </div>
+          <div style={{fontSize:11,color:"#999",lineHeight:1.7,marginBottom:20,background:"#F2F0EB",borderRadius:8,padding:"10px 12px"}}>
+            住所・電話番号・メール・インボイス番号・ロゴ・印影・銀行口座などは、あとから<strong style={{color:"#666"}}>「マスター登録 → 🏠事務所設定」</strong>で追加できます。
+          </div>
+          <button onClick={()=>{ onSaveOffice({name:name.trim(),representative:rep.trim()}); setStep(3); }} style={primaryBtn}>保存して次へ</button>
+          <button onClick={()=>setStep(3)} style={{...ghostBtn,marginTop:10}}>あとで設定する</button>
+        </React.Fragment>)}
+
+        {step===3&&(<React.Fragment>
+          <div style={{textAlign:"center"}}>
+            <div style={{fontSize:42,marginBottom:6}}>🎉</div>
+            <div style={{fontSize:isMobile?20:22,fontWeight:700,color:"#1a1a1a",marginBottom:10}}>Clavis Note へようこそ</div>
+            <div style={{fontSize:13,color:"#666",lineHeight:1.8,marginBottom:26}}>
+              セットアップが完了しました。<br/>主な機能をご案内するツアーガイドを見ますか？
+            </div>
+          </div>
+          <button onClick={()=>onComplete(true)} style={primaryBtn}>はい、見る</button>
+          <button onClick={()=>onComplete(false)} style={{...ghostBtn,marginTop:10}}>いいえ、あとで</button>
+        </React.Fragment>)}
+      </div>
+    </div>
+  );
+}
+
 function App(){
   const [data,_setData]=useState(getInitialData);
   const [isMobile,setIsMobile]=useState(()=>window.innerWidth<768||/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent));
@@ -10944,6 +11042,37 @@ function App(){
       <div style={{position:"fixed",inset:0,background:"#FAF8F5",display:"flex",alignItems:"center",justifyContent:"center"}}>
         <div style={{fontSize:13,color:"#999"}}>ライセンスを確認しています…</div>
       </div>
+    );
+  }
+  // ⑨-A オンボーディング: 新規端末（この端末に既存データ無し）かつ未完了なら、
+  //   ライセンス認証→事務所情報→完了 の3画面を表示。判定軸 = bootHadData（useMemoで起動時に1度確定）。
+  //   既存ユーザー（bootHadData=true）には絶対出さない＝フラグ未保持の既存ユーザーも grandfather。
+  //   画面①の認証成功で licenseState は valid になるが、完了フラグが立つまでこの分岐は維持される。
+  const needsOnboarding = !DEMO_MODE && !bootHadData && !(data.office && data.office.onboarding_completed);
+  if(needsOnboarding){
+    return (
+      <OnboardingFlow
+        isMobile={isMobile}
+        licenseAlreadyValid={licenseState==="valid"}
+        office={data.office}
+        onLicenseVerified={(k,p)=>{
+          // 認証成功時点ではまだ licenseState!=='valid'（=!canEdit）→ ガード除外で _setData
+          _setData(d=>({...d,office:{...(d.office||{}),license_key:k}}));
+          writeLicenseCache(k,p);
+          setLicenseReason(null);
+          setLicenseState("valid");
+        }}
+        onSaveOffice={(vals)=>{
+          _setData(d=>({...d,office:{...(d.office||{}),name:vals.name,representative:vals.representative}}));
+        }}
+        onComplete={(wantsTour)=>{
+          _setData(d=>({...d,office:{...(d.office||{}),onboarding_completed:true}}));
+          if(wantsTour){
+            // ⑨-B ツアーガイド起動ポイント（本体は別タスクで実装）。実装時はこのフラグを拾って起動する。
+            try{ localStorage.setItem("clavis-pending-tour","1"); }catch(e){}
+          }
+        }}
+      />
     );
   }
   if(licenseState==="gate"){
