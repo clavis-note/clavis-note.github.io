@@ -10395,10 +10395,9 @@ function OnboardingFlow({isMobile,licenseAlreadyValid,office,onLicenseVerified,o
 }
 
 // ⑨-B 機能ツアーガイド。スポットライト・ツールチップ型の「見せる型」ガイド（実データは触らせない）。
-//  8ステップ（group）。各 step は phases[] を持ち、複数フェーズは「読める間隔」で自動進行する。
+//  8ステップ（group）。各 step は phases[] を持つ。要件E: 進行は完全に「次へ」起点（時間ベースの自動進行なし）。
+//  「次へ」を押すと → 残りphaseがあればphase送り、無ければ次stepへ（タブが変わる時はクリック演出→切替）。
 //  スポットライト位置とコピーは常に同一 phase 由来＝同期（測定完了と同時に phase を確定するのでコピー先行が起きない）。
-//  step.tab が現タブと異なる時は、対象タブを「クリック風」に光らせてから切り替える（唐突な遷移を防ぐ）。
-const TOUR_PHASE_MS = 2800; // 複数フェーズの自動進行間隔（ユーザーが読める時間）
 const TOUR_STEPS = [
   {group:1, tab:"dashboard", phases:[
     {target:null, title:"Clavis Note へようこそ 🎉",
@@ -10469,15 +10468,11 @@ function TourGuide({stepIndex,setStepIndex,setActiveTab,activeTab,onClose,isMobi
     m();
   };
 
-  // phase へ移動（測定→確定を同期）。最終phaseでなければ一定時間後に自動で次phaseへ。
+  // phase へ移動（測定→確定を同期）。要件E: 自動進行は廃止。phase送りは「次へ」のみが起点。
   const goToPhase=(p)=>{
     clearTimers();
     const ph=step.phases[p];
     measureTo(ph.target, ()=>setPhaseIdx(p));
-    if(p < step.phases.length-1){
-      const t=setTimeout(()=>goToPhase(p+1), TOUR_PHASE_MS);
-      timersRef.current.push(t);
-    }
   };
 
   // ステップ変更: 必要ならタブを「クリック風」に光らせてから切替 → phase0 を表示（Bの演出）
@@ -10558,7 +10553,12 @@ function TourGuide({stepIndex,setStepIndex,setActiveTab,activeTab,onClose,isMobi
       )}
       {/* ツールチップ / モーダル */}
       <div style={{...card,...ttStyle}}>
-        <div style={{fontSize:11,color:accent,fontWeight:600,letterSpacing:"0.04em",marginBottom:6}}>ステップ {step.group} / 8</div>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+          <span style={{fontSize:11,color:accent,fontWeight:600,letterSpacing:"0.04em"}}>ステップ {step.group} / 8</span>
+          {step.phases.length>1&&<span style={{display:"flex",gap:4,alignItems:"center"}}>
+            {step.phases.map((_,i)=><span key={i} style={{width:6,height:6,borderRadius:"50%",background:i===phaseIdx?accent:"#D7D5CF",transition:"background 0.2s"}}/>)}
+          </span>}
+        </div>
         <div style={{fontSize:isMobile?16:17,fontWeight:700,color:"#1a1a1a",marginBottom:8}}>{curPhase.title}</div>
         <div style={{fontSize:13,color:"#555",lineHeight:1.75,marginBottom:16}}>{curPhase.body}</div>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
