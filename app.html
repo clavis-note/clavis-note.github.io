@@ -6187,7 +6187,7 @@ function CaseManagement({data,setData,navigateCaseId,clearNavigate}){
         <div style={{padding:"12px 12px 8px",borderBottom:"0.5px solid rgba(0,0,0,0.08)",flex:"0 0 auto",background:"var(--bg)"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
             <span style={{fontSize:14,fontWeight:500}}>案件管理</span>
-            <button className="lic-edit-gate" onClick={()=>setShowNew(true)} style={{width:26,height:26,cursor:"pointer",borderRadius:6,background:"var(--bg2)",border:"0.5px solid rgba(0,0,0,0.2)",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+            <button data-tour="case-add" className="lic-edit-gate" onClick={()=>setShowNew(true)} style={{width:26,height:26,cursor:"pointer",borderRadius:6,background:"var(--bg2)",border:"0.5px solid rgba(0,0,0,0.2)",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
           </div>
           {/* サブタブ */}
           <div style={{display:"flex",gap:0,marginBottom:8,borderRadius:6,overflow:"hidden",border:"0.5px solid rgba(0,0,0,0.15)"}}>
@@ -8118,7 +8118,7 @@ function PaymentManagement({data,setData,navigatePaymentId,clearNavigate}){
                   border:`0.5px solid ${mergeMode?"#A32D2D":"rgba(0,0,0,0.15)"}`,
                   background:mergeMode?"#FCEBEB":"transparent",
                   color:mergeMode?"#A32D2D":"var(--text3)",fontWeight:mergeMode?500:400}}>{mergeMode?"✕ 解除":"まとめる"}</button>
-              <button className="lic-edit-gate" onClick={()=>setShowNew(true)} style={{width:26,height:26,cursor:"pointer",borderRadius:6,background:"var(--bg2)",border:"0.5px solid var(--border2)",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+              <button data-tour="payment-add" className="lic-edit-gate" onClick={()=>setShowNew(true)} style={{width:26,height:26,cursor:"pointer",borderRadius:6,background:"var(--bg2)",border:"0.5px solid var(--border2)",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
             </div>
           </div>
           <div style={{background:"#FCEBEB",borderRadius:6,padding:"7px 10px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
@@ -10346,87 +10346,138 @@ function OnboardingFlow({isMobile,licenseAlreadyValid,office,onLicenseVerified,o
 }
 
 // ⑨-B 機能ツアーガイド。スポットライト・ツールチップ型の「見せる型」ガイド（実データは触らせない）。
-//  8ステップ（group）／9パネル。Step3 は ＋ボタン → ポイポイエリア の2パネルでフェード切替。
-//  target があれば対象要素をスポットライト、無ければ画面中央モーダル。
+//  8ステップ（group）。各 step は phases[] を持ち、複数フェーズは「読める間隔」で自動進行する。
+//  スポットライト位置とコピーは常に同一 phase 由来＝同期（測定完了と同時に phase を確定するのでコピー先行が起きない）。
+//  step.tab が現タブと異なる時は、対象タブを「クリック風」に光らせてから切り替える（唐突な遷移を防ぐ）。
+const TOUR_PHASE_MS = 2800; // 複数フェーズの自動進行間隔（ユーザーが読める時間）
 const TOUR_STEPS = [
-  {group:1, tab:"dashboard", target:null,
-    title:"Clavis Note へようこそ 🎉",
-    body:"主な機能を3分でツアーします。実際のデータには触れないので、安心してご覧ください。"},
-  {group:2, tab:"dashboard", target:'[data-tour="poipoi-dashboard"]',
-    title:"ポイポイ式（ダッシュボード）",
-    body:"ダッシュボード（ホーム画面）のポイポイエリアに書類をポイッ！で、即、クライアント登録できます（在留カードの更新も可能）。"},
-  {group:3, tab:"clients", target:'[data-tour="client-add"]',
-    title:"クライアント — 手入力で追加",
-    body:"この「＋」ボタンから、手入力でクライアントを追加することもできます。"},
-  {group:3, tab:"clients", target:'[data-tour="client-poipoi"]',
-    title:"クライアント — ポイポイ式",
-    body:"ここにも同じポイポイエリアがあります。書類を投げ込むだけで自動読み取りできます。"},
-  {group:4, tab:"cases", target:'[data-tour="tab-cases"]',
-    title:"案件管理",
-    body:"クライアントができたら、ここで案件を作ります。"},
-  {group:5, tab:"payments", target:'[data-tour="tab-payments"]',
-    title:"報酬管理",
-    body:"案件ができたら、ここで請求書発行・入金管理ができます。"},
-  {group:6, tab:"master", target:'[data-tour="tab-master"]',
-    title:"マスター登録",
-    body:"書類テンプレ・料金マスタ・事務所設定はここから。"},
-  {group:7, tab:"journal", target:null,
-    title:"事件簿は自動生成",
-    body:"クライアント・案件・報酬が揃うと、事件簿が自動で生成されます。"},
-  {group:8, tab:"dashboard", target:null,
-    title:"ツアー完了 🎊",
-    body:"おつかれさまでした！もう一度見たい場合は、上部のステップバー右端の「？」アイコンからいつでも呼び出せます。"},
+  {group:1, tab:"dashboard", phases:[
+    {target:null, title:"Clavis Note へようこそ 🎉",
+      body:"主な機能を3分でツアーします。実際のデータには触れないので、安心してご覧ください。"},
+  ]},
+  {group:2, tab:"dashboard", phases:[
+    {target:'[data-tour="poipoi-dashboard"]', title:"ポイポイ式（ダッシュボード）",
+      body:"ダッシュボード（ホーム画面）のポイポイエリアに書類をポイッ！で、即、クライアント登録できます（在留カードの更新も可能）。"},
+  ]},
+  {group:3, tab:"clients", phases:[
+    {target:'[data-tour="client-add"]', title:"クライアント — 手入力で追加",
+      body:"この「＋」ボタンから、手入力でクライアントを追加することもできます。"},
+    {target:'[data-tour="client-poipoi"]', title:"クライアント — ポイポイ式",
+      body:"ここにも同じポイポイエリアがあります。書類を投げ込むだけで自動読み取りできます。"},
+  ]},
+  {group:4, tab:"cases", phases:[
+    {target:'[data-tour="case-add"]', title:"案件管理",
+      body:"クライアントができたら、この「＋」から案件を作ります。"},
+  ]},
+  {group:5, tab:"payments", phases:[
+    {target:'[data-tour="payment-add"]', title:"報酬管理",
+      body:"案件ができたら、この「＋」から請求書発行・入金管理ができます。"},
+  ]},
+  {group:6, tab:"master", phases:[
+    {target:'[data-tour="tab-master"]', title:"マスター登録",
+      body:"書類テンプレ・料金マスタ・事務所設定はここから。"},
+  ]},
+  {group:7, tab:"journal", phases:[
+    {target:null, title:"事件簿は自動生成",
+      body:"クライアント・案件・報酬が揃うと、事件簿が自動で生成されます。"},
+  ]},
+  {group:8, tab:"dashboard", phases:[
+    {target:null, title:"ツアー完了 🎊",
+      body:"おつかれさまでした！もう一度見たい場合は、上部のステップバー右端の「？」アイコンからいつでも呼び出せます。"},
+  ]},
 ];
 
-function TourGuide({stepIndex,setStepIndex,setActiveTab,onClose,isMobile}){
+function TourGuide({stepIndex,setStepIndex,setActiveTab,activeTab,onClose,isMobile}){
   const steps=TOUR_STEPS;
-  const panel=steps[stepIndex]||steps[0];
+  const step=steps[stepIndex]||steps[0];
+  const [phaseIdx,setPhaseIdx]=useState(0);
+  const [transitioning,setTransitioning]=useState(false); // タブ「クリック風」演出中
   const [rect,setRect]=useState(null);
   const [vp,setVp]=useState(()=>({w:window.innerWidth,h:window.innerHeight}));
+  const timersRef=useRef([]);
+  const tokenRef=useRef(0); // 進行中の measure を無効化するためのトークン
+  const clearTimers=()=>{ timersRef.current.forEach(clearTimeout); timersRef.current=[]; };
 
-  // ステップ変更: タブ遷移 → 対象要素を測定（タブ内容のマウント待ちでリトライ）
-  useEffect(()=>{
-    let cancelled=false;
-    if(panel.tab) setActiveTab(panel.tab);
-    setVp({w:window.innerWidth,h:window.innerHeight});
-    if(!panel.target){ setRect(null); return; }
+  // 対象を測定し、rect 確定と同時に after() を実行＝コピーと位置を常に同期させる（Aの根治）
+  const measureTo=(target,after)=>{
+    const myToken=++tokenRef.current;
     let tries=0;
-    const measure=()=>{
-      if(cancelled) return;
-      const el=document.querySelector(panel.target);
+    const m=()=>{
+      if(myToken!==tokenRef.current) return; // 後続の呼び出しに置き換わったら中断
+      if(!target){ setRect(null); if(after)after(); return; }
+      const el=document.querySelector(target);
       if(el){
         try{ el.scrollIntoView({block:"center",inline:"center"}); }catch(e){}
         requestAnimationFrame(()=>{
-          if(cancelled) return;
+          if(myToken!==tokenRef.current) return;
           const r=el.getBoundingClientRect();
           setRect({top:r.top,left:r.left,width:r.width,height:r.height});
+          if(after)after();
         });
-      }else if(tries++<25){ setTimeout(measure,70); }
-      else { setRect(null); } // 対象が無ければ中央モーダルにフォールバック
+      }else if(tries++<25){ const t=setTimeout(m,70); timersRef.current.push(t); }
+      else { setRect(null); if(after)after(); } // 見つからなければ中央モーダルにフォールバック
     };
-    measure();
-    return ()=>{ cancelled=true; };
+    m();
+  };
+
+  // phase へ移動（測定→確定を同期）。最終phaseでなければ一定時間後に自動で次phaseへ。
+  const goToPhase=(p)=>{
+    clearTimers();
+    const ph=step.phases[p];
+    measureTo(ph.target, ()=>setPhaseIdx(p));
+    if(p < step.phases.length-1){
+      const t=setTimeout(()=>goToPhase(p+1), TOUR_PHASE_MS);
+      timersRef.current.push(t);
+    }
+  };
+
+  // ステップ変更: 必要ならタブを「クリック風」に光らせてから切替 → phase0 を表示（Bの演出）
+  useEffect(()=>{
+    clearTimers();
+    setVp({w:window.innerWidth,h:window.innerHeight});
+    const needSwitch = step.tab && step.tab!==activeTab;
+    if(needSwitch){
+      setTransitioning(true);
+      setPhaseIdx(0);
+      measureTo('[data-tour="tab-'+step.tab+'"]', null); // 対象タブをハイライト（pulse）
+      const t1=setTimeout(()=>{
+        setActiveTab(step.tab);
+        const t2=setTimeout(()=>{ setTransitioning(false); goToPhase(0); }, 380); // タブ内容のマウント待ち
+        timersRef.current.push(t2);
+      }, 820);
+      timersRef.current.push(t1);
+    }else{
+      setTransitioning(false);
+      goToPhase(0);
+    }
+    return ()=>{ clearTimers(); tokenRef.current++; };
   },[stepIndex]);
 
-  // リサイズ / スクロール追従
+  // リサイズ / スクロール追従（現在表示中の対象を測り直す）
   useEffect(()=>{
     const onMove=()=>{
       setVp({w:window.innerWidth,h:window.innerHeight});
-      if(!panel.target) return;
-      const el=document.querySelector(panel.target);
+      const t = transitioning ? '[data-tour="tab-'+step.tab+'"]' : step.phases[Math.min(phaseIdx,step.phases.length-1)].target;
+      if(!t) return;
+      const el=document.querySelector(t);
       if(el){ const r=el.getBoundingClientRect(); setRect({top:r.top,left:r.left,width:r.width,height:r.height}); }
     };
     window.addEventListener("resize",onMove);
     window.addEventListener("scroll",onMove,true);
     return ()=>{ window.removeEventListener("resize",onMove); window.removeEventListener("scroll",onMove,true); };
-  },[stepIndex]);
+  },[stepIndex,phaseIdx,transitioning]);
 
+  const curPhase=step.phases[Math.min(phaseIdx,step.phases.length-1)];
   const isFirst=stepIndex===0;
   const isLast=stepIndex===steps.length-1;
   const Z=99990;
   const pad=6;
   const accent="#378ADD";
-  const hasSpot=!!(panel.target&&rect&&rect.width>0);
+  const hasSpot=!!(rect&&rect.width>0);
+
+  // 「次へ」: 残りphaseがあればphase送り、無ければ次step。「前へ」: 同様にphase/step。
+  const goNext=()=>{ if(phaseIdx<step.phases.length-1) goToPhase(phaseIdx+1); else setStepIndex(i=>Math.min(steps.length-1,i+1)); };
+  const goPrev=()=>{ if(phaseIdx>0) goToPhase(phaseIdx-1); else setStepIndex(i=>Math.max(0,i-1)); };
 
   // ツールチップ / モーダルの配置
   const ttW=Math.min(isMobile?300:360, vp.w-24);
@@ -10444,29 +10495,30 @@ function TourGuide({stepIndex,setStepIndex,setActiveTab,onClose,isMobile}){
 
   const card={background:"#fff",border:"0.5px solid #E8E6E0",borderRadius:14,padding:isMobile?"18px 18px":"20px 22px",boxShadow:"0 10px 40px rgba(0,0,0,0.18)",zIndex:Z+2,boxSizing:"border-box"};
   const primaryBtn={padding:"9px 18px",fontSize:14,fontWeight:600,color:"#fff",background:accent,border:"none",borderRadius:8,cursor:"pointer"};
-  const ghostBtn={padding:"9px 16px",fontSize:13,fontWeight:500,color:"#666",background:"transparent",border:"0.5px solid #E8E6E0",borderRadius:8,cursor:"pointer"};
+  const ghostBtn=(dim)=>({padding:"9px 16px",fontSize:13,fontWeight:500,color:"#666",background:"transparent",border:"0.5px solid #E8E6E0",borderRadius:8,cursor:dim?"default":"pointer",opacity:dim?0.4:1});
   const skipLink={fontSize:12,color:"#999",background:"transparent",border:"none",cursor:"pointer",textDecoration:"underline",padding:4};
 
   return (
     <div style={{position:"fixed",inset:0,zIndex:Z}}>
+      <style>{"@keyframes tourPulse{0%{box-shadow:0 0 0 9999px rgba(0,0,0,0.55),0 0 0 0 rgba(55,138,221,0.55);}70%{box-shadow:0 0 0 9999px rgba(0,0,0,0.55),0 0 0 12px rgba(55,138,221,0);}100%{box-shadow:0 0 0 9999px rgba(0,0,0,0.55),0 0 0 0 rgba(55,138,221,0);}}"}</style>
       {/* クリックブロッカー（実データを触らせない）。spotlight時は透明=box-shadowで暗転、モーダル時は暗幕 */}
       <div style={{position:"fixed",inset:0,zIndex:Z,background:hasSpot?"transparent":"rgba(0,0,0,0.55)"}}/>
-      {/* スポットライト */}
+      {/* スポットライト（transitioning中はクリック風pulse） */}
       {hasSpot&&(
-        <div style={{position:"fixed",top:rect.top-pad,left:rect.left-pad,width:rect.width+pad*2,height:rect.height+pad*2,borderRadius:10,boxShadow:"0 0 0 9999px rgba(0,0,0,0.55)",border:`2px solid ${accent}`,zIndex:Z+1,pointerEvents:"none",transition:"all 0.3s ease"}}/>
+        <div style={{position:"fixed",top:rect.top-pad,left:rect.left-pad,width:rect.width+pad*2,height:rect.height+pad*2,borderRadius:10,boxShadow:"0 0 0 9999px rgba(0,0,0,0.55)",border:`2px solid ${accent}`,zIndex:Z+1,pointerEvents:"none",transition:"all 0.3s ease",animation:transitioning?"tourPulse 0.8s ease-out infinite":"none"}}/>
       )}
       {/* ツールチップ / モーダル */}
       <div style={{...card,...ttStyle}}>
-        <div style={{fontSize:11,color:accent,fontWeight:600,letterSpacing:"0.04em",marginBottom:6}}>ステップ {panel.group} / 8</div>
-        <div style={{fontSize:isMobile?16:17,fontWeight:700,color:"#1a1a1a",marginBottom:8}}>{panel.title}</div>
-        <div style={{fontSize:13,color:"#555",lineHeight:1.75,marginBottom:16}}>{panel.body}</div>
+        <div style={{fontSize:11,color:accent,fontWeight:600,letterSpacing:"0.04em",marginBottom:6}}>ステップ {step.group} / 8</div>
+        <div style={{fontSize:isMobile?16:17,fontWeight:700,color:"#1a1a1a",marginBottom:8}}>{curPhase.title}</div>
+        <div style={{fontSize:13,color:"#555",lineHeight:1.75,marginBottom:16}}>{curPhase.body}</div>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
           {!isLast ? <button onClick={onClose} style={skipLink}>スキップ</button> : <span/>}
           <div style={{display:"flex",gap:8}}>
-            {!isFirst&&!isLast&&<button onClick={()=>setStepIndex(i=>Math.max(0,i-1))} style={ghostBtn}>前へ</button>}
+            {!isFirst&&<button onClick={goPrev} disabled={transitioning} style={ghostBtn(transitioning)}>前へ</button>}
             {isLast
               ? <button onClick={onClose} style={primaryBtn}>完了</button>
-              : <button onClick={()=>setStepIndex(i=>Math.min(steps.length-1,i+1))} style={primaryBtn}>{isFirst?"ツアー開始":"次へ"}</button>}
+              : <button onClick={goNext} disabled={transitioning} style={{...primaryBtn,...(transitioning?{opacity:0.6,cursor:"default"}:{})}}>{isFirst?"ツアー開始":"次へ"}</button>}
           </div>
         </div>
       </div>
@@ -11370,7 +11422,8 @@ function App(){
     e.target.value="";
   }
 
-  const stepperTab=["clients","cases","payments"].includes(activeTab);
+  // ⑨-B 要件D: 業務フローステップバーは全タブ共通表示（右端の「？」＝ツアー再表示をどこからでも開けるように）
+  const stepperTab=true;
   const [stepperVisible,setStepperVisible]=useState(()=>localStorage.getItem("clavis-stepper")!=="hidden");
   const showStepper=stepperTab&&stepperVisible;
   function toggleStepper(){const nv=!stepperVisible;setStepperVisible(nv);localStorage.setItem("clavis-stepper",nv?"visible":"hidden");}
@@ -11628,7 +11681,7 @@ function App(){
       {/* グローバルナビ */}
       <div style={{background:"var(--bg)",borderBottom:"0.5px solid var(--border)",position:"sticky",top:bannerOffset,zIndex:100}}>
         <div style={{display:"flex",alignItems:"center",height:52,padding:"0 16px"}}>
-        <div onClick={()=>setActiveTab("dashboard")} style={{fontSize:15,fontWeight:600,color:"var(--text)",marginRight:isMobile?8:24,letterSpacing:"-0.02em",flexShrink:0,cursor:"pointer",display:"flex",alignItems:"center",gap:8}}>
+        <div data-tour="tab-dashboard" onClick={()=>setActiveTab("dashboard")} style={{fontSize:15,fontWeight:600,color:"var(--text)",marginRight:isMobile?8:24,letterSpacing:"-0.02em",flexShrink:0,cursor:"pointer",display:"flex",alignItems:"center",gap:8}}>
           <span><span style={{color:"var(--accent-text)"}}>Clavis</span> Note</span>
           {DEMO_MODE&&<span style={{fontSize:10,padding:"2px 8px",borderRadius:10,background:"linear-gradient(135deg,#FF6B6B,#EE4444)",color:"#fff",fontWeight:700,letterSpacing:"0.08em",boxShadow:"0 1px 3px rgba(238,68,68,0.3)"}}>DEMO</span>}
         </div>
@@ -11867,7 +11920,7 @@ function App(){
       {showFaq&&<FaqModal onClose={()=>setShowFaq(false)} isMobile={isMobile}/>}
       {/* ⑨-B 機能ツアーガイド（DEMOサイトでは動作させない） */}
       {tourActive&&!DEMO_MODE&&(
-        <TourGuide stepIndex={tourStep} setStepIndex={setTourStep} setActiveTab={setActiveTab} onClose={closeTour} isMobile={isMobile}/>
+        <TourGuide stepIndex={tourStep} setStepIndex={setTourStep} setActiveTab={setActiveTab} activeTab={activeTab} onClose={closeTour} isMobile={isMobile}/>
       )}
       {/* トースト通知 */}
       <div id="toast" style={{position:"fixed",bottom:24,left:"50%",transform:"translateX(-50%)",background:"#1a1a1a",color:"#fff",padding:"8px 20px",borderRadius:8,fontSize:13,fontWeight:500,opacity:0,transition:"opacity 0.3s",pointerEvents:"none",zIndex:9999}}/>
