@@ -10414,12 +10414,16 @@ const TOUR_STEPS = [
       body:"ここにも同じポイポイエリアがあります。書類を投げ込むだけで自動読み取りできます。"},
   ]},
   {group:4, tab:"cases", phases:[
+    {target:'[data-tour="tab-cases"]', title:"案件管理",
+      body:"クライアントができたら、案件管理タブへ。"},
     {target:'[data-tour="case-add"]', title:"案件管理",
-      body:"クライアントができたら、この「＋」から案件を作ります。"},
+      body:"この「＋」から新規案件を登録します。"},
   ]},
   {group:5, tab:"payments", phases:[
+    {target:'[data-tour="tab-payments"]', title:"報酬管理",
+      body:"案件ができたら、報酬管理タブへ。"},
     {target:'[data-tour="payment-add"]', title:"報酬管理",
-      body:"案件ができたら、この「＋」から請求書発行・入金管理ができます。"},
+      body:"この「＋」から請求書発行・入金管理ができます。"},
   ]},
   {group:6, tab:"master", phases:[
     {target:'[data-tour="tab-master"]', title:"マスター登録",
@@ -10439,20 +10443,21 @@ function TourGuide({stepIndex,setStepIndex,setActiveTab,activeTab,onClose,isMobi
   const steps=TOUR_STEPS;
   const step=steps[stepIndex]||steps[0];
   const [phaseIdx,setPhaseIdx]=useState(0);
-  const [transitioning,setTransitioning]=useState(false); // タブ「クリック風」演出中
   const [rect,setRect]=useState(null);
   const [vp,setVp]=useState(()=>({w:window.innerWidth,h:window.innerHeight}));
   const timersRef=useRef([]);
   const tokenRef=useRef(0); // 進行中の measure を無効化するためのトークン
   const clearTimers=()=>{ timersRef.current.forEach(clearTimeout); timersRef.current=[]; };
 
-  // 対象を測定し、rect 確定と同時に after() を実行＝コピーと位置を常に同期させる（Aの根治）
-  const measureTo=(target,after)=>{
+  // 対象を測定して位置を確定するだけ（マウント待ちでリトライ）。要件E: 進行は一切しない。
+  const measureTo=(target)=>{
     const myToken=++tokenRef.current;
+    clearTimers();
+    setRect(null); // 旧位置のスポットを一旦消す（残像・ズレ防止。見つかったら出す）
+    if(!target) return; // null → 中央モーダル
     let tries=0;
     const m=()=>{
       if(myToken!==tokenRef.current) return; // 後続の呼び出しに置き換わったら中断
-      if(!target){ setRect(null); if(after)after(); return; }
       const el=document.querySelector(target);
       if(el){
         try{ el.scrollIntoView({block:"center",inline:"center"}); }catch(e){}
@@ -10460,48 +10465,26 @@ function TourGuide({stepIndex,setStepIndex,setActiveTab,activeTab,onClose,isMobi
           if(myToken!==tokenRef.current) return;
           const r=el.getBoundingClientRect();
           setRect({top:r.top,left:r.left,width:r.width,height:r.height});
-          if(after)after();
         });
-      }else if(tries++<25){ const t=setTimeout(m,70); timersRef.current.push(t); }
-      else { setRect(null); if(after)after(); } // 見つからなければ中央モーダルにフォールバック
+      }else if(tries++<30){ const t=setTimeout(m,60); timersRef.current.push(t); } // タブ切替直後のマウント待ち
     };
     m();
   };
 
-  // phase へ移動（測定→確定を同期）。要件E: 自動進行は廃止。phase送りは「次へ」のみが起点。
-  const goToPhase=(p)=>{
-    clearTimers();
-    const ph=step.phases[p];
-    measureTo(ph.target, ()=>setPhaseIdx(p));
-  };
-
-  // ステップ変更: 必要ならタブを「クリック風」に光らせてから切替 → phase0 を表示（Bの演出）
+  // step / phase が変わった時のみ実行: タブ切替（同期・即時）→ 対象を測定。
+  // 要件E: ここにタイマーによる自動進行は一切置かない。位置はユーザー操作（次へ/前へ）でしか動かない。
   useEffect(()=>{
-    clearTimers();
     setVp({w:window.innerWidth,h:window.innerHeight});
-    const needSwitch = step.tab && step.tab!==activeTab;
-    if(needSwitch){
-      setTransitioning(true);
-      setPhaseIdx(0);
-      measureTo('[data-tour="tab-'+step.tab+'"]', null); // 対象タブをハイライト（pulse）
-      const t1=setTimeout(()=>{
-        setActiveTab(step.tab);
-        const t2=setTimeout(()=>{ setTransitioning(false); goToPhase(0); }, 380); // タブ内容のマウント待ち
-        timersRef.current.push(t2);
-      }, 820);
-      timersRef.current.push(t1);
-    }else{
-      setTransitioning(false);
-      goToPhase(0);
-    }
+    if(step.tab && step.tab!==activeTab) setActiveTab(step.tab); // 「次へ」起点のタブ切替（即時）
+    measureTo(step.phases[Math.min(phaseIdx,step.phases.length-1)].target);
     return ()=>{ clearTimers(); tokenRef.current++; };
-  },[stepIndex]);
+  },[stepIndex,phaseIdx]);
 
-  // リサイズ / スクロール追従（現在表示中の対象を測り直す）
+  // リサイズ / スクロール追従（現在表示中の対象を測り直すだけ・進行はしない）
   useEffect(()=>{
     const onMove=()=>{
       setVp({w:window.innerWidth,h:window.innerHeight});
-      const t = transitioning ? '[data-tour="tab-'+step.tab+'"]' : step.phases[Math.min(phaseIdx,step.phases.length-1)].target;
+      const t = step.phases[Math.min(phaseIdx,step.phases.length-1)].target;
       if(!t) return;
       const el=document.querySelector(t);
       if(el){ const r=el.getBoundingClientRect(); setRect({top:r.top,left:r.left,width:r.width,height:r.height}); }
@@ -10509,7 +10492,7 @@ function TourGuide({stepIndex,setStepIndex,setActiveTab,activeTab,onClose,isMobi
     window.addEventListener("resize",onMove);
     window.addEventListener("scroll",onMove,true);
     return ()=>{ window.removeEventListener("resize",onMove); window.removeEventListener("scroll",onMove,true); };
-  },[stepIndex,phaseIdx,transitioning]);
+  },[stepIndex,phaseIdx]);
 
   const curPhase=step.phases[Math.min(phaseIdx,step.phases.length-1)];
   const isFirst=stepIndex===0;
@@ -10519,9 +10502,15 @@ function TourGuide({stepIndex,setStepIndex,setActiveTab,activeTab,onClose,isMobi
   const accent="#378ADD";
   const hasSpot=!!(rect&&rect.width>0);
 
-  // 「次へ」: 残りphaseがあればphase送り、無ければ次step。「前へ」: 同様にphase/step。
-  const goNext=()=>{ if(phaseIdx<step.phases.length-1) goToPhase(phaseIdx+1); else setStepIndex(i=>Math.min(steps.length-1,i+1)); };
-  const goPrev=()=>{ if(phaseIdx>0) goToPhase(phaseIdx-1); else setStepIndex(i=>Math.max(0,i-1)); };
+  // 「次へ」「前へ」: phase優先で送り、端で step を移動（step移動時は phase をリセット）。全て手動。
+  const goNext=()=>{
+    if(phaseIdx<step.phases.length-1){ setPhaseIdx(phaseIdx+1); }
+    else { setPhaseIdx(0); setStepIndex(i=>Math.min(steps.length-1,i+1)); }
+  };
+  const goPrev=()=>{
+    if(phaseIdx>0){ setPhaseIdx(phaseIdx-1); }
+    else if(stepIndex>0){ const ps=stepIndex-1; setPhaseIdx(steps[ps].phases.length-1); setStepIndex(ps); }
+  };
 
   // ツールチップ / モーダルの配置
   const ttW=Math.min(isMobile?300:360, vp.w-24);
@@ -10539,17 +10528,18 @@ function TourGuide({stepIndex,setStepIndex,setActiveTab,activeTab,onClose,isMobi
 
   const card={background:"#fff",border:"0.5px solid #E8E6E0",borderRadius:14,padding:isMobile?"18px 18px":"20px 22px",boxShadow:"0 10px 40px rgba(0,0,0,0.18)",zIndex:Z+2,boxSizing:"border-box"};
   const primaryBtn={padding:"9px 18px",fontSize:14,fontWeight:600,color:"#fff",background:accent,border:"none",borderRadius:8,cursor:"pointer"};
-  const ghostBtn=(dim)=>({padding:"9px 16px",fontSize:13,fontWeight:500,color:"#666",background:"transparent",border:"0.5px solid #E8E6E0",borderRadius:8,cursor:dim?"default":"pointer",opacity:dim?0.4:1});
+  const ghostBtn={padding:"9px 16px",fontSize:13,fontWeight:500,color:"#666",background:"transparent",border:"0.5px solid #E8E6E0",borderRadius:8,cursor:"pointer"};
   const skipLink={fontSize:12,color:"#999",background:"transparent",border:"none",cursor:"pointer",textDecoration:"underline",padding:4};
 
-  return (
+  // 要件E バグ2: App ルートの zoom(fs) の影響で fixed 座標がズレるため、body 直下へ portal して zoom 外で描画する
+  return ReactDOM.createPortal(
     <div style={{position:"fixed",inset:0,zIndex:Z}}>
       <style>{"@keyframes tourPulse{0%{box-shadow:0 0 0 9999px rgba(0,0,0,0.55),0 0 0 0 rgba(55,138,221,0.55);}70%{box-shadow:0 0 0 9999px rgba(0,0,0,0.55),0 0 0 12px rgba(55,138,221,0);}100%{box-shadow:0 0 0 9999px rgba(0,0,0,0.55),0 0 0 0 rgba(55,138,221,0);}}"}</style>
       {/* クリックブロッカー（実データを触らせない）。spotlight時は透明=box-shadowで暗転、モーダル時は暗幕 */}
       <div style={{position:"fixed",inset:0,zIndex:Z,background:hasSpot?"transparent":"rgba(0,0,0,0.55)"}}/>
-      {/* スポットライト（transitioning中はクリック風pulse） */}
+      {/* スポットライト（移動の度に key で remount → クリック風pulseをワンショット再生。タイマー無し） */}
       {hasSpot&&(
-        <div style={{position:"fixed",top:rect.top-pad,left:rect.left-pad,width:rect.width+pad*2,height:rect.height+pad*2,borderRadius:10,boxShadow:"0 0 0 9999px rgba(0,0,0,0.55)",border:`2px solid ${accent}`,zIndex:Z+1,pointerEvents:"none",transition:"all 0.3s ease",animation:transitioning?"tourPulse 0.8s ease-out infinite":"none"}}/>
+        <div key={stepIndex+"-"+phaseIdx} style={{position:"fixed",top:rect.top-pad,left:rect.left-pad,width:rect.width+pad*2,height:rect.height+pad*2,borderRadius:10,boxShadow:"0 0 0 9999px rgba(0,0,0,0.55)",border:`2px solid ${accent}`,zIndex:Z+1,pointerEvents:"none",animation:"tourPulse 0.9s ease-out 2"}}/>
       )}
       {/* ツールチップ / モーダル */}
       <div style={{...card,...ttStyle}}>
@@ -10564,14 +10554,15 @@ function TourGuide({stepIndex,setStepIndex,setActiveTab,activeTab,onClose,isMobi
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
           {!isLast ? <button onClick={onClose} style={skipLink}>スキップ</button> : <span/>}
           <div style={{display:"flex",gap:8}}>
-            {!isFirst&&<button onClick={goPrev} disabled={transitioning} style={ghostBtn(transitioning)}>前へ</button>}
+            {!isFirst&&<button onClick={goPrev} style={ghostBtn}>前へ</button>}
             {isLast
               ? <button onClick={onClose} style={primaryBtn}>完了</button>
-              : <button onClick={goNext} disabled={transitioning} style={{...primaryBtn,...(transitioning?{opacity:0.6,cursor:"default"}:{})}}>{isFirst?"ツアー開始":"次へ"}</button>}
+              : <button onClick={goNext} style={primaryBtn}>{isFirst?"ツアー開始":"次へ"}</button>}
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
