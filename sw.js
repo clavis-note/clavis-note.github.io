@@ -3,7 +3,7 @@
 
 // CACHE_VERSION はデプロイ毎に手動で上げるか、ビルド時置換するのが理想だが、
 // 現状は本ファイルのcommit hash相当の文字列を直書き。新版時はここを書き換える。
-const CACHE_VERSION = 'v58-2026-05-23-tour-manual-next';
+const CACHE_VERSION = 'v59-2026-05-23-tour-cache-refresh';
 const CACHE_NAME = 'clavis-note-' + CACHE_VERSION;
 
 // 起動に必要な最小資産（pre-cache）。CDN資産は runtime cache に任せる
@@ -27,8 +27,17 @@ const NO_CACHE_PATH_KEYWORDS = [
 ];
 
 self.addEventListener('install', (event) => {
+  // PRE_CACHE は cache:'reload' でブラウザHTTPキャッシュをバイパスして取得する。
+  // これを怠ると、デプロイ直後（CDN/HTTPキャッシュ齟齬時）に古い app.html を掴んで
+  // キャッシュし続ける事故が起きる（v58滞留時に発生）。個別 put でロールバックも回避。
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(PRE_CACHE))
+    caches.open(CACHE_NAME).then((cache) =>
+      Promise.all(PRE_CACHE.map((url) =>
+        fetch(new Request(url, { cache: 'reload' }))
+          .then((resp) => (resp && resp.ok) ? cache.put(url, resp) : null)
+          .catch(() => null)
+      ))
+    )
   );
 });
 
