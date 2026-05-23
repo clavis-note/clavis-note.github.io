@@ -2939,7 +2939,7 @@ function Dashboard({data,setData,onNavClient,onNavCase,onNavPayment,onNavMaster}
 
   function handlePoiPickFiles(){
     const inp=document.createElement("input");
-    inp.type="file"; inp.accept="image/*,.pdf,.xlsx,.xls,.csv"; inp.capture="environment"; inp.multiple=true;
+    inp.type="file"; inp.accept="image/*,.pdf,.xlsx,.xls,.csv"; inp.multiple=true;
     inp.onchange=async ev=>{ const fs=Array.from(ev.target.files||[]); await handlePoipoiFiles(fs); };
     inp.click();
   }
@@ -4315,7 +4315,7 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
 
   // オーバーレイ内「ファイルを選択」リンクからOSダイアログを開く
   const handlePoiOverlayPick=()=>{
-    const inp=document.createElement("input");inp.type="file";inp.accept="image/*,.pdf,.xlsx,.xls,.csv";inp.capture="environment";inp.multiple=true;
+    const inp=document.createElement("input");inp.type="file";inp.accept="image/*,.pdf,.xlsx,.xls,.csv";inp.multiple=true;
     inp.onchange=async(ev)=>{
       const files=Array.from(ev.target.files||[]);
       setShowPoiOverlay(false);
