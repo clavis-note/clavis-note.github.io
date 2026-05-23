@@ -923,6 +923,16 @@ function migrateData(saved){
   });
   // v14: 書類種別マスタ（Clavis Docs）
   if(!saved.docTypes) saved.docTypes = JSON.parse(JSON.stringify(DEFAULT_DOC_TYPES));
+  // v15: 在留カード預り証（custody）。画像は永続保存しない＝発行時のみ受け取り即破棄。
+  // ステータス・日付・理由のみ保持（「データを預からない」設計と整合）。
+  if(saved.clients) saved.clients = saved.clients.map(c=>{
+    if(c.custody_status===undefined) c.custody_status = null;        // null | "active" | "returned"
+    if(c.custody_received_date===undefined) c.custody_received_date = "";
+    if(c.custody_return_due===undefined) c.custody_return_due = "";
+    if(c.custody_reason===undefined) c.custody_reason = "";
+    if(c.custody_returned_date===undefined) c.custody_returned_date = "";
+    return c;
+  });
   return saved;
 }
 
@@ -4108,6 +4118,7 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
   const [showPoiOverlay,setShowPoiOverlay]=useState(false);
   const [poiOverlayDragOver,setPoiOverlayDragOver]=useState(false);
   const [showClientMenu,setShowClientMenu]=useState(false);
+  const [showCustody,setShowCustody]=useState(false);
 
   // ブラウザバック対応: 詳細画面が開いた瞬間にpushState、戻るで閉じる
   const prevShowDetailRef=useRef(null);
@@ -4404,6 +4415,8 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
     }));
   }
   function archiveClient(){setClients(prev=>prev.map(c=>c.client_id===selected.client_id?{...c,archived:!c.archived}:c));}
+  // 預り証 custody フィールドのマージ更新（発行＝active / 返却記録＝returned）。
+  function applyCustody(patch){ const sid=selected?.client_id; if(!sid)return; setClients(prev=>prev.map(c=>c.client_id===sid?{...c,...patch}:c)); }
   // 名前未入力のまま放置された「新規作成」クライアントを、他に移るタイミングで削除するヘルパー
   // selected は古いスナップショットになり得るので、必ず clients から live を引いて判定する。
   // （ポイポイ式で update() を介して name_roman が埋まっていても selected には反映されないため）
@@ -4437,7 +4450,8 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
       coe_phase:false, coe_category:null,
       photo:null, archived:false, salary_history:[], work_history:[],
       drive_path:"", drive_url:"",
-      education_school:"", education_date:""
+      education_school:"", education_date:"",
+      custody_status:null, custody_received_date:"", custody_return_due:"", custody_reason:"", custody_returned_date:""
     };
     setClients(prev=>[newClient,...prev]);
     setSelected(newClient);
@@ -4569,7 +4583,8 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
                       {["incoming","returned","resigned","preschool","student","homemaker"].includes(c.client_status)&&(()=>{const cs=CLIENT_STATUS[c.client_status];return cs?<span style={{fontSize:10,padding:"1px 5px",borderRadius:3,background:cs.bg,color:cs.color}}>{cs.label}</span>:null;})()}
                       {c.client_status!=="returned"&&displayExpiry&&<span style={{fontSize:10,color:displayDays!==null&&displayDays<=90?"#A32D2D":"var(--text3)"}}>{tokurei.isTokurei?"特例〜":""}{ displayExpiry.replace(/-/g,"/")}</span>}
                       {c.client_status!=="returned"&&<AlertBadge days={days} tokurei={tokurei}/>}
-                      {c.client_status!=="returned"&&c.passport_expiry&&(()=>{const pd=getDays(c.passport_expiry);return pd!==null&&pd<=0?<span style={{fontSize:10,padding:"1px 5px",borderRadius:3,background:"#FCEBEB",color:"#A32D2D",fontWeight:500}}>🛂 期限切</span>:null;})()}</>}
+                      {c.client_status!=="returned"&&c.passport_expiry&&(()=>{const pd=getDays(c.passport_expiry);return pd!==null&&pd<=0?<span style={{fontSize:10,padding:"1px 5px",borderRadius:3,background:"#FCEBEB",color:"#A32D2D",fontWeight:500}}>🛂 期限切</span>:null;})()}
+                      {c.custody_status==="active"&&<span style={{fontSize:10,padding:"1px 5px",borderRadius:3,background:"#FBF1DF",color:"#854F0B",fontWeight:500}}>📇 預り中</span>}</>}
                       {!indent&&childDeps.length>0&&<span style={{fontSize:10,padding:"1px 5px",borderRadius:3,background:"#FAEEDA",color:"#854F0B"}}>家族{childDeps.length}名</span>}
                     </div>
                   </div>
@@ -4620,6 +4635,7 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
                   {cur.name_roman||"新規クライアント"}
                   {cur.archived&&<span style={{fontSize:11,padding:"2px 7px",borderRadius:3,background:"var(--bg2)",color:"var(--text3)"}}>アーカイブ中</span>}
                   {cur.client_status==="returned"&&<span style={{fontSize:11,padding:"2px 7px",borderRadius:3,background:"#FAEEDA",color:"#854F0B"}}>帰国済み</span>}
+                  {cur.custody_status==="active"&&<span style={{fontSize:11,padding:"2px 7px",borderRadius:3,background:"#FBF1DF",color:"#854F0B",fontWeight:500}}>📇 預り中</span>}
                 </div>
                 <div style={{fontSize:12,color:"var(--text2)",display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
                   {cur.client_type==="general"?<span>{cur.name_kana}{cur.phone?` · ${cur.phone}`:""}</span>
@@ -4633,6 +4649,7 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
                 {(()=>{const tk=getTokureiInfo(cur,data.cases);return <AlertBadge days={getDays(cur.residence_expiry)} tokurei={tk}/>;})()}
                 {cur.client_type!=="general"&&cur.passport_expiry&&(()=>{const pd=getDays(cur.passport_expiry);return pd!==null&&pd<=0?<span style={{fontSize:11,padding:"2px 7px",borderRadius:4,background:"#FCEBEB",color:"#A32D2D",fontWeight:500}}>🛂 期限切れ</span>:null;})()}
                 {!isMobile&&<>
+                  {cur.client_type!=="general"&&<button onClick={()=>setShowCustody(true)} style={{fontSize:12,padding:"4px 10px",cursor:"pointer",borderRadius:6,border:"0.5px solid #B7894B",background:cur.custody_status==="active"?"#FBF1DF":"transparent",color:"#854F0B",fontWeight:500}}>📄 預り証{cur.custody_status==="active"?"（預り中）":""}</button>}
                   <button onClick={handleDeleteClient} style={{fontSize:12,padding:"4px 10px",cursor:"pointer",borderRadius:6,border:"0.5px solid #A32D2D",background:"transparent",color:"#A32D2D"}}>削除</button>
                   <button onClick={archiveClient} style={{fontSize:12,padding:"4px 10px",cursor:"pointer",borderRadius:6,border:"0.5px solid var(--border)",background:"transparent",color:"var(--text3)"}}>{cur.archived?"復元":"アーカイブ"}</button>
                 </>}
@@ -4646,7 +4663,8 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
                   <button onClick={()=>setShowClientMenu(v=>!v)} style={{fontSize:16,padding:"4px 10px",cursor:"pointer",borderRadius:6,border:"0.5px solid var(--border)",background:"transparent",color:"var(--text2)",lineHeight:1}}>⋯</button>
                   {showClientMenu&&<>
                     <div style={{position:"fixed",inset:0,zIndex:199}} onClick={()=>setShowClientMenu(false)}/>
-                    <div style={{position:"absolute",right:0,top:"calc(100% + 6px)",background:"var(--bg)",border:"0.5px solid rgba(0,0,0,0.15)",borderRadius:8,boxShadow:"0 4px 20px rgba(0,0,0,0.12)",padding:4,minWidth:140,zIndex:200}}>
+                    <div style={{position:"absolute",right:0,top:"calc(100% + 6px)",background:"var(--bg)",border:"0.5px solid rgba(0,0,0,0.15)",borderRadius:8,boxShadow:"0 4px 20px rgba(0,0,0,0.12)",padding:4,minWidth:150,zIndex:200}}>
+                      {cur.client_type!=="general"&&<button onClick={()=>{setShowClientMenu(false);setShowCustody(true);}} style={{width:"100%",fontSize:13,padding:"10px 12px",cursor:"pointer",border:"none",background:"transparent",color:"#854F0B",textAlign:"left",borderRadius:6,fontWeight:500}}>📄 預り証{cur.custody_status==="active"?"（預り中）":"を発行"}</button>}
                       <button onClick={()=>{setShowClientMenu(false);archiveClient();}} style={{width:"100%",fontSize:13,padding:"10px 12px",cursor:"pointer",border:"none",background:"transparent",color:"var(--text)",textAlign:"left",borderRadius:6}}>{cur.archived?"📤 復元":"📦 アーカイブ"}</button>
                       <button onClick={()=>{setShowClientMenu(false);handleDeleteClient();}} style={{width:"100%",fontSize:13,padding:"10px 12px",cursor:"pointer",border:"none",background:"transparent",color:"#A32D2D",textAlign:"left",borderRadius:6}}>🗑️ 削除</button>
                     </div>
@@ -4716,6 +4734,204 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
         </div>
         );
       })()}
+      {showCustody&&cur&&<CustodyReceiptModal client={cur} office={data.office} onClose={()=>setShowCustody(false)} onIssue={applyCustody} onReturn={applyCustody}/>}
+    </div>
+  );
+}
+
+// ============================================================
+// 7.5 在留カード預り証（custody）
+//   印刷用HTMLを1つの関数で生成し、プレビュー(iframe srcDoc)と印刷(iframe印刷)で
+//   同一ソースを使う。画像は state のみ・永続保存しない（発行時アップロード方式）。
+// ============================================================
+function buildCustodyReceiptHTML(client, office, opts){
+  const c=client||{}, ofc=office||{}, o=opts||{};
+  const esc=escapeHtml;
+  const fmtJ=(ymd)=>{ const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd||""); return m?`${parseInt(m[1],10)}年${parseInt(m[2],10)}月${parseInt(m[3],10)}日`:""; };
+  const name=esc(c.name_roman||c.name_kana||"");
+  const reasonText=esc(o.reason||"在留期間更新許可申請");
+  const received=fmtJ(o.receivedDate);
+  const returnDue=fmtJ(o.returnDue);
+  const info=[];
+  if(c.nationality) info.push(`国籍・地域：${esc(c.nationality)}`);
+  if(c.residence_status) info.push(`在留資格：${esc(c.residence_status)}`);
+  if(c.residence_period) info.push(`在留期間：${esc(c.residence_period)}`);
+  if(c.residence_card) info.push(`在留カード番号：${esc(c.residence_card)}`);
+  const cardCell=(src,label,en)=>`<div class="card-cell">
+      <div class="card-cap">${label}<span>${en}</span></div>
+      ${src?`<img src="${src}" alt="${label}">`:`<div class="card-ph">画像未添付<br><span>No image</span></div>`}
+    </div>`;
+  return `<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"><title>預かり証 ${name}</title>
+<style>
+  *{ box-sizing:border-box; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  html,body{ margin:0; padding:0; background:#f0f0f0; }
+  body{ font-family:"Yu Gothic","YuGothic","Hiragino Sans","Noto Sans JP",sans-serif; color:#111; }
+  .sheet{ width:210mm; min-height:297mm; margin:8px auto; background:#fff; padding:18mm 20mm; box-shadow:0 2px 12px rgba(0,0,0,0.15); }
+  .title{ text-align:center; font-family:"Yu Mincho","Hiragino Mincho ProN",serif; }
+  .title .ja{ font-size:30pt; font-weight:700; letter-spacing:0.5em; padding-left:0.5em; }
+  .title .en{ font-size:11pt; color:#666; letter-spacing:0.15em; margin-top:2mm; }
+  .name-row{ margin-top:12mm; font-size:15pt; }
+  .name-row .nm{ font-weight:700; border-bottom:1px solid #333; padding:0 8mm 1mm; }
+  .lead{ margin-top:7mm; font-size:11pt; line-height:1.9; }
+  .info{ margin-top:3mm; font-size:10pt; color:#333; line-height:1.8; }
+  .notice{ margin-top:7mm; border:1.2px solid #B7894B; background:#FBF6EE; border-radius:3px; padding:5mm 6mm; }
+  .notice .ln{ font-size:11pt; font-weight:600; color:#7A4E17; }
+  .notice .en{ font-size:9pt; color:#777; margin:1mm 0 3mm 1.4em; }
+  .notice .en:last-child{ margin-bottom:0; }
+  .cards{ display:flex; gap:8mm; margin-top:9mm; }
+  .card-cell{ flex:1; text-align:center; min-width:0; }
+  .card-cap{ font-size:9.5pt; color:#444; margin-bottom:2mm; }
+  .card-cap span{ color:#999; margin-left:5px; font-size:8pt; }
+  .card-cell img{ width:100%; max-height:55mm; object-fit:contain; border:1px solid #ccc; border-radius:3px; background:#fafafa; }
+  .card-ph{ height:46mm; border:1.2px dashed #ccc; border-radius:3px; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#bbb; font-size:10pt; }
+  .card-ph span{ font-size:8pt; }
+  .dates{ margin-top:9mm; font-size:11pt; display:flex; gap:16mm; }
+  .issuer{ margin-top:14mm; display:flex; justify-content:flex-end; }
+  .issuer-inner{ width:82mm; font-size:9.5pt; line-height:1.75; position:relative; }
+  .issuer .office-name{ font-size:12pt; font-weight:700; margin-bottom:2mm; }
+  .issuer .rep{ font-size:11pt; font-weight:700; }
+  .issuer .stamp{ position:absolute; right:4mm; top:2mm; width:19mm; height:19mm; object-fit:contain; opacity:0.9; }
+  .issuer .addr{ margin-top:1.5mm; color:#222; }
+  @page{ size:A4 portrait; margin:0; }
+  @media print{ html,body{ background:#fff; } .sheet{ margin:0; box-shadow:none; } }
+</style></head>
+<body>
+<div class="sheet">
+  <div class="title"><div class="ja">預かり証</div><div class="en">Custody Certificate</div></div>
+  <div class="name-row"><span class="nm">${name}</span> 様</div>
+  <div class="lead">${reasonText}のため、以下の在留カードをお預かりしました。</div>
+  ${info.length?`<div class="info">${info.join("　／　")}</div>`:""}
+  <div class="notice">
+    <div class="ln">★ 本証は在留カードの代わりに常に携帯してください。</div>
+    <div class="en">Please always carry this card with you instead of your residence card.</div>
+    <div class="ln">★ 本証と引き換えに新しい在留カードをお渡し致します。</div>
+    <div class="en">Return a new residence card in exchange for this document.</div>
+  </div>
+  <div class="cards">
+    ${cardCell(o.frontImg,"在留カード（表面）","Front")}
+    ${cardCell(o.backImg,"在留カード（裏面）","Back")}
+  </div>
+  <div class="dates">
+    <div>預り日：${received||"　　　年　月　日"}</div>
+    ${returnDue?`<div>返却予定日：${returnDue}</div>`:""}
+  </div>
+  <div class="issuer"><div class="issuer-inner">
+    <div class="office-name">${esc(ofc.name||"")}</div>
+    <div class="rep">${esc(ofc.representative||"")}</div>
+    ${ofc.stamp?`<img src="${ofc.stamp}" class="stamp" alt="職印">`:""}
+    <div class="addr">
+      ${(ofc.postal||ofc.address1)?`〒${esc(ofc.postal||"")} ${esc(ofc.address1||"")}<br>`:""}
+      ${ofc.address2?`${esc(ofc.address2)}<br>`:""}
+      ${ofc.credential_number?`登録番号：${esc(ofc.credential_number)}<br>`:""}
+      ${ofc.phone?`TEL：${esc(ofc.phone)}`:""}
+    </div>
+  </div></div>
+</div>
+</body></html>`;
+}
+
+function CustodyReceiptModal({client, office, onClose, onIssue, onReturn}){
+  const isMobile=useMobile();
+  const today=new Date().toISOString().slice(0,10);
+  const isActive=client.custody_status==="active";
+  const [frontImg,setFrontImg]=useState(null);
+  const [backImg,setBackImg]=useState(null);
+  const [receivedDate,setReceivedDate]=useState(client.custody_received_date||today);
+  const [returnDue,setReturnDue]=useState(client.custody_return_due||"");
+  const [reason,setReason]=useState(client.custody_reason||"在留期間更新許可申請");
+  const [returnDate,setReturnDate]=useState(today);
+  const previewRef=useRef(null);
+
+  const html=useMemo(
+    ()=>buildCustodyReceiptHTML(client,office,{frontImg,backImg,receivedDate,returnDue,reason}),
+    [client,office,frontImg,backImg,receivedDate,returnDue,reason]
+  );
+
+  function pickImage(setter){
+    const inp=document.createElement("input");
+    inp.type="file"; inp.accept="image/*"; inp.multiple=false;
+    inp.onchange=ev=>{
+      const f=(ev.target.files||[])[0]; if(!f) return;
+      const reader=new FileReader();
+      reader.onload=async()=>{ let url=reader.result; try{ url=await compressPhotoDataURL(reader.result,1600,0.85); }catch(e){} setter(url); };
+      reader.readAsDataURL(f);
+    };
+    inp.click();
+  }
+
+  function handlePrint(){
+    // 発行＝預り中として記録（ステータス・日付・理由のみ。画像は保存しない）
+    onIssue({custody_status:"active",custody_received_date:receivedDate,custody_return_due:returnDue,custody_reason:reason});
+    const ifr=previewRef.current;
+    try{ ifr.contentWindow.focus(); ifr.contentWindow.print(); }
+    catch(e){ const w=window.open("","_blank"); if(w){ w.document.write(html); w.document.close(); } }
+  }
+
+  function handleReturn(){
+    if(!returnDate){ alert("返却日を入力してください"); return; }
+    onReturn({custody_status:"returned",custody_returned_date:returnDate});
+    onClose();
+  }
+
+  const labelS={fontSize:11,color:"var(--text2)",marginBottom:3,fontWeight:500};
+  const dateS={width:"100%",fontSize:13,padding:"6px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)"};
+  const dropS={width:"100%",padding:"14px",borderRadius:6,border:"1px dashed var(--border2)",background:"var(--bg2)",color:"var(--text2)",cursor:"pointer",fontSize:12};
+
+  return (
+    <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.45)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9300,padding:isMobile?0:16}}>
+      <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg)",borderRadius:isMobile?0:12,width:"100%",maxWidth:940,height:isMobile?"100%":"auto",maxHeight:isMobile?"100%":"92vh",display:"flex",flexDirection:"column",boxShadow:"0 12px 48px rgba(0,0,0,0.25)",overflow:"hidden"}}>
+        <div style={{padding:"14px 18px",borderBottom:"0.5px solid var(--border)",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
+          <div style={{fontSize:15,fontWeight:600,color:"var(--text)"}}>📄 在留カード預り証 — {client.name_roman||client.name_kana||"クライアント"}</div>
+          <button onClick={onClose} style={{fontSize:18,border:"none",background:"transparent",cursor:"pointer",color:"var(--text3)",lineHeight:1}}>✕</button>
+        </div>
+
+        {isActive&&<div style={{padding:"10px 18px",background:"#FBF1DF",borderBottom:"0.5px solid var(--border)",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap",flexShrink:0}}>
+          <span style={{fontSize:12,color:"#854F0B",fontWeight:600}}>📇 預り中</span>
+          <span style={{fontSize:11,color:"#7A5A1E"}}>預り日 {client.custody_received_date||"—"}{client.custody_return_due?` ／ 返却予定 ${client.custody_return_due}`:""}</span>
+          <div style={{flex:1,minWidth:8}}/>
+          <span style={{fontSize:11,color:"var(--text2)"}}>返却日</span>
+          <div style={{width:140}}><DateInput value={returnDate} onChange={setReturnDate} max="9999-12-31" min="1900-01-01" style={{...dateS,padding:"4px 8px",fontSize:12}}/></div>
+          <button onClick={handleReturn} style={{fontSize:12,padding:"5px 12px",borderRadius:6,border:"0.5px solid #854F0B",background:"#fff",color:"#854F0B",cursor:"pointer",fontWeight:600}}>📥 返却を記録</button>
+        </div>}
+
+        <div style={{flex:1,display:"flex",flexDirection:isMobile?"column":"row",minHeight:0,overflow:isMobile?"auto":"hidden"}}>
+          <div style={{width:isMobile?"auto":300,flexShrink:0,padding:18,overflowY:isMobile?"visible":"auto",borderRight:isMobile?"none":"0.5px solid var(--border)",borderBottom:isMobile?"0.5px solid var(--border)":"none"}}>
+            <div style={{marginBottom:12}}>
+              <div style={labelS}>在留カード 表面</div>
+              {frontImg
+                ?<div><img src={frontImg} style={{width:"100%",borderRadius:6,border:"0.5px solid var(--border)"}} alt=""/><button onClick={()=>setFrontImg(null)} style={{fontSize:10,marginTop:4,padding:"2px 8px",borderRadius:4,border:"0.5px solid var(--border)",background:"transparent",color:"var(--text3)",cursor:"pointer"}}>削除</button></div>
+                :<button onClick={()=>pickImage(setFrontImg)} style={dropS}>📁 表面画像を選択</button>}
+            </div>
+            <div style={{marginBottom:12}}>
+              <div style={labelS}>在留カード 裏面</div>
+              {backImg
+                ?<div><img src={backImg} style={{width:"100%",borderRadius:6,border:"0.5px solid var(--border)"}} alt=""/><button onClick={()=>setBackImg(null)} style={{fontSize:10,marginTop:4,padding:"2px 8px",borderRadius:4,border:"0.5px solid var(--border)",background:"transparent",color:"var(--text3)",cursor:"pointer"}}>削除</button></div>
+                :<button onClick={()=>pickImage(setBackImg)} style={dropS}>📁 裏面画像を選択</button>}
+            </div>
+            <div style={{marginBottom:12}}>
+              <div style={labelS}>預り理由</div>
+              <input value={reason} onChange={e=>setReason(e.target.value)} style={{...dateS}}/>
+            </div>
+            <div style={{marginBottom:12}}>
+              <div style={labelS}>預り日</div>
+              <DateInput value={receivedDate} onChange={setReceivedDate} max="9999-12-31" min="1900-01-01" style={dateS}/>
+            </div>
+            <div style={{marginBottom:12}}>
+              <div style={labelS}>返却予定日</div>
+              <DateInput value={returnDue} onChange={setReturnDue} max="9999-12-31" min="1900-01-01" style={dateS}/>
+            </div>
+            <div style={{fontSize:10,color:"var(--text3)",lineHeight:1.6,marginTop:6}}>※ アップロードした画像は印刷用に一時利用するだけで、Clavis Note には保存されません（閉じると破棄）。</div>
+          </div>
+          <div style={{flex:1,background:"#e9e7e2",overflowY:"auto",padding:12,minHeight:isMobile?420:0}}>
+            <iframe ref={previewRef} srcDoc={html} title="預り証プレビュー" style={{width:"100%",height:"100%",minHeight:isMobile?400:520,border:"none",background:"#fff",display:"block"}}/>
+          </div>
+        </div>
+
+        <div style={{padding:"12px 18px",borderTop:"0.5px solid var(--border)",display:"flex",justifyContent:"flex-end",gap:10,flexShrink:0}}>
+          <button onClick={onClose} style={{fontSize:13,padding:"7px 16px",borderRadius:6,border:"0.5px solid var(--border)",background:"transparent",color:"var(--text2)",cursor:"pointer"}}>閉じる</button>
+          <button onClick={handlePrint} style={{fontSize:13,padding:"7px 20px",borderRadius:6,border:"none",background:"linear-gradient(135deg,#378ADD,#2563EB)",color:"#fff",fontWeight:600,cursor:"pointer",boxShadow:"0 1px 4px rgba(55,138,221,0.3)"}}>🖨 印刷 / PDF保存</button>
+        </div>
+      </div>
     </div>
   );
 }
