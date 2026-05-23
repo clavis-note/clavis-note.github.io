@@ -10408,10 +10408,12 @@ const TOUR_STEPS = [
       body:"ダッシュボード（ホーム画面）のポイポイエリアに書類をポイッ！で、即、クライアント登録できます（在留カードの更新も可能）。"},
   ]},
   {group:3, tab:"clients", phases:[
+    {target:'[data-tour="tab-clients"]', title:"クライアント",
+      body:"クライアントの管理はこのタブから。追加方法は2つあります。"},
     {target:'[data-tour="client-add"]', title:"クライアント — 手入力で追加",
-      body:"この「＋」ボタンから、手入力でクライアントを追加することもできます。"},
+      body:"1つ目は、この「＋」ボタンから手入力で追加。"},
     {target:'[data-tour="client-poipoi"]', title:"クライアント — ポイポイ式",
-      body:"ここにも同じポイポイエリアがあります。書類を投げ込むだけで自動読み取りできます。"},
+      body:"2つ目は、ここに同じポイポイエリア。書類を投げ込むだけで自動読み取りできます。"},
   ]},
   {group:4, tab:"cases", phases:[
     {target:'[data-tour="tab-cases"]', title:"案件管理",
