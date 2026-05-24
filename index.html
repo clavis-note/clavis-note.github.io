@@ -2040,6 +2040,133 @@ body.theme-premium .nav-cta {
   .trial-card, .discount-card { padding: 32px 24px; }
 }
 
+/* ========================== SCREENSHOTS ========================= */
+/* clickable screenshot thumbnails (hero + feature cards) */
+.lp-shot {
+  display: block;
+  width: 100%;
+  padding: 0;
+  margin: 0;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  background: var(--bg-soft);
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: transform .3s cubic-bezier(.2,.6,.2,1), box-shadow .3s ease, border-color .3s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.lp-shot img {
+  display: block;
+  width: 100%;
+  object-fit: cover;
+  object-position: top center;
+}
+@media (hover: hover) {
+  .lp-shot:hover {
+    transform: scale(1.02);
+    box-shadow: var(--shadow);
+    border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
+  }
+}
+.lp-shot:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+/* hero dashboard shot — wide, full-width band below hero */
+.hero-shot-wrap { max-width: 1080px; margin: -32px auto 0; padding: 0 32px 88px; }
+.hero-shot { box-shadow: var(--shadow); }
+.hero-shot img { aspect-ratio: 1568 / 709; }
+
+/* feature card thumbnails */
+.feat-shot { margin: 4px 0 20px; }
+.feat-shot img { aspect-ratio: 700 / 461; }
+
+/* ----- expand modal ----- */
+.shot-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 40px 24px;
+  background: rgba(20, 18, 16, 0.85);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .25s ease, visibility .25s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.shot-modal.open { opacity: 1; visibility: visible; }
+.shot-modal-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  transform: scale(.96);
+  transition: transform .25s ease;
+}
+.shot-modal.open .shot-modal-stage { transform: scale(1); }
+.shot-modal-img {
+  display: block;
+  max-width: min(1200px, 100%);
+  max-height: 78vh;
+  width: auto;
+  height: auto;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  background: var(--bg-soft);
+}
+.shot-modal-close {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, .14);
+  color: #fff;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background .2s ease, transform .2s ease;
+}
+.shot-modal-close:hover { background: rgba(255, 255, 255, .28); transform: scale(1.06); }
+.shot-modal-close:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+/* bottom thumb switcher (multi-image only) */
+.shot-modal-thumbs { display: none; gap: 12px; align-items: center; justify-content: center; flex-wrap: wrap; }
+.shot-modal-thumb {
+  width: 96px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: none;
+  cursor: pointer;
+  opacity: .55;
+  transition: opacity .2s ease, border-color .2s ease;
+}
+.shot-modal-thumb img { display: block; width: 100%; aspect-ratio: 700 / 461; object-fit: cover; }
+.shot-modal-thumb:hover { opacity: .85; }
+.shot-modal-thumb.active { opacity: 1; border-color: #fff; }
+.shot-modal-thumb:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+@media (max-width: 720px) {
+  .hero-shot-wrap { margin-top: -12px; padding: 0 16px 64px; }
+  .shot-modal { padding: 20px 12px; gap: 12px; }
+  .shot-modal-img { max-width: 100%; max-height: 72vh; }
+  .shot-modal-close { top: 10px; right: 10px; width: 42px; height: 42px; font-size: 24px; }
+  .shot-modal-thumb { width: 76px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lp-shot, .shot-modal, .shot-modal-stage, .shot-modal-close, .shot-modal-thumb { transition: none; }
+  .lp-shot:hover { transform: none; }
+  .shot-modal-stage, .shot-modal.open .shot-modal-stage { transform: none; }
+}
+
 </style><script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
 </head>
@@ -2199,6 +2326,16 @@ body.theme-premium .nav-cta {
     </div>
   </div>
 </section>
+
+<!-- ============== HERO SCREENSHOT ============== -->
+<div class="hero-shot-wrap">
+  <button class="lp-shot hero-shot" type="button" aria-haspopup="dialog"
+          data-shot-full="images/screenshots/full/dashboard.webp"
+          data-shot-alt="Clavis Note ダッシュボードの実画面（デモデータ）">
+    <img src="images/screenshots/full/dashboard.webp" decoding="async"
+         alt="Clavis Note ダッシュボード画面のプレビュー（デモデータ）">
+  </button>
+</div>
 
 <!-- ============== TRUST STRIP ============== -->
 <section class="trust-strip">
@@ -2572,6 +2709,12 @@ body.theme-premium .nav-cta {
           </svg>
         </div>
         <h3 class="feat-title">クライアント台帳</h3>
+        <button class="lp-shot feat-shot" type="button" aria-haspopup="dialog"
+                data-shot-full="images/screenshots/full/client-detail.webp"
+                data-shot-alt="クライアント台帳の実画面（デモデータ）">
+          <img src="images/screenshots/thumb/client-detail.webp" loading="lazy" decoding="async"
+               alt="クライアント台帳の画面プレビュー（デモデータ）">
+        </button>
         <p class="feat-desc">在留カード・パスポート情報、職歴・給与履歴、案件履歴を一元管理。家族構成や勤務先との繋がりも、ひと目でわかる。</p>
         <ul class="feat-points">
           <li>家族・勤務先の関連付け</li>
@@ -2589,6 +2732,13 @@ body.theme-premium .nav-cta {
           </svg>
         </div>
         <h3 class="feat-title">案件管理</h3>
+        <button class="lp-shot feat-shot" type="button" aria-haspopup="dialog"
+                data-shot-full="images/screenshots/full/case-detail.webp,images/screenshots/full/case-jikenbo.webp"
+                data-shot-thumb="images/screenshots/thumb/case-detail.webp,images/screenshots/thumb/case-jikenbo.webp"
+                data-shot-alt="案件詳細の実画面（デモデータ）|事件簿の実画面（デモデータ）">
+          <img src="images/screenshots/thumb/case-detail.webp" loading="lazy" decoding="async"
+               alt="案件管理（案件詳細・事件簿）の画面プレビュー（デモデータ）">
+        </button>
         <p class="feat-desc">入管業務がメインだけど、たまにそれ以外の業務も引き受ける ── そんな現場のリアルに応えて、一般業務も管理可能。入管業務には、追加資料対応履歴や審査官・勤務先とのやり取りも記録できます。</p>
         <ul class="feat-points">
           <li>事件簿の自動生成</li>
@@ -2605,6 +2755,12 @@ body.theme-premium .nav-cta {
           </svg>
         </div>
         <h3 class="feat-title">報酬・入金管理</h3>
+        <button class="lp-shot feat-shot" type="button" aria-haspopup="dialog"
+                data-shot-full="images/screenshots/full/billing.webp"
+                data-shot-alt="報酬・入金管理の実画面（デモデータ）">
+          <img src="images/screenshots/thumb/billing.webp" loading="lazy" decoding="async"
+               alt="報酬・入金管理の画面プレビュー（デモデータ）">
+        </button>
         <p class="feat-desc">見積・請求・領収書発行から、まとめ請求、立替金管理まで。現金でいただいた報酬をその場で入金記録、領収書・PDF発行と、現場で完了できる業務フローを実現。</p>
         <ul class="feat-points">
           <li>見積→請求→入金 一気通貫</li>
@@ -2903,6 +3059,15 @@ body.theme-premium .nav-cta {
   <span class="top-label">TOP</span>
 </button>
 
+<!-- ============== SCREENSHOT MODAL ============== -->
+<div class="shot-modal" id="shotModal" role="dialog" aria-modal="true" aria-label="画面プレビュー">
+  <button class="shot-modal-close" id="shotModalClose" type="button" aria-label="閉じる">×</button>
+  <div class="shot-modal-stage">
+    <img class="shot-modal-img" id="shotModalImg" src="" alt="">
+  </div>
+  <div class="shot-modal-thumbs" id="shotModalThumbs"></div>
+</div>
+
 <script>
 (function () {
   'use strict';
@@ -3029,5 +3194,126 @@ body.theme-premium .nav-cta {
     });
   }
 })();
-</script></body>
+</script>
+
+<script>
+(function () {
+  'use strict';
+  const modal = document.getElementById('shotModal');
+  if (!modal) return;
+  const modalImg = document.getElementById('shotModalImg');
+  const closeBtn = document.getElementById('shotModalClose');
+  const thumbsWrap = document.getElementById('shotModalThumbs');
+  const shots = Array.prototype.slice.call(document.querySelectorAll('.lp-shot'));
+
+  let current = [];   // [{ full, thumb, alt }]
+  let index = 0;
+  let lastFocused = null;
+  let scrollY = 0;
+
+  function lockScroll() {
+    scrollY = window.scrollY || window.pageYOffset || 0;
+    document.body.style.position = 'fixed';
+    document.body.style.top = '-' + scrollY + 'px';
+    document.body.style.left = '0';
+    document.body.style.right = '0';
+    document.body.style.width = '100%';
+  }
+  function unlockScroll() {
+    document.body.style.position = '';
+    document.body.style.top = '';
+    document.body.style.left = '';
+    document.body.style.right = '';
+    document.body.style.width = '';
+    window.scrollTo(0, scrollY);
+  }
+
+  function showIndex(i) {
+    if (!current.length) return;
+    index = (i + current.length) % current.length;
+    const item = current[index];
+    modalImg.src = item.full;
+    modalImg.alt = item.alt || '';
+    Array.prototype.forEach.call(thumbsWrap.children, function (btn, idx) {
+      const on = idx === index;
+      btn.classList.toggle('active', on);
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+  }
+
+  function buildThumbs() {
+    thumbsWrap.innerHTML = '';
+    if (current.length <= 1) { thumbsWrap.style.display = 'none'; return; }
+    thumbsWrap.style.display = 'flex';
+    current.forEach(function (item, idx) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'shot-modal-thumb';
+      b.setAttribute('aria-label', item.alt || ('プレビュー ' + (idx + 1)));
+      const im = document.createElement('img');
+      im.src = item.thumb || item.full;
+      im.alt = '';
+      b.appendChild(im);
+      b.addEventListener('click', function () { showIndex(idx); });
+      thumbsWrap.appendChild(b);
+    });
+  }
+
+  function focusable() {
+    return Array.prototype.slice.call(modal.querySelectorAll('button')).filter(function (el) {
+      return el === closeBtn || el.offsetParent !== null;
+    });
+  }
+
+  function open(shotEl) {
+    const split = function (v, sep) {
+      return (v || '').split(sep).map(function (s) { return s.trim(); }).filter(Boolean);
+    };
+    const fulls = split(shotEl.dataset.shotFull, ',');
+    const thumbs = split(shotEl.dataset.shotThumb, ',');
+    const alts = (shotEl.dataset.shotAlt || '').split('|').map(function (s) { return s.trim(); });
+    current = fulls.map(function (f, i) { return { full: f, thumb: thumbs[i] || '', alt: alts[i] || '' }; });
+    if (!current.length) return;
+    lastFocused = shotEl;
+    buildThumbs();
+    showIndex(0);
+    lockScroll();
+    modal.classList.add('open');
+    requestAnimationFrame(function () { closeBtn.focus(); });
+    document.addEventListener('keydown', onKey, true);
+  }
+
+  function close() {
+    if (!modal.classList.contains('open')) return;
+    modal.classList.remove('open');
+    document.removeEventListener('keydown', onKey, true);
+    unlockScroll();
+    if (lastFocused && lastFocused.focus) lastFocused.focus();
+    lastFocused = null;
+  }
+
+  function onKey(e) {
+    if (!modal.classList.contains('open')) return;
+    if (e.key === 'Escape') { e.preventDefault(); close(); return; }
+    if (current.length > 1) {
+      if (e.key === 'ArrowRight') { e.preventDefault(); showIndex(index + 1); return; }
+      if (e.key === 'ArrowLeft')  { e.preventDefault(); showIndex(index - 1); return; }
+    }
+    if (e.key === 'Tab') {
+      const f = focusable();
+      if (!f.length) { e.preventDefault(); return; }
+      const first = f[0], last = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+  }
+
+  shots.forEach(function (s) {
+    s.addEventListener('click', function () { open(s); });
+  });
+  closeBtn.addEventListener('click', close);
+  modal.addEventListener('click', function (e) { if (e.target === modal) close(); });
+})();
+</script>
+</body>
 </html>
