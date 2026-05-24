@@ -4954,7 +4954,7 @@ function CustodyReceiptModal({client, office, onClose, onIssue, onReturn}){
 
   return (
     <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.45)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9300,padding:isMobile?0:16}}>
-      <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg)",borderRadius:isMobile?0:12,width:"100%",maxWidth:940,height:isMobile?"100%":"auto",maxHeight:isMobile?"100%":"92vh",display:"flex",flexDirection:"column",boxShadow:"0 12px 48px rgba(0,0,0,0.25)",overflow:"hidden"}}>
+      <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg)",borderRadius:isMobile?0:12,width:"100%",maxWidth:940,height:isMobile?"100%":"92vh",maxHeight:isMobile?"100%":"92vh",display:"flex",flexDirection:"column",boxShadow:"0 12px 48px rgba(0,0,0,0.25)",overflow:"hidden"}}>
         <div style={{padding:"14px 18px",borderBottom:"0.5px solid var(--border)",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
           <div style={{fontSize:15,fontWeight:600,color:"var(--text)"}}>📄 在留カード預り証 — {client.name_roman||client.name_kana||"クライアント"}</div>
           <button onClick={onClose} style={{fontSize:18,border:"none",background:"transparent",cursor:"pointer",color:"var(--text3)",lineHeight:1}}>✕</button>
