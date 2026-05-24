@@ -4776,7 +4776,7 @@ function buildCustodyReceiptHTML(client, office, opts){
   *{ box-sizing:border-box; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   html,body{ margin:0; padding:0; background:#f0f0f0; }
   body{ font-family:"Yu Gothic","YuGothic","Hiragino Sans","Noto Sans JP",sans-serif; color:#111; }
-  .sheet{ width:210mm; min-height:297mm; margin:8px auto; background:#fff; padding:18mm 20mm; box-shadow:0 2px 12px rgba(0,0,0,0.15); }
+  .sheet{ width:210mm; min-height:297mm; margin:0 auto; background:#fff; padding:18mm 20mm; }
   .title{ text-align:center; font-family:"Yu Mincho","Hiragino Mincho ProN",serif; }
   .title .ja{ font-size:30pt; font-weight:700; letter-spacing:0.5em; padding-left:0.5em; }
   .title .en{ font-size:11pt; color:#666; letter-spacing:0.15em; margin-top:2mm; }
@@ -4851,11 +4851,31 @@ function CustodyReceiptModal({client, office, onClose, onIssue, onReturn}){
   const [reason,setReason]=useState(client.custody_reason||"在留期間更新許可申請");
   const [returnDate,setReturnDate]=useState(today);
   const previewRef=useRef(null);
+  const previewPaneRef=useRef(null);
+  const [fitScale,setFitScale]=useState(1);
 
   const html=useMemo(
     ()=>buildCustodyReceiptHTML(client,office,{frontImg,backImg,receivedDate,returnDue,reason}),
     [client,office,frontImg,backImg,receivedDate,returnDue,reason]
   );
+
+  // プレビュー自動フィット：右ペイン幅に合わせて A4(210mm) を縮小表示（transform）。
+  // 縮小は画面表示のみ。印刷/PDFは iframe 文書側の @page A4 実寸で出力されるため影響を受けない。
+  // ペイン/ウィンドウのリサイズに ResizeObserver で追随して倍率を再計算する。
+  React.useLayoutEffect(()=>{
+    const pane=previewPaneRef.current, ifr=previewRef.current;
+    if(!pane||!ifr) return;
+    const recompute=()=>{
+      const avail=pane.clientWidth-24;       // padding(12px*2)を除いた可用幅
+      const intrinsic=ifr.offsetWidth||0;    // 210mm の実px（transformの影響を受けない）
+      if(intrinsic>0&&avail>0) setFitScale(Math.min(1, avail/intrinsic));
+    };
+    recompute();
+    let ro=null;
+    if(typeof ResizeObserver!=="undefined"){ ro=new ResizeObserver(recompute); ro.observe(pane); }
+    window.addEventListener("resize",recompute);
+    return ()=>{ if(ro) ro.disconnect(); window.removeEventListener("resize",recompute); };
+  },[isMobile]);
 
   function pickImage(setter){
     const inp=document.createElement("input");
@@ -4971,8 +4991,11 @@ function CustodyReceiptModal({client, office, onClose, onIssue, onReturn}){
               ))}
             </div>}
           </div>
-          <div style={{flex:1,background:"#e9e7e2",overflowY:"auto",padding:12,minHeight:isMobile?420:0}}>
-            <iframe ref={previewRef} srcDoc={html} title="預り証プレビュー" style={{width:"100%",height:"100%",minHeight:isMobile?400:520,border:"none",background:"#fff",display:"block"}}/>
+          <div ref={previewPaneRef} style={{flex:1,background:"#e9e7e2",overflow:"auto",padding:12,minHeight:isMobile?420:0,display:"flex",justifyContent:"center",alignItems:"flex-start"}}>
+            {/* 見かけサイズ(=A4×fitScale)をコンテナで確保し、下部に余白が残らないようにする */}
+            <div style={{width:`calc(210mm * ${fitScale})`,height:`calc(297mm * ${fitScale})`,flexShrink:0,overflow:"hidden"}}>
+              <iframe ref={previewRef} srcDoc={html} title="預り証プレビュー" scrolling="no" style={{width:"210mm",height:"297mm",border:"none",background:"#fff",display:"block",transform:`scale(${fitScale})`,transformOrigin:"top left",boxShadow:"0 2px 12px rgba(0,0,0,0.15)"}}/>
+            </div>
           </div>
         </div>
 
