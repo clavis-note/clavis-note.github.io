@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>預り証発行機能がつきました！ ─ Clavis Note Blog</title>
+<meta name="description" content="在留カードを預かったその場で預り証を発行。Clavis Note の預り証発行機能なら「撮影 → 発行 → 返却記録」まで、スマホひとつでワンストップにこなせます。">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;600;700;800&family=Noto+Sans+JP:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+/* =================================================================
+   Clavis Note Blog — Article page
+   LP のデザイントークンを継承
+   ================================================================= */
+
+:root {
+  --bg:        #f5f4ee;
+  --bg-alt:    #ebe9e0;
+  --bg-soft:   #faf8f5;
+  --bg-paper:  #fdfcf8;
+  --text:      #1f1c19;
+  --text-mute: #6b6760;
+  --text-soft: #8a8680;
+  --line:      #d4d2c8;
+  --line-soft: #e5e3dd;
+
+  --accent:      #2D7DD2;
+  --accent-soft: #E6F1FB;
+  --accent-deep: #1F5A9E;
+  --gold:        #b48a3c;
+  --gold-soft:   #f3ead4;
+
+  --font-serif: 'Shippori Mincho', 'YuMincho', 'Hiragino Mincho ProN', serif;
+  --font-sans:  'Noto Sans JP', -apple-system, BlinkMacSystemFont, 'Segoe UI', Meiryo, sans-serif;
+  --font-mono:  'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --radius-sm: 6px;
+  --radius:    12px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.8;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ========== HEADER ========== */
+.site-header {
+  background: var(--bg-soft);
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(8px);
+  background: rgba(250, 248, 245, 0.92);
+}
+
+.header-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 18px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.logo {
+  font-family: var(--font-serif);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text);
+  text-decoration: none;
+}
+.logo .accent { color: var(--accent); }
+
+.site-nav { display: flex; gap: 28px; }
+.site-nav a {
+  color: var(--text-mute);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  transition: color 0.2s;
+  position: relative;
+}
+.site-nav a:hover { color: var(--accent); }
+.site-nav a.current {
+  color: var(--text);
+}
+.site-nav a.current::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent);
+}
+
+/* ========== ARTICLE HEADER ========== */
+.article-hero {
+  background: var(--bg-soft);
+  padding: 80px 32px 60px;
+  border-bottom: 1px solid var(--line-soft);
+  position: relative;
+  overflow: hidden;
+}
+
+.article-hero::before {
+  content: '';
+  position: absolute;
+  top: -50px;
+  right: -100px;
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, var(--accent-soft) 0%, transparent 70%);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.hero-inner {
+  max-width: 760px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 1;
+}
+
+.category-badge {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+  background: var(--accent-soft);
+  padding: 6px 14px;
+  border-radius: 100px;
+  margin-bottom: 28px;
+  text-transform: uppercase;
+}
+/* カテゴリ別の色（一覧ページのカテゴリ配色と対応） */
+.category-badge.feature { color: var(--gold); background: var(--gold-soft); }
+.category-badge.howto   { color: #4a6b4a; background: #e8efe5; }
+
+.article-title {
+  font-family: var(--font-serif);
+  font-size: 42px;
+  font-weight: 700;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+  color: var(--text);
+  margin-bottom: 32px;
+}
+
+.article-meta {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  color: var(--text-mute);
+  font-size: 14px;
+}
+
+.article-meta .divider {
+  width: 1px;
+  height: 14px;
+  background: var(--line);
+}
+
+.author {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.author-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--gold) 0%, var(--gold-soft) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-serif);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--bg-soft);
+}
+
+.author-name {
+  color: var(--text);
+  font-weight: 500;
+}
+
+/* ========== ARTICLE BODY ========== */
+.article-body {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 60px 32px 80px;
+}
+
+.article-body .lead {
+  font-family: var(--font-serif);
+  font-size: 20px;
+  line-height: 1.9;
+  color: var(--text);
+  margin-bottom: 32px;
+  padding-left: 24px;
+  border-left: 3px solid var(--gold);
+  font-weight: 500;
+}
+
+.article-body h2 {
+  font-family: var(--font-serif);
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--text);
+  margin: 56px 0 24px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.article-body h3 {
+  font-family: var(--font-serif);
+  font-size: 21px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--text);
+  margin: 40px 0 16px;
+}
+
+.article-body p {
+  font-family: var(--font-serif);
+  font-size: 17px;
+  line-height: 2;
+  margin-bottom: 24px;
+  color: var(--text);
+  letter-spacing: 0.02em;
+}
+
+.article-body a {
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px solid var(--accent-soft);
+  transition: border-color 0.2s;
+}
+.article-body a:hover {
+  border-bottom-color: var(--accent);
+}
+
+.article-body strong {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.article-body ul, .article-body ol {
+  margin: 0 0 24px 24px;
+  font-family: var(--font-serif);
+  font-size: 17px;
+  line-height: 2;
+}
+
+.article-body li {
+  margin-bottom: 8px;
+}
+
+.article-body blockquote {
+  margin: 32px 0;
+  padding: 24px 32px;
+  background: var(--bg-soft);
+  border-left: 4px solid var(--accent);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  font-family: var(--font-serif);
+  font-size: 16px;
+  line-height: 1.9;
+  color: var(--text-mute);
+}
+
+.article-body blockquote p:last-child { margin-bottom: 0; }
+
+.article-body code {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  background: var(--bg-alt);
+  padding: 2px 8px;
+  border-radius: 4px;
+  color: var(--accent-deep);
+}
+
+.article-body pre {
+  background: #1a1d24;
+  color: #f5f4ee;
+  padding: 20px 24px;
+  border-radius: var(--radius);
+  overflow-x: auto;
+  margin: 32px 0;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.article-body pre code {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+}
+
+/* ========== ARTICLE IMAGES ========== */
+.article-figure {
+  margin: 32px 0;
+}
+
+.article-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--radius);
+  border: 1px solid var(--line-soft);
+  box-shadow: 0 10px 28px -16px rgba(20,18,16,.32);
+}
+
+.article-figure figcaption {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--text-soft);
+  text-align: center;
+  margin-top: 10px;
+}
+
+/* ========== 2-COLUMN LAYOUT (Notion <columns> 相当・今後の記事で再利用可) ========== */
+.article-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 36px;
+  align-items: center;
+  margin: 40px 0;
+}
+
+.article-columns > .col { min-width: 0; }
+.article-columns .col > *:last-child { margin-bottom: 0; }
+.article-columns .article-figure { margin: 0; }
+
+/* 画像を狭め・右寄せにしたい時などの微調整用 */
+.article-columns.align-top { align-items: start; }
+
+/* ========== CALLOUT BOX ========== */
+.callout {
+  background: var(--gold-soft);
+  border-radius: var(--radius);
+  padding: 24px 28px;
+  margin: 32px 0;
+  border-left: 4px solid var(--gold);
+}
+
+.callout-label {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--gold);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.callout p {
+  font-family: var(--font-serif);
+  margin-bottom: 0 !important;
+  font-size: 15px !important;
+  line-height: 1.8 !important;
+}
+
+/* ========== ABOUT BOX (記事末尾の Clavis Note まとめ) ========== */
+.about-box {
+  background: linear-gradient(135deg, var(--accent-soft) 0%, var(--bg-soft) 100%);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  padding: 36px 32px;
+  margin-top: 64px;
+}
+
+.about-label {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--accent);
+  margin-bottom: 14px;
+}
+
+.about-box .about-lead {
+  font-family: var(--font-serif);
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.7;
+  color: var(--text);
+  margin-bottom: 12px;
+  padding-left: 0;
+  border-left: none;
+}
+
+.about-box .about-desc {
+  font-family: var(--font-serif);
+  font-size: 15px;
+  line-height: 1.9;
+  color: var(--text-mute);
+  margin-bottom: 26px;
+}
+
+.about-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 20px;
+  align-items: center;
+}
+
+.about-actions a { border-bottom: none; }
+
+.about-btn-primary {
+  display: inline-block;
+  background: var(--accent);
+  color: #fff;
+  padding: 13px 28px;
+  border-radius: 100px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+.about-btn-primary:hover {
+  background: var(--accent-deep);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px -8px rgba(45,125,210,0.5);
+}
+
+.about-link {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--accent);
+}
+.about-link:hover { color: var(--accent-deep); }
+
+/* ========== ARTICLE FOOTER ========== */
+.article-footer {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 32px 80px;
+}
+
+.author-card {
+  background: var(--bg-soft);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  padding: 28px;
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.author-card .author-avatar {
+  width: 56px;
+  height: 56px;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.author-info-label {
+  font-size: 11px;
+  color: var(--text-soft);
+  letter-spacing: 0.1em;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+
+.author-info-name {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.author-info-bio {
+  font-size: 14px;
+  color: var(--text-mute);
+  line-height: 1.7;
+}
+
+/* ========== SITE FOOTER ========== */
+.site-footer {
+  background: var(--bg-alt);
+  padding: 48px 32px 32px;
+  border-top: 1px solid var(--line);
+  margin-top: 60px;
+}
+
+.footer-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 32px;
+}
+
+.footer-brand {
+  font-family: var(--font-serif);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.footer-links {
+  display: flex;
+  gap: 24px;
+  font-size: 13px;
+}
+
+.footer-links a {
+  color: var(--text-mute);
+  text-decoration: none;
+}
+.footer-links a:hover { color: var(--accent); }
+
+.footer-copy {
+  width: 100%;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-soft);
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+  margin-top: 24px;
+}
+
+/* ========== RESPONSIVE ========== */
+@media (max-width: 768px) {
+  .header-inner { padding: 14px 20px; }
+  .site-nav { gap: 18px; }
+  .site-nav a { font-size: 13px; }
+  .logo { font-size: 18px; }
+
+  .article-hero { padding: 48px 20px 40px; }
+  .article-title { font-size: 28px; }
+  .article-meta { flex-wrap: wrap; gap: 12px; }
+
+  .article-body { padding: 40px 20px 60px; }
+  .article-body .lead { font-size: 17px; padding-left: 16px; }
+  .article-body h2 { font-size: 22px; }
+  .article-body h3 { font-size: 18px; }
+  .article-body p { font-size: 16px; line-height: 1.9; }
+
+  /* 2カラムをスマホでは1カラムに（本文 → 画像 の順で縦積み） */
+  .article-columns {
+    grid-template-columns: 1fr;
+    gap: 14px;
+    margin: 28px 0;
+  }
+
+  .about-box { padding: 28px 22px; }
+  .about-box .about-lead { font-size: 17px; }
+
+  .article-footer { padding: 0 20px 60px; }
+  .author-card { flex-direction: column; }
+
+  .footer-inner { flex-direction: column; }
+}
+</style>
+</head>
+
+<body>
+
+<!-- ========== HEADER ========== -->
+<header class="site-header">
+  <div class="header-inner">
+    <a href="/" class="logo">Clavis <span class="accent">Note</span></a>
+    <nav class="site-nav">
+      <a href="/">ホーム</a>
+      <a href="/#features">特徴</a>
+      <a href="/#pricing">料金</a>
+      <a href="/blog/" class="current">ブログ</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ========== ARTICLE HERO ========== -->
+<section class="article-hero">
+  <div class="hero-inner">
+    <span class="category-badge feature">機能紹介</span>
+    <h1 class="article-title">預り証発行機能がつきました！</h1>
+    <div class="article-meta">
+      <div class="author">
+        <div class="author-avatar">長</div>
+        <span class="author-name">長見　恵</span>
+      </div>
+      <span class="divider"></span>
+      <span>2026年5月24日</span>
+      <span class="divider"></span>
+      <span>読了 2分</span>
+    </div>
+  </div>
+</section>
+
+<!-- ========== ARTICLE BODY ========== -->
+<article class="article-body">
+
+  <p class="lead">預り証の発行って、地味にめんどくさい…💧</p>
+
+  <p>
+    私にとっては、そもそも Word というものが、画像を入れるとすぐレイアウトが崩れたり、扱うのが厄介な代物でした。Excel でフォーマットを作ってみたり、ネットでテンプレートを拾ってきたりもしましたが、せっかく <strong>Clavis Note</strong> ができたので、ついでにつけてしまいました！😄
+  </p>
+
+  <figure class="article-figure">
+    <img class="article-img" src="images/azukarisho/01-issue-button.png" alt="クライアントヘッダーにある預り証発行ボタン">
+  </figure>
+
+  <p>
+    クライアントタブの、各クライアントのヘッダーにある預り証発行ボタンをポチッとすると…
+  </p>
+
+  <!-- 2カラム① 本文 + 発行画面 -->
+  <div class="article-columns">
+    <div class="col">
+      <p>預り証発行画面が表示されます！<br>在留カードの画像を、表面・裏面のそれぞれアップロードしたら…</p>
+    </div>
+    <div class="col">
+      <figure class="article-figure">
+        <img class="article-img" src="images/azukarisho/02-upload-form.png" alt="預り証発行画面。在留カードの表面・裏面をアップロードする">
+      </figure>
+    </div>
+  </div>
+
+  <!-- 2カラム② 本文 + 発行された預り証 -->
+  <div class="article-columns">
+    <div class="col">
+      <p>瞬時にこんな預り証が発行できます！</p>
+    </div>
+    <div class="col">
+      <figure class="article-figure">
+        <img class="article-img" src="images/azukarisho/03-azukarisho.png" alt="発行された預り証">
+      </figure>
+    </div>
+  </div>
+
+  <p>
+    ちなみに、預り証発行後は、返却記録のバナーが出て
+  </p>
+
+  <figure class="article-figure">
+    <img class="article-img" src="images/azukarisho/04-return-banner.png" alt="預り証発行後に表示される返却記録のバナー">
+  </figure>
+
+  <!-- 2カラム③ 本文 + 返却記録 -->
+  <div class="article-columns">
+    <div class="col">
+      <p>預かった日と、在留カード返却日をちゃんと記録できるので、安心です。</p>
+    </div>
+    <div class="col">
+      <figure class="article-figure">
+        <img class="article-img" src="images/azukarisho/05-return-record.png" alt="預かった日と在留カード返却日を記録する画面">
+      </figure>
+    </div>
+  </div>
+
+  <p>
+    スマホからでもすぐにできるので、クライアントのところに出向いて在留カードを預かったら、現場で「撮影 → 預り証発行」がワンストップ…いえ、ノンストップでできます！<br>
+    ぜひご活用ください。
+  </p>
+
+  <!-- ========== Clavis Note について（記事末尾まとめ。CTAボックスの代わり） ========== -->
+  <div class="about-box">
+    <div class="about-label">CLAVIS NOTE について</div>
+    <p class="about-lead">作業に追われていた時間を、人と向き合う時間へ。</p>
+    <p class="about-desc">在留資格業務の現場から生まれた、行政書士のためのオールインワン管理ツール。30日間の無料トライアル、件数制限なしでお試しいただけます。</p>
+    <div class="about-actions">
+      <a href="https://clavis-note.com" class="about-btn-primary">Clavis Note 公式サイト →</a>
+      <a href="mailto:info@clavis-note.com" class="about-link">お問い合わせ：info@clavis-note.com</a>
+    </div>
+  </div>
+
+</article>
+
+<!-- ========== ARTICLE FOOTER ========== -->
+<footer class="article-footer">
+  <div class="author-card">
+    <div class="author-avatar">長</div>
+    <div>
+      <div class="author-info-label">Written by</div>
+      <div class="author-info-name">長見　恵</div>
+      <div class="author-info-bio">
+        行政書士。在留資格専門。ながみ行政書士事務所代表。<br>
+        Clavis Note の開発・運営を担当。
+      </div>
+    </div>
+  </div>
+</footer>
+
+<!-- ========== SITE FOOTER ========== -->
+<footer class="site-footer">
+  <div class="footer-inner">
+    <div class="footer-brand">Clavis Note</div>
+    <div class="footer-links">
+      <a href="/privacy.html">プライバシーポリシー</a>
+      <a href="/terms.html">利用規約</a>
+      <a href="/tokushoho.html">特定商取引法表記</a>
+      <a href="mailto:info@clavis-note.com">お問い合わせ</a>
+    </div>
+    <div class="footer-copy">
+      © 2026 Clavis Note. All rights reserved.
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
