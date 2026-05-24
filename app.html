@@ -4289,7 +4289,22 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
           targetId=createdClient.client_id;
         }
       }else{
-        // パターンE: non-identity のみ → 現在選択中クライアントに紐付け
+        // パターンE: non-identity のみ。職務履歴書・退職証明書など「身元情報を持たない補助書類」は
+        // 現在選択中クライアントへ紐付ける。
+        // ただし在留カード/パスポート（本来は身元を確定する主書類）なのに氏名・在留カード番号・
+        // パスポート番号がどれも読み取れなかったケースは「読み取り失敗」。これを選択中クライアントへ
+        // マージすると residence_status 等(強制上書き対象)が誤った値で既存データを破壊するため中止する。
+        const looksLikeIdDoc=extractions.some(e=>{
+          const dc=classifyDocType(e.extracted.document_type);
+          const dt=String(e.extracted.document_type||"");
+          return dc.isResidenceCard || dt.includes("パスポート")
+            || e.extracted.residence_status || e.extracted.residence_card
+            || e.extracted.residence_expiry || e.extracted.passport_number || e.extracted.passport_expiry;
+        });
+        if(looksLikeIdDoc){
+          if(t){t.textContent="⚠️ 在留カード/パスポートの氏名・番号が読み取れませんでした。鮮明な画像で再度お試しください";t.style.opacity=1;setTimeout(()=>t.style.opacity=0,4000);}
+          return;
+        }
         if(liveSelected){
           targetId=liveSelected.client_id;
         }else{
