@@ -950,6 +950,11 @@ function migrateData(saved){
     }
     return c;
   });
+  // v17: お弁当屋さん作戦（サーバー側API管理）移行の残骸撤去。
+  // 旧API管理時代、サンプル事務所初期化で office.api_key に Anthropic APIキーが
+  // 書き込まれていた名残を削除する。現行のキーは office.license_key 側で管理。
+  // Drive同期・インポート経由の旧データも migrateData を通るため、ここで一律クリーンになる。
+  if(saved.office && "api_key" in saved.office) delete saved.office.api_key;
   return saved;
 }
 
