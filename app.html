@@ -709,7 +709,14 @@ function logSyncEvent(action, detail){
 // 3. データストア（localStorage）
 // ============================================================
 // DEMO MODE: ?demo=1 でアクセスすると別ストレージキー + Drive同期OFF + バッジ表示
-const DEMO_MODE = (()=>{ try { return new URLSearchParams(location.search).get("demo")==="1"; } catch(e){ return false; } })();
+// 注意: 起動直後のルーティング(replaceState)等で URL クエリ ?demo=1 が脱落するケースがあるため、
+// 一度でも ?demo=1 で入ったら sessionStorage に退避し、以降クエリが無くても DEMO を維持する。
+// （/demo → demo.html が sessionStorage を立ててから app.html?demo=1 へ遷移するルートもカバー）
+const DEMO_MODE = (()=>{ try {
+  const q = new URLSearchParams(location.search).get("demo")==="1";
+  if(q){ try{ sessionStorage.setItem("clavis-demo","1"); }catch(e){} return true; }
+  return sessionStorage.getItem("clavis-demo")==="1";
+} catch(e){ return false; } })();
 const STORAGE_KEY = DEMO_MODE ? "clavis-note-data-demo" : "clavis-note-data";
 
 function loadData(){

@@ -83,6 +83,9 @@ try {
   localStorage.setItem("clavis-note-data-demo", JSON.stringify(DEMO_DATA));
   // Drive関連のキーは空にしておく（demoでDriveに繋がない保険）
   localStorage.removeItem("clavis-google-token");
+  // DEMO判定の保険: app.html 側でクエリ ?demo=1 が脱落しても sessionStorage で DEMO を維持。
+  // sessionStorage は同一タブ・同一オリジンの遷移をまたいで保持される。
+  try { sessionStorage.setItem("clavis-demo","1"); } catch(e) {}
   // app.html?demo=1 にリダイレクト
   location.replace("app.html?demo=1");
 } catch(e) {
