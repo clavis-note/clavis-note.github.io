@@ -1268,6 +1268,14 @@ h1, h2, h3, h4 { font-family: var(--font-serif); font-weight: 700; letter-spacin
 @media (max-width: 900px) {
   .feat-grid { grid-template-columns: 1fr; }
 }
+.feat-disclaimer {
+  max-width: 680px;
+  margin: 40px auto 0;
+  text-align: center;
+  font-size: 12.5px;
+  line-height: 1.9;
+  color: var(--text-mute);
+}
 
 /* ========================== TERMS INFO ========================== */
 .terms-info {
@@ -2100,8 +2108,10 @@ body.theme-premium .nav-cta {
 .shot-modal.open { opacity: 1; visibility: visible; }
 .shot-modal-stage {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 10px;
   max-width: 100%;
   transform: scale(.96);
   transition: transform .25s ease;
@@ -2116,6 +2126,13 @@ body.theme-premium .nav-cta {
   border-radius: var(--radius);
   box-shadow: var(--shadow-lg);
   background: var(--bg-soft);
+}
+.shot-modal-note {
+  align-self: flex-start;
+  margin: 0;
+  font-size: 12.5px;
+  letter-spacing: .03em;
+  color: var(--text-mute);
 }
 .shot-modal-close {
   position: absolute;
@@ -2769,6 +2786,7 @@ body.theme-premium .nav-cta {
         </ul>
       </article>
     </div>
+    <p class="feat-disclaimer">※本ページに掲載のアプリ画面は、すべてサンプルデータによるデモ表示です。<br>実際のクライアント情報ではありません。</p>
   </div>
 </section>
 
@@ -3064,6 +3082,7 @@ body.theme-premium .nav-cta {
   <button class="shot-modal-close" id="shotModalClose" type="button" aria-label="閉じる">×</button>
   <div class="shot-modal-stage">
     <img class="shot-modal-img" id="shotModalImg" src="" alt="">
+    <p class="shot-modal-note">※サンプルデータの表示です</p>
   </div>
   <div class="shot-modal-thumbs" id="shotModalThumbs"></div>
 </div>
