@@ -2102,6 +2102,7 @@ body.theme-premium .nav-cta {
   background: rgba(20, 18, 16, 0.85);
   opacity: 0;
   visibility: hidden;
+  overflow: hidden;
   transition: opacity .25s ease, visibility .25s ease;
   -webkit-tap-highlight-color: transparent;
 }
@@ -2126,7 +2127,15 @@ body.theme-premium .nav-cta {
   border-radius: var(--radius);
   box-shadow: var(--shadow-lg);
   background: var(--bg-soft);
+  cursor: zoom-in;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
+  transition: transform .22s ease;
 }
+.shot-modal-img.zoomed { cursor: grab; will-change: transform; }
+.shot-modal-img.dragging { cursor: grabbing; transition: none; }
 .shot-modal-note {
   align-self: flex-start;
   margin: 0;
@@ -2138,6 +2147,7 @@ body.theme-premium .nav-cta {
   position: absolute;
   top: 18px;
   right: 18px;
+  z-index: 2;
   width: 48px;
   height: 48px;
   border-radius: 50%;
@@ -2171,6 +2181,9 @@ body.theme-premium .nav-cta {
 .shot-modal-thumb:hover { opacity: .85; }
 .shot-modal-thumb.active { opacity: 1; border-color: #fff; }
 .shot-modal-thumb:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+/* hide chrome while a 1:1 zoom/pan is active */
+.shot-modal.is-zoomed .shot-modal-note,
+.shot-modal.is-zoomed .shot-modal-thumbs { opacity: 0; pointer-events: none; }
 @media (max-width: 720px) {
   .hero-shot-wrap { margin-top: -12px; padding: 0 16px 64px; }
   .shot-modal { padding: 20px 12px; gap: 12px; }
@@ -2179,7 +2192,7 @@ body.theme-premium .nav-cta {
   .shot-modal-thumb { width: 76px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .lp-shot, .shot-modal, .shot-modal-stage, .shot-modal-close, .shot-modal-thumb { transition: none; }
+  .lp-shot, .shot-modal, .shot-modal-stage, .shot-modal-close, .shot-modal-thumb, .shot-modal-img { transition: none; }
   .lp-shot:hover { transform: none; }
   .shot-modal-stage, .shot-modal.open .shot-modal-stage { transform: none; }
 }
@@ -3081,7 +3094,7 @@ body.theme-premium .nav-cta {
 <div class="shot-modal" id="shotModal" role="dialog" aria-modal="true" aria-label="画面プレビュー">
   <button class="shot-modal-close" id="shotModalClose" type="button" aria-label="閉じる">×</button>
   <div class="shot-modal-stage">
-    <img class="shot-modal-img" id="shotModalImg" src="" alt="">
+    <img class="shot-modal-img" id="shotModalImg" src="" alt="" draggable="false">
     <p class="shot-modal-note">※サンプルデータの表示です</p>
   </div>
   <div class="shot-modal-thumbs" id="shotModalThumbs"></div>
@@ -3225,30 +3238,89 @@ body.theme-premium .nav-cta {
   const thumbsWrap = document.getElementById('shotModalThumbs');
   const shots = Array.prototype.slice.call(document.querySelectorAll('.lp-shot'));
 
+  const docEl = document.documentElement;
+
   let current = [];   // [{ full, thumb, alt }]
   let index = 0;
   let lastFocused = null;
-  let scrollY = 0;
 
+  // --- scroll lock: overflow:hidden freezes the page in place (scroll position never
+  //     changes), so closing the modal causes no jump/flicker. paddingRight compensates
+  //     for the removed scrollbar width to avoid a horizontal content shift. ---
   function lockScroll() {
-    scrollY = window.scrollY || window.pageYOffset || 0;
-    document.body.style.position = 'fixed';
-    document.body.style.top = '-' + scrollY + 'px';
-    document.body.style.left = '0';
-    document.body.style.right = '0';
-    document.body.style.width = '100%';
+    const sbw = window.innerWidth - docEl.clientWidth;
+    docEl.style.overflow = 'hidden';
+    if (sbw > 0) docEl.style.paddingRight = sbw + 'px';
   }
   function unlockScroll() {
-    document.body.style.position = '';
-    document.body.style.top = '';
-    document.body.style.left = '';
-    document.body.style.right = '';
-    document.body.style.width = '';
-    window.scrollTo(0, scrollY);
+    docEl.style.overflow = '';
+    docEl.style.paddingRight = '';
+  }
+
+  // --- click/tap to toggle fit <-> 1:1 (actual pixel) size, drag to pan when zoomed ---
+  const CLICK_THRESHOLD = 5;   // px: below this a pointer gesture is a click, not a drag
+  let zoomed = false;
+  let scale = 1;
+  let panX = 0, panY = 0;
+  let dragging = false, downX = 0, downY = 0, startPanX = 0, startPanY = 0, moved = 0;
+
+  function applyTransform() {
+    modalImg.style.transform = zoomed
+      ? 'translate(' + panX + 'px,' + panY + 'px) scale(' + scale + ')'
+      : '';
+  }
+  function clampPan() {
+    // at 1:1 the image's visual size equals its natural size; keep its edges within the viewport
+    const maxX = Math.max(0, (modalImg.naturalWidth  - window.innerWidth)  / 2);
+    const maxY = Math.max(0, (modalImg.naturalHeight - window.innerHeight) / 2);
+    if (panX >  maxX) panX =  maxX; else if (panX < -maxX) panX = -maxX;
+    if (panY >  maxY) panY =  maxY; else if (panY < -maxY) panY = -maxY;
+  }
+  function resetZoom() {
+    zoomed = false; scale = 1; panX = 0; panY = 0; dragging = false;
+    modal.classList.remove('is-zoomed');
+    modalImg.classList.remove('zoomed', 'dragging');
+    modalImg.style.transform = '';
+  }
+  function toggleZoom() {
+    if (zoomed) { resetZoom(); return; }
+    const rw = modalImg.getBoundingClientRect().width;
+    if (!modalImg.complete || !rw || !modalImg.naturalWidth) return;
+    const factor = modalImg.naturalWidth / rw;
+    if (factor <= 1.02) return;   // already ~1:1 in fit mode, nothing to gain
+    zoomed = true; scale = factor; panX = 0; panY = 0;
+    modal.classList.add('is-zoomed');
+    modalImg.classList.add('zoomed');
+    applyTransform();
+  }
+
+  function onImgPointerDown(e) {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    dragging = true; moved = 0;
+    downX = e.clientX; downY = e.clientY;
+    startPanX = panX; startPanY = panY;
+    if (modalImg.setPointerCapture) { try { modalImg.setPointerCapture(e.pointerId); } catch (_) {} }
+    if (zoomed) modalImg.classList.add('dragging');
+  }
+  function onImgPointerMove(e) {
+    if (!dragging) return;
+    const dx = e.clientX - downX, dy = e.clientY - downY;
+    moved = Math.max(moved, Math.sqrt(dx * dx + dy * dy));
+    if (zoomed) { panX = startPanX + dx; panY = startPanY + dy; clampPan(); applyTransform(); }
+  }
+  function onImgPointerUp(e) {
+    if (!dragging) return;
+    dragging = false;
+    modalImg.classList.remove('dragging');
+    if (modalImg.hasPointerCapture && modalImg.hasPointerCapture(e.pointerId)) {
+      try { modalImg.releasePointerCapture(e.pointerId); } catch (_) {}
+    }
+    if (moved < CLICK_THRESHOLD) toggleZoom();   // a tap/click (not a drag) toggles zoom
   }
 
   function showIndex(i) {
     if (!current.length) return;
+    resetZoom();
     index = (i + current.length) % current.length;
     const item = current[index];
     modalImg.src = item.full;
@@ -3304,6 +3376,7 @@ body.theme-premium .nav-cta {
 
   function close() {
     if (!modal.classList.contains('open')) return;
+    resetZoom();
     modal.classList.remove('open');
     document.removeEventListener('keydown', onKey, true);
     unlockScroll();
@@ -3332,6 +3405,12 @@ body.theme-premium .nav-cta {
   });
   closeBtn.addEventListener('click', close);
   modal.addEventListener('click', function (e) { if (e.target === modal) close(); });
+
+  modalImg.addEventListener('pointerdown', onImgPointerDown);
+  modalImg.addEventListener('pointermove', onImgPointerMove);
+  modalImg.addEventListener('pointerup', onImgPointerUp);
+  modalImg.addEventListener('pointercancel', onImgPointerUp);
+  modalImg.addEventListener('dragstart', function (e) { e.preventDefault(); });
 })();
 </script>
 </body>
