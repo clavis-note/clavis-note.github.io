@@ -4873,9 +4873,20 @@ function CustodyReceiptModal({client, office, onClose, onIssue, onReturn}){
     const pane=previewPaneRef.current, ifr=previewRef.current;
     if(!pane||!ifr) return;
     const recompute=()=>{
-      const avail=pane.clientWidth-24;       // padding(12px*2)を除いた可用幅
-      const intrinsic=ifr.offsetWidth||0;    // 210mm の実px（transformの影響を受けない）
-      if(intrinsic>0&&avail>0) setFitScale(Math.min(1, avail/intrinsic));
+      const availW=pane.clientWidth-24;      // padding(12px*2)を除いた可用幅
+      const iw=ifr.offsetWidth||0;           // 210mm の実px（transformの影響を受けない）
+      if(iw<=0||availW<=0) return;
+      let s=availW/iw;                       // 幅フィット
+      // デスクトップはモーダル高さが限られるため高さにも収める（A4全体を一目で表示）。
+      // モバイルは縦スクロール前提なので幅フィットのみ（縦に潰しすぎない）。
+      if(!isMobile){
+        const availH=pane.clientHeight-24;
+        const ih=ifr.offsetHeight||0;
+        if(ih>0&&availH>0) s=Math.min(s, availH/ih);
+      }
+      // デッドバンド: 微小変化では更新しない（スクロールバー出没由来の再計算ループを防止）
+      const next=Math.min(1, s);
+      setFitScale(prev=> Math.abs(prev-next)<0.005 ? prev : next);
     };
     recompute();
     let ro=null;
@@ -4998,7 +5009,7 @@ function CustodyReceiptModal({client, office, onClose, onIssue, onReturn}){
               ))}
             </div>}
           </div>
-          <div ref={previewPaneRef} style={{flex:1,background:"#e9e7e2",overflow:"auto",padding:12,minHeight:isMobile?420:0,display:"flex",justifyContent:"center",alignItems:"flex-start"}}>
+          <div ref={previewPaneRef} style={{flex:1,background:"#e9e7e2",overflow:"auto",padding:12,minHeight:isMobile?420:0,display:"flex",justifyContent:"center",alignItems:isMobile?"flex-start":"center"}}>
             {/* 見かけサイズ(=A4×fitScale)をコンテナで確保し、下部に余白が残らないようにする */}
             <div style={{width:`calc(210mm * ${fitScale})`,height:`calc(297mm * ${fitScale})`,flexShrink:0,overflow:"hidden"}}>
               <iframe ref={previewRef} srcDoc={html} title="預り証プレビュー" scrolling="no" style={{width:"210mm",height:"297mm",border:"none",background:"#fff",display:"block",transform:`scale(${fitScale})`,transformOrigin:"top left",boxShadow:"0 2px 12px rgba(0,0,0,0.15)"}}/>
