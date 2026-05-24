@@ -4957,7 +4957,10 @@ function CustodyReceiptModal({client, office, onClose, onIssue, onReturn}){
   const dateS={width:"100%",fontSize:13,padding:"6px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)"};
   const dropS={width:"100%",padding:"14px",borderRadius:6,border:"1px dashed var(--border2)",background:"var(--bg2)",color:"var(--text2)",cursor:"pointer",fontSize:12};
 
-  return (
+  // App ルートの zoom(文字サイズ) 配下だと position:fixed の 92vh が zoom 倍されて
+  // 画面からはみ出す（文字サイズ中/大でフッターが押せない）。tour と同様 body 直下へ
+  // portal して zoom 外で描画し、実寸の viewport 基準で収める。
+  return ReactDOM.createPortal(
     <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.45)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9300,padding:isMobile?0:16}}>
       <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg)",borderRadius:isMobile?0:12,width:"100%",maxWidth:940,height:isMobile?"100%":"92vh",maxHeight:isMobile?"100%":"92vh",display:"flex",flexDirection:"column",boxShadow:"0 12px 48px rgba(0,0,0,0.25)",overflow:"hidden"}}>
         <div style={{padding:"14px 18px",borderBottom:"0.5px solid var(--border)",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
@@ -5028,7 +5031,7 @@ function CustodyReceiptModal({client, office, onClose, onIssue, onReturn}){
         </div>
       </div>
     </div>
-  );
+  , document.body);
 }
 
 // ============================================================
