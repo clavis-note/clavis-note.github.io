@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clavis Note をリリースしました ─ Clavis Note Blog</title>
+<meta name="description" content="現役行政書士が、現場で本当に必要だと思うものを形にしました。在留資格・入管業務に特化した業務管理ツール「Clavis Note」を、リリースしました。">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;600;700;800&family=Noto+Sans+JP:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+/* =================================================================
+   Clavis Note Blog — Article page (release announcement)
+   azukarisho.html のデザインを継承
+   ================================================================= */
+
+:root {
+  --bg:        #f5f4ee;
+  --bg-alt:    #ebe9e0;
+  --bg-soft:   #faf8f5;
+  --bg-paper:  #fdfcf8;
+  --text:      #1f1c19;
+  --text-mute: #6b6760;
+  --text-soft: #8a8680;
+  --line:      #d4d2c8;
+  --line-soft: #e5e3dd;
+
+  --accent:      #2D7DD2;
+  --accent-soft: #E6F1FB;
+  --accent-deep: #1F5A9E;
+  --gold:        #b48a3c;
+  --gold-soft:   #f3ead4;
+
+  --font-serif: 'Shippori Mincho', 'YuMincho', 'Hiragino Mincho ProN', serif;
+  --font-sans:  'Noto Sans JP', -apple-system, BlinkMacSystemFont, 'Segoe UI', Meiryo, sans-serif;
+  --font-mono:  'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --radius-sm: 6px;
+  --radius:    12px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.8;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ========== HEADER ========== */
+.site-header {
+  background: var(--bg-soft);
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(8px);
+  background: rgba(250, 248, 245, 0.92);
+}
+
+.header-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 18px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.logo {
+  font-family: var(--font-serif);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text);
+  text-decoration: none;
+}
+.logo .accent { color: var(--accent); }
+
+.site-nav { display: flex; gap: 28px; }
+.site-nav a {
+  color: var(--text-mute);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  transition: color 0.2s;
+  position: relative;
+}
+.site-nav a:hover { color: var(--accent); }
+.site-nav a.current {
+  color: var(--text);
+}
+.site-nav a.current::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent);
+}
+
+/* ========== ARTICLE HEADER ========== */
+.article-hero {
+  background: var(--bg-soft);
+  padding: 80px 32px 60px;
+  border-bottom: 1px solid var(--line-soft);
+  position: relative;
+  overflow: hidden;
+}
+
+.article-hero::before {
+  content: '';
+  position: absolute;
+  top: -50px;
+  right: -100px;
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, var(--accent-soft) 0%, transparent 70%);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.article-hero::after {
+  content: '';
+  position: absolute;
+  bottom: -80px;
+  left: -120px;
+  width: 320px;
+  height: 320px;
+  background: radial-gradient(circle, var(--gold-soft) 0%, transparent 70%);
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.hero-inner {
+  max-width: 760px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 1;
+}
+
+.category-badge {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+  background: var(--accent-soft);
+  padding: 6px 14px;
+  border-radius: 100px;
+  margin-bottom: 28px;
+  text-transform: uppercase;
+}
+.category-badge.feature { color: var(--gold); background: var(--gold-soft); }
+.category-badge.howto   { color: #4a6b4a; background: #e8efe5; }
+
+.article-title {
+  font-family: var(--font-serif);
+  font-size: 42px;
+  font-weight: 700;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+  color: var(--text);
+  margin-bottom: 32px;
+}
+
+.article-meta {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  color: var(--text-mute);
+  font-size: 14px;
+}
+
+.article-meta .divider {
+  width: 1px;
+  height: 14px;
+  background: var(--line);
+}
+
+/* ========== ARTICLE BODY ========== */
+.article-body {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 60px 32px 80px;
+}
+
+.article-body .lead {
+  font-family: var(--font-serif);
+  font-size: 20px;
+  line-height: 1.9;
+  color: var(--text);
+  margin-bottom: 32px;
+  padding-left: 24px;
+  border-left: 3px solid var(--gold);
+  font-weight: 500;
+}
+
+.article-body h2 {
+  font-family: var(--font-serif);
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--text);
+  margin: 56px 0 24px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.article-body h3 {
+  font-family: var(--font-serif);
+  font-size: 21px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--text);
+  margin: 40px 0 16px;
+}
+
+.article-body h4 {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.6;
+  color: var(--text);
+  margin: 36px 0 14px;
+  letter-spacing: 0.01em;
+}
+
+.article-body p {
+  font-family: var(--font-serif);
+  font-size: 17px;
+  line-height: 2;
+  margin-bottom: 24px;
+  color: var(--text);
+  letter-spacing: 0.02em;
+}
+
+.article-body a {
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px solid var(--accent-soft);
+  transition: border-color 0.2s;
+}
+.article-body a:hover {
+  border-bottom-color: var(--accent);
+}
+
+.article-body strong {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.article-body ul, .article-body ol {
+  margin: 0 0 24px 24px;
+  font-family: var(--font-serif);
+  font-size: 17px;
+  line-height: 2;
+}
+
+.article-body li {
+  margin-bottom: 10px;
+  color: var(--text);
+}
+
+.article-body blockquote {
+  margin: 32px 0;
+  padding: 24px 32px;
+  background: var(--bg-soft);
+  border-left: 4px solid var(--accent);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  font-family: var(--font-serif);
+  font-size: 16px;
+  line-height: 1.9;
+  color: var(--text-mute);
+}
+
+.article-body blockquote p {
+  margin-bottom: 8px;
+}
+.article-body blockquote p:last-child { margin-bottom: 0; }
+
+/* ========== FEATURE SUBGROUP (案件管理・報酬管理の小見出し) ========== */
+.feature-subgroup {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 28px;
+  margin-bottom: 14px;
+}
+
+.feature-subgroup::before {
+  content: '';
+  width: 4px;
+  height: 20px;
+  background: var(--gold);
+  border-radius: 2px;
+}
+
+.feature-subgroup-text {
+  font-family: var(--font-serif);
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.04em;
+}
+
+/* ========== POINT MARK (こだわりポイント・バッジ) ========== */
+.article-body li .point-mark {
+  display: inline-block;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--gold);
+  background: var(--gold-soft);
+  padding: 3px 12px;
+  border-radius: 100px;
+  margin-right: 10px;
+  vertical-align: 2px;
+}
+
+/* ========== CALLOUT (設計思想ボックス) ========== */
+.callout {
+  margin: 48px 0;
+  padding: 30px 34px;
+  background: linear-gradient(135deg, var(--gold-soft) 0%, var(--bg-soft) 100%);
+  border-left: 4px solid var(--gold);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  position: relative;
+}
+
+.callout::before {
+  content: '💡';
+  position: absolute;
+  top: -14px;
+  left: 22px;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.callout-label {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: var(--gold);
+  margin-bottom: 14px;
+  text-transform: uppercase;
+}
+
+.callout p {
+  font-family: var(--font-serif);
+  font-size: 16px;
+  line-height: 1.95;
+  color: var(--text);
+  margin-bottom: 0;
+}
+
+/* ========== ABOUT BOX (記事末尾の CTA) ========== */
+.about-box {
+  background: linear-gradient(135deg, var(--accent-soft) 0%, var(--bg-soft) 100%);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  padding: 36px 32px;
+  margin-top: 64px;
+}
+
+.about-label {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--accent);
+  margin-bottom: 14px;
+}
+
+.about-box .about-lead {
+  font-family: var(--font-serif);
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.7;
+  color: var(--text);
+  margin-bottom: 12px;
+  padding-left: 0;
+  border-left: none;
+}
+
+.about-box .about-desc {
+  font-family: var(--font-serif);
+  font-size: 15px;
+  line-height: 1.9;
+  color: var(--text-mute);
+  margin-bottom: 26px;
+}
+
+.about-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 20px;
+  align-items: center;
+}
+
+.about-actions a { border-bottom: none; }
+
+.about-box .about-btn-primary {
+  display: inline-block;
+  background: var(--accent);
+  color: #fff;
+  padding: 13px 28px;
+  border-radius: 100px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+.about-box .about-btn-primary:hover {
+  background: var(--accent-deep);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px -8px rgba(45,125,210,0.5);
+}
+
+.about-link {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--accent);
+}
+.about-link:hover { color: var(--accent-deep); }
+
+/* ========== SITE FOOTER ========== */
+.site-footer {
+  background: var(--bg-alt);
+  padding: 48px 32px 32px;
+  border-top: 1px solid var(--line);
+  margin-top: 60px;
+}
+
+.footer-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 32px;
+}
+
+.footer-brand {
+  font-family: var(--font-serif);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.footer-links {
+  display: flex;
+  gap: 24px;
+  font-size: 13px;
+}
+
+.footer-links a {
+  color: var(--text-mute);
+  text-decoration: none;
+}
+.footer-links a:hover { color: var(--accent); }
+
+.footer-copy {
+  width: 100%;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-soft);
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+  margin-top: 24px;
+}
+
+/* ========== RESPONSIVE ========== */
+@media (max-width: 768px) {
+  .header-inner { padding: 14px 20px; }
+  .site-nav { gap: 18px; }
+  .site-nav a { font-size: 13px; }
+  .logo { font-size: 18px; }
+
+  .article-hero { padding: 48px 20px 40px; }
+  .article-title { font-size: 28px; }
+  .article-meta { flex-wrap: wrap; gap: 12px; }
+
+  .article-body { padding: 40px 20px 60px; }
+  .article-body .lead { font-size: 17px; padding-left: 16px; }
+  .article-body h2 { font-size: 22px; }
+  .article-body h3 { font-size: 18px; }
+  .article-body h4 { font-size: 16px; }
+  .article-body p { font-size: 16px; line-height: 1.9; }
+
+  .callout { padding: 24px 22px; margin: 36px 0; }
+  .callout p { font-size: 15px; }
+
+  .about-box { padding: 28px 22px; }
+  .about-box .about-lead { font-size: 17px; }
+
+  .footer-inner { flex-direction: column; }
+}
+</style>
+</head>
+
+<body>
+
+<!-- ========== HEADER ========== -->
+<header class="site-header">
+  <div class="header-inner">
+    <a href="/" class="logo">Clavis <span class="accent">Note</span></a>
+    <nav class="site-nav">
+      <a href="/">ホーム</a>
+      <a href="/#features">特徴</a>
+      <a href="/#pricing">料金</a>
+      <a href="/blog/" class="current">ブログ</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ========== ARTICLE HERO ========== -->
+<section class="article-hero">
+  <div class="hero-inner">
+    <span class="category-badge">お知らせ</span>
+    <h1 class="article-title">Clavis Note をリリースしました</h1>
+    <div class="article-meta">
+      <span>2026年5月16日</span>
+      <span class="divider"></span>
+      <span>読了 4分</span>
+    </div>
+  </div>
+</section>
+
+<!-- ========== ARTICLE BODY ========== -->
+<article class="article-body">
+
+  <p class="lead">
+    現役行政書士が、入管業務の現場で、本当に必要だと思うものを形にしました。<br>
+    入管業務に特化した業務管理ツール「Clavis Note」を本日リリースします。
+  </p>
+
+  <p>
+    6年間、入管業務をメインとしている行政書士です。<br>
+    行政書士のための業務管理ツール <strong>Clavis Note</strong> を開発し、このたびリリースしました！
+  </p>
+
+  <p>
+    クライアント台帳、案件管理、報酬・入金管理、事件簿の自動生成までを、ひとつの画面で完結できる、オールインワンツールです。
+  </p>
+
+  <h2>なぜ作ったか</h2>
+
+  <p>
+    在留資格の仕事を始めて、「<strong>入管に特化した業務管理ツールが存在しない</strong>」ということを知りました。
+  </p>
+
+  <p>
+    会計ソフトはある。スケジュール管理ツールもある。でも、行政書士の業務の中でも、入管の業務フローに沿ったツールは見つかりませんでした。
+  </p>
+
+  <p>
+    Excel・OneNote・無料の事件簿ソフト・請求書のネット作成サービス…。色々なツールを試したり、駆使してきましたが、案件の増加とともに増える、
+  </p>
+
+  <blockquote>
+    <p>「あのクライアントの在留期間更新、いつまでだっけ？」</p>
+    <p>「この会社からの入金は、誰の案件の分に充当すればいいんだっけ…」</p>
+    <p>「こっちは事件簿に書いたけど、こっちはまだだった💦」</p>
+  </blockquote>
+
+  <p>
+    そういう「<strong>頭の中の管理コスト</strong>」が、業務の多くの時間を占めるようになってきました。
+  </p>
+
+  <p>
+    顧客管理システムはたくさんあるのに、入管業務に適したものはない…。
+  </p>
+
+  <p>
+    <strong>それなら、私が作ってしまおう！</strong>と思い立ち、相棒のClaude（AI）とともに、Clavis Note を作りました。
+  </p>
+
+  <h3>📸 ポイポイ式 ─ 書類ドラッグ&ドロップでAI自動入力</h3>
+
+  <p>
+    在留カードやパスポートを画面にドラッグするだけで、AI がフィールドを自動入力します。手入力でクライアント情報を起こす作業から、ほぼ解放されます。
+  </p>
+
+  <p>
+    外国語の卒業証明書や退職証明書を読み解く手間もなくなり、母国での通算勤務年数も自動計算！
+  </p>
+
+  <p>
+    さらにさらに、こうした新しいツールを使うとき、今からの案件はClavis Noteで管理するとしても、これまでの案件は、直接データを開いたり旧ツールを並行利用したり、と乗り換えコストがかかるのが普通です。
+  </p>
+
+  <p>
+    でもポイポイ式なら、これまでのクライアント情報も、今までの申請書控えをポイッとすれば、ほぼ追加入力なしでデータ化が可能です！（案件や報酬の管理は別途作成が必要。また手書きの文字は認識精度が落ちることもあります）
+  </p>
+
+  <h2>主な機能</h2>
+
+  <h3>📋 クライアント台帳</h3>
+
+  <p>
+    在留カードの項目（在留カード番号、国籍、在留期限など）や、パスポートなどの基本情報を網羅する台帳です。
+  </p>
+
+  <ul>
+    <li>在留期限が近づいたクライアントから順に自動で並べ替えられ、90日前からの注意喚起</li>
+    <li><strong>家族関係をツリー式</strong>で表示</li>
+    <li>現在の勤務先や過去の勤務履歴、<strong>これまでの案件履歴</strong>など、クライアントのカルテになる</li>
+    <li><span class="point-mark">✨ こだわりポイント</span>顔写真も登録でき、「誰のための仕事か」の実感が深まります。</li>
+  </ul>
+
+  <h3>🗂️ 案件管理と報酬管理</h3>
+
+  <p>
+    ひとつのクライアントに紐づく複数案件を、それぞれ独立した進捗で管理できます。報酬・入金状況も案件単位で追えるので、「<strong>誰のどの案件がまだ未入金か</strong>」が一目で分かります。
+  </p>
+
+  <div class="feature-subgroup">
+    <span class="feature-subgroup-text">案件管理</span>
+  </div>
+
+  <ul>
+    <li>必要な書類セットをテンプレートとして登録して、案件に応じた<strong>チェックリストを自動生成</strong>！</li>
+    <li>追加資料の対応履歴ややり取り履歴の欄もあるので、ひとつの案件の記録がここで完結します</li>
+    <li><strong>＜一般業務＞</strong>の管理も可能！入管業務がメインでも、たまに違うカテゴリの仕事が舞い込んでくることありませんか？そんなときも、事件簿から落とさないために入管業務特有のフィールドを除いた案件台帳の作成が可能。</li>
+    <li><span class="point-mark">✨ こだわりポイント</span>許可・不許可・申請中…などのステータスによる絞り込みがボタン一つで可能なので、<strong>全案件の進捗がひと目で見渡せます</strong>。</li>
+  </ul>
+
+  <div class="feature-subgroup">
+    <span class="feature-subgroup-text">報酬管理</span>
+  </div>
+
+  <ul>
+    <li>まとめて請求機能で、会社宛てに一括の請求書を送ったり、一度まとめた請求から個人の請求を切出したり…と、柔軟な運用が可能</li>
+    <li><span class="point-mark">✨ こだわりポイント</span>見積書や請求書の備考欄は、<strong>6か国語の自動翻訳が可能</strong>。要望があれば、他の言語も追加可能です！</li>
+  </ul>
+
+  <h3>📑 事件簿の自動生成</h3>
+
+  <p>
+    行政書士法第9条で義務付けられている事件簿の作成を、案件データから<strong>自動生成</strong>します。この案件は転記したけど、こっちはまだ…といった、二重の管理労力から解放されます。
+  </p>
+
+  <!-- ========== Clavis Note の設計思想 (Callout) ========== -->
+  <div class="callout">
+    <div class="callout-label">Clavis Note の設計思想</div>
+    <p><strong>運営側ではクライアント情報を一切預かりません。</strong>センシティブ情報を扱う行政書士業務のためのツールだからこそ、セキュリティのリスクは最小限にしています。</p>
+  </div>
+
+  <h2>これからのこと</h2>
+
+  <p>
+    まだまだ「こんな機能が自慢です！」「こんなに便利なんですよ〜！」と、お伝えしたいことがたくさんあるClavis Noteです。
+  </p>
+
+  <p>
+    これからもブログでおすすめ機能や、便利ポイントをどんどん発信していきたいと思います。<br>
+    お使いいただく中でのご要望（バグ報告も歓迎です）も、お気軽にご連絡ください。
+  </p>
+
+  <h4>次のプロダクト リリース予定</h4>
+
+  <p>
+    そして、2026年後半〜2027年にかけて段階的に、上位プロダクトとなる <strong>Clavis Docs</strong>（添付資料自動マージ・書庫機能）のリリースも予定しています。Clavis Note と組み合わせて使うことで、業務効率はさらに跳ね上がる見込みです。
+  </p>
+
+  <h2>最後に</h2>
+
+  <p>
+    このツールが、入管業務に携わる行政書士の方々の「<strong>人と向き合う時間</strong>」を少しでも増やすことに貢献できれば、こんなに嬉しいことはありません。
+  </p>
+
+  <p>
+    Clavis Noteは、まだ進化の途中です。<br>
+    みなさまの声で、Clavis Noteを一緒に育ててくださいませんか？
+  </p>
+
+  <p>
+    どうぞよろしくお願いいたします。
+  </p>
+
+  <!-- ========== Clavis Note について（CTA / about-box） ========== -->
+  <div class="about-box">
+    <div class="about-label">CLAVIS NOTE を試してみる</div>
+    <p class="about-lead">30日間無料で全機能お試しいただけます。</p>
+    <p class="about-desc">現役行政書士が開発・運営する、入管業務に特化したオールインワン管理ツール。</p>
+    <div class="about-actions">
+      <a href="https://buy.stripe.com/8x2fZicdl78hd7DfYB3Je01?prefilled_promo_code=FOUNDER" class="about-btn-primary">30日間無料で始める →</a>
+      <a href="mailto:info@clavis-note.com" class="about-link">お問い合わせ：info@clavis-note.com</a>
+    </div>
+  </div>
+
+</article>
+
+<!-- ========== SITE FOOTER ========== -->
+<footer class="site-footer">
+  <div class="footer-inner">
+    <div class="footer-brand">Clavis Note</div>
+    <div class="footer-links">
+      <a href="/privacy.html">プライバシーポリシー</a>
+      <a href="/terms.html">利用規約</a>
+      <a href="/tokushoho.html">特定商取引法表記</a>
+      <a href="mailto:info@clavis-note.com">お問い合わせ</a>
+    </div>
+    <div class="footer-copy">
+      © 2026 Clavis Note. All rights reserved.
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
