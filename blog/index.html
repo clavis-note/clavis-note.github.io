@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ブログ ─ Clavis Note</title>
+<meta name="description" content="現役行政書士が運営する、在留資格・入管業務に役立つ実務ブログ。Clavis Note の機能の使いどころや、現場の工夫をお届けします。">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;600;700;800&family=Noto+Sans+JP:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+/* =================================================================
+   Clavis Note Blog — Index (一覧) page
+   LP・記事ページのデザイントークンを継承
+   ================================================================= */
+
+:root {
+  --bg:        #f5f4ee;
+  --bg-alt:    #ebe9e0;
+  --bg-soft:   #faf8f5;
+  --bg-paper:  #fdfcf8;
+  --text:      #1f1c19;
+  --text-mute: #6b6760;
+  --text-soft: #8a8680;
+  --line:      #d4d2c8;
+  --line-soft: #e5e3dd;
+
+  --accent:      #2D7DD2;
+  --accent-soft: #E6F1FB;
+  --accent-deep: #1F5A9E;
+  --gold:        #b48a3c;
+  --gold-soft:   #f3ead4;
+
+  --font-serif: 'Shippori Mincho', 'YuMincho', 'Hiragino Mincho ProN', serif;
+  --font-sans:  'Noto Sans JP', -apple-system, BlinkMacSystemFont, 'Segoe UI', Meiryo, sans-serif;
+  --font-mono:  'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --radius-sm: 6px;
+  --radius:    12px;
+  --radius-lg: 20px;
+
+  --shadow-sm: 0 1px 2px rgba(20,18,16,.06), 0 1px 1px rgba(20,18,16,.04);
+  --shadow:    0 12px 28px -10px rgba(20,18,16,.18), 0 4px 10px -4px rgba(20,18,16,.08);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.8;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ========== HEADER ========== */
+.site-header {
+  background: rgba(250, 248, 245, 0.92);
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(8px);
+}
+
+.header-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 18px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.logo {
+  font-family: var(--font-serif);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text);
+  text-decoration: none;
+}
+.logo .accent { color: var(--accent); }
+
+.site-nav { display: flex; gap: 28px; }
+.site-nav a {
+  color: var(--text-mute);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  transition: color 0.2s;
+  position: relative;
+}
+.site-nav a:hover { color: var(--accent); }
+.site-nav a.current { color: var(--text); }
+.site-nav a.current::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent);
+}
+
+/* ========== HERO ========== */
+.blog-hero {
+  background: var(--bg-soft);
+  padding: 96px 32px 72px;
+  border-bottom: 1px solid var(--line-soft);
+  position: relative;
+  overflow: hidden;
+}
+
+.blog-hero::before {
+  content: '';
+  position: absolute;
+  top: -60px;
+  right: -120px;
+  width: 480px;
+  height: 480px;
+  background: radial-gradient(circle, var(--accent-soft) 0%, transparent 70%);
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.blog-hero::after {
+  content: '';
+  position: absolute;
+  bottom: -80px;
+  left: -100px;
+  width: 360px;
+  height: 360px;
+  background: radial-gradient(circle, var(--gold-soft) 0%, transparent 70%);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.hero-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 1;
+  text-align: center;
+}
+
+.hero-label {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.25em;
+  color: var(--accent);
+  margin-bottom: 16px;
+  text-transform: uppercase;
+}
+
+.hero-title {
+  font-family: var(--font-serif);
+  font-size: 56px;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: 0.02em;
+  color: var(--text);
+  margin-bottom: 20px;
+}
+
+.hero-title .accent { color: var(--accent); }
+
+.hero-sub {
+  font-family: var(--font-serif);
+  font-size: 17px;
+  line-height: 1.9;
+  color: var(--text-mute);
+  max-width: 580px;
+  margin: 0 auto;
+}
+
+/* ========== CATEGORY FILTER ========== */
+.category-filter {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 40px 32px 0;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.filter-btn {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-mute);
+  background: transparent;
+  border: 1px solid var(--line);
+  padding: 8px 20px;
+  border-radius: 100px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.filter-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.filter-btn.active {
+  background: var(--text);
+  color: var(--bg-soft);
+  border-color: var(--text);
+}
+
+/* ========== ARTICLE GRID ========== */
+.article-grid {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 48px 32px 80px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 32px;
+}
+
+.article-card {
+  background: var(--bg-paper);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.article-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow);
+  border-color: var(--line);
+}
+
+.card-thumbnail {
+  height: 180px;
+  background: var(--bg-alt);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* サムネは画像ではなく、カテゴリごとのデザインパターンで表現する */
+.card-thumbnail.theme-news {
+  background: linear-gradient(135deg, var(--accent-soft) 0%, var(--bg-soft) 100%);
+}
+.card-thumbnail.theme-news::before {
+  content: '📣';
+  font-size: 56px;
+  opacity: 0.4;
+}
+
+.card-thumbnail.theme-feature {
+  background: linear-gradient(135deg, var(--gold-soft) 0%, var(--bg-soft) 100%);
+}
+.card-thumbnail.theme-feature::before {
+  content: '✦';
+  font-family: var(--font-serif);
+  font-size: 72px;
+  color: var(--gold);
+  opacity: 0.5;
+}
+
+.card-thumbnail.theme-howto {
+  background: linear-gradient(135deg, #e8efe5 0%, var(--bg-soft) 100%);
+}
+.card-thumbnail.theme-howto::before {
+  content: '◐';
+  font-size: 64px;
+  color: #6b8e6b;
+  opacity: 0.5;
+}
+
+.card-body {
+  padding: 22px 24px 24px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.card-category {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  padding: 4px 10px;
+  border-radius: 4px;
+  margin-bottom: 14px;
+  text-transform: uppercase;
+  align-self: flex-start;
+}
+
+.card-category.news {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.card-category.feature {
+  color: var(--gold);
+  background: var(--gold-soft);
+}
+.card-category.howto {
+  color: #4a6b4a;
+  background: #e8efe5;
+}
+
+.card-title {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--text);
+  margin-bottom: 12px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.card-excerpt {
+  font-family: var(--font-serif);
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--text-mute);
+  margin-bottom: 18px;
+  flex: 1;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.card-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--text-soft);
+  padding-top: 14px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.card-meta .divider {
+  width: 3px;
+  height: 3px;
+  background: var(--text-soft);
+  border-radius: 50%;
+}
+
+/* ========== FEATURED ARTICLE (最新記事を大きく) ========== */
+.featured-article {
+  grid-column: 1 / -1;
+  background: var(--bg-paper);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+  transition: all 0.3s ease;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin-bottom: 16px;
+  position: relative;
+}
+
+.featured-article::before {
+  content: 'LATEST';
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: var(--bg-soft);
+  background: var(--text);
+  padding: 5px 12px;
+  border-radius: 4px;
+  z-index: 2;
+}
+
+.featured-article:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow);
+  border-color: var(--line);
+}
+
+.featured-thumbnail {
+  height: 100%;
+  min-height: 280px;
+  background: linear-gradient(135deg, var(--accent-soft) 0%, var(--gold-soft) 100%);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.featured-thumbnail::before {
+  content: '✦';
+  font-family: var(--font-serif);
+  font-size: 120px;
+  color: var(--accent);
+  opacity: 0.3;
+}
+
+.featured-body {
+  padding: 40px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.featured-category {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+  background: var(--accent-soft);
+  padding: 5px 12px;
+  border-radius: 4px;
+  margin-bottom: 16px;
+  text-transform: uppercase;
+  align-self: flex-start;
+}
+/* カテゴリ別の色（カード／記事ページのバッジ配色と対応） */
+.featured-category.feature { color: var(--gold); background: var(--gold-soft); }
+.featured-category.howto   { color: #4a6b4a; background: #e8efe5; }
+
+.featured-title {
+  font-family: var(--font-serif);
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--text);
+  margin-bottom: 16px;
+}
+
+.featured-excerpt {
+  font-family: var(--font-serif);
+  font-size: 15px;
+  line-height: 1.9;
+  color: var(--text-mute);
+  margin-bottom: 20px;
+}
+
+.featured-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--text-soft);
+}
+
+.featured-meta .divider {
+  width: 3px;
+  height: 3px;
+  background: var(--text-soft);
+  border-radius: 50%;
+}
+
+/* ========== EMPTY STATE (該当カテゴリに記事が無いとき) ========== */
+.empty-state {
+  grid-column: 1 / -1;
+  text-align: center;
+  font-family: var(--font-serif);
+  font-size: 16px;
+  color: var(--text-soft);
+  padding: 64px 20px;
+}
+
+/* ========== SITE FOOTER ========== */
+.site-footer {
+  background: var(--bg-alt);
+  padding: 48px 32px 32px;
+  border-top: 1px solid var(--line);
+}
+
+.footer-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 32px;
+}
+
+.footer-brand {
+  font-family: var(--font-serif);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.footer-links {
+  display: flex;
+  gap: 24px;
+  font-size: 13px;
+}
+
+.footer-links a {
+  color: var(--text-mute);
+  text-decoration: none;
+}
+.footer-links a:hover { color: var(--accent); }
+
+.footer-copy {
+  width: 100%;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-soft);
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+  margin-top: 24px;
+}
+
+/* ========== RESPONSIVE ========== */
+@media (max-width: 1024px) {
+  .article-grid { grid-template-columns: repeat(2, 1fr); }
+  .featured-article { grid-template-columns: 1fr; }
+  .featured-thumbnail { min-height: 200px; }
+  .featured-title { font-size: 24px; }
+}
+
+@media (max-width: 768px) {
+  .header-inner { padding: 14px 20px; }
+  .site-nav { gap: 18px; }
+  .site-nav a { font-size: 13px; }
+  .logo { font-size: 18px; }
+
+  .blog-hero { padding: 60px 20px 48px; }
+  .hero-title { font-size: 36px; }
+  .hero-sub { font-size: 15px; }
+
+  .category-filter { padding: 32px 20px 0; gap: 6px; }
+  .filter-btn { font-size: 12px; padding: 6px 14px; }
+
+  .article-grid {
+    grid-template-columns: 1fr;
+    padding: 32px 20px 60px;
+    gap: 20px;
+  }
+
+  .featured-body { padding: 28px 24px; }
+  .featured-title { font-size: 22px; }
+
+  .footer-inner { flex-direction: column; }
+}
+</style>
+</head>
+
+<body>
+
+<!-- ========== HEADER ========== -->
+<header class="site-header">
+  <div class="header-inner">
+    <a href="/" class="logo">Clavis <span class="accent">Note</span></a>
+    <nav class="site-nav">
+      <a href="/">ホーム</a>
+      <a href="/#features">特徴</a>
+      <a href="/#pricing">料金</a>
+      <a href="/blog/" class="current">ブログ</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ========== HERO ========== -->
+<section class="blog-hero">
+  <div class="hero-inner">
+    <div class="hero-label">CLAVIS NOTE BLOG</div>
+    <h1 class="hero-title">現場の<span class="accent">記録</span>と、道具のこと。</h1>
+    <p class="hero-sub">
+      在留資格・入管業務の現場で見えてきた工夫や、Clavis Note の機能の使いどころを、現役行政書士の視点でお届けします。
+    </p>
+  </div>
+</section>
+
+<!-- ========== CATEGORY FILTER ========== -->
+<!--
+  カテゴリ絞り込み。data-filter の値で各記事の data-category を絞り込む（JS は最下部）。
+  カテゴリを増やすときは、ここにボタンを1つ追加し、記事側の data-category と合わせるだけ。
+-->
+<div class="category-filter">
+  <button class="filter-btn active" data-filter="all">すべて</button>
+  <button class="filter-btn" data-filter="news">お知らせ</button>
+  <button class="filter-btn" data-filter="feature">機能紹介</button>
+  <button class="filter-btn" data-filter="howto">困りごと解決</button>
+</div>
+
+<!-- ========== ARTICLE GRID ========== -->
+<!--
+  ▼▼▼ 記事の追加方法 ▼▼▼
+  ・新しい記事を公開したら、このグリッド内にカードを1枚追加する。
+  ・いちばん新しい記事だけを「.featured-article」（横長の大きいカード）にし、
+    それ以外は下の「.article-card テンプレート」をコピーして上から新しい順に並べる。
+  ・data-category は news（お知らせ）／ feature（機能紹介）／ howto（困りごと解決）のいずれか。
+    記事ページ側の category-badge の色クラス（feature / howto / 無印=news）と必ず合わせる。
+  ・カテゴリを新設する場合は、上のフィルターボタンと、CSS の .card-category.xxx /
+    .featured-category.xxx / .card-thumbnail.theme-xxx を追加する。
+
+  ── .article-card テンプレート（コピーして使う）──────────────────
+  <a href="/blog/ファイル名.html" class="article-card" data-category="feature">
+    <div class="card-thumbnail theme-feature"></div>
+    <div class="card-body">
+      <span class="card-category feature">機能紹介</span>
+      <h3 class="card-title">記事タイトル</h3>
+      <p class="card-excerpt">記事の抜粋（2〜3行で要約）。</p>
+      <div class="card-meta">
+        <span>長見　恵</span>
+        <span class="divider"></span>
+        <span>2026年X月X日</span>
+      </div>
+    </div>
+  </a>
+  ──────────────────────────────────────────────
+  ▲▲▲ 記事の追加方法 ▲▲▲
+-->
+<section class="article-grid" id="articleGrid">
+
+  <!-- 最新記事を大きく見せる Featured -->
+  <a href="/blog/azukarisho.html" class="featured-article" data-category="feature">
+    <div class="featured-thumbnail"></div>
+    <div class="featured-body">
+      <span class="featured-category feature">機能紹介</span>
+      <h2 class="featured-title">預り証発行機能がつきました！</h2>
+      <p class="featured-excerpt">在留カードを預かったその場で、スマホひとつで預り証を発行。「撮影 → 発行 → 返却記録」までをワンストップでこなせる新機能をご紹介します。</p>
+      <div class="featured-meta">
+        <span>長見　恵</span>
+        <span class="divider"></span>
+        <span>2026年5月24日</span>
+        <span class="divider"></span>
+        <span>読了 2分</span>
+      </div>
+    </div>
+  </a>
+
+  <!-- 該当カテゴリに記事が無いときに表示（JS で制御） -->
+  <p class="empty-state" id="emptyState" style="display:none;">このカテゴリの記事はまだありません。</p>
+
+</section>
+
+<!-- ========== SITE FOOTER ========== -->
+<footer class="site-footer">
+  <div class="footer-inner">
+    <div class="footer-brand">Clavis Note</div>
+    <div class="footer-links">
+      <a href="/privacy.html">プライバシーポリシー</a>
+      <a href="/terms.html">利用規約</a>
+      <a href="/tokushoho.html">特定商取引法表記</a>
+      <a href="mailto:info@clavis-note.com">お問い合わせ</a>
+    </div>
+    <div class="footer-copy">
+      © 2026 Clavis Note. All rights reserved.
+    </div>
+  </div>
+</footer>
+
+<script>
+// カテゴリ絞り込み。記事カード（[data-category]）を data-filter で表示/非表示。
+(function () {
+  var buttons = document.querySelectorAll('.filter-btn');
+  var articles = document.querySelectorAll('#articleGrid [data-category]');
+  var emptyState = document.getElementById('emptyState');
+
+  buttons.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var filter = btn.getAttribute('data-filter');
+
+      buttons.forEach(function (b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+
+      var shown = 0;
+      articles.forEach(function (el) {
+        var match = filter === 'all' || el.getAttribute('data-category') === filter;
+        el.style.display = match ? '' : 'none';
+        if (match) shown++;
+      });
+
+      emptyState.style.display = shown === 0 ? 'block' : 'none';
+    });
+  });
+})();
+</script>
+
+</body>
+</html>
