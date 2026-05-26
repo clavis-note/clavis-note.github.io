@@ -981,6 +981,8 @@ function getInitialData(){
 // 4. ユーティリティ関数
 // ============================================================
 function getDays(d){ if(!d)return null; return Math.ceil((new Date(d)-new Date(new Date().toDateString()))/86400000); }
+// 生年月日(YYYY-MM-DD)から今日基準の満年齢。一般慣習（誕生日当日に+1、民法141条の前日加齢は採らない）。未入力/不正/未来日はnull
+function getAge(dob){ if(!dob)return null; const m=/^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(dob); if(!m)return null; const by=+m[1],bm=+m[2],bd=+m[3]; const n=new Date(),tm=n.getMonth()+1,td=n.getDate(); let a=n.getFullYear()-by; if(tm<bm||(tm===bm&&td<bd))a--; return a<0?null:a; }
 function alertLevel(d){ if(d===null)return"none"; if(d<=0)return"expired"; if(d<=30)return"critical"; if(d<=90)return"warning"; return"ok"; }
 function getTokureiInfo(client,cases){
   const days=getDays(client.residence_expiry);
@@ -4676,7 +4678,7 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
                 </div>
                 <div style={{fontSize:12,color:"var(--text2)",display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
                   {cur.client_type==="general"?<span>{cur.name_kana}{cur.phone?` · ${cur.phone}`:""}</span>
-                  :<><span>{cur.name_kana} · {cur.nationality} · {cur.gender}</span>
+                  :<><span>{cur.name_kana} · {cur.nationality} · {cur.gender}{(()=>{const a=getAge(cur.dob);return a!=null?` · ${a}歳`:"";})()}</span>
                   {cur.residence_status&&<span style={{fontSize:10,padding:"1px 6px",borderRadius:3,background:(STATUS_COLORS[cur.residence_status]||STATUS_COLORS.default).bg,color:(STATUS_COLORS[cur.residence_status]||STATUS_COLORS.default).color,border:"0.5px solid "+(STATUS_COLORS[cur.residence_status]||STATUS_COLORS.default).border,fontWeight:500}}>{cur.residence_status}</span>}
                   {cur.residence_card&&<span style={{fontSize:11,color:"var(--text2)",fontFamily:"monospace"}}>🪪 {cur.residence_card}</span>}
                   {(()=>{const tk=getTokureiInfo(cur,data.cases);if(tk.isTokurei)return <span style={{fontSize:11,color:"#5B2D8E"}}>特例〜{tk.tokureiExpiry.replace(/-/g,"/")} <AlertBadge days={getDays(cur.residence_expiry)} tokurei={tk}/></span>;if(cur.residence_expiry)return <span style={{fontSize:11,color:"var(--text2)"}}>〜{cur.residence_expiry.replace(/-/g,"/")} <AlertBadge days={getDays(cur.residence_expiry)}/></span>;return null;})()}</>}
