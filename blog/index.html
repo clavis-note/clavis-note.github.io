@@ -481,54 +481,77 @@ body {
   padding: 64px 20px;
 }
 
-/* ========== SITE FOOTER ========== */
-.site-footer {
+/* ========== SITE FOOTER (LP本体と同一仕様) ========== */
+footer.site {
   background: var(--bg-alt);
-  padding: 48px 32px 32px;
   border-top: 1px solid var(--line);
-}
-
-.footer-inner {
-  max-width: 1100px;
-  margin: 0 auto;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  flex-wrap: wrap;
-  gap: 32px;
-}
-
-.footer-brand {
-  font-family: var(--font-serif);
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.footer-links {
-  display: flex;
-  gap: 24px;
+  padding: 56px 28px 32px;
+  color: var(--text-mute);
   font-size: 13px;
 }
-
-.footer-links a {
-  color: var(--text-mute);
-  text-decoration: none;
+.footer-grid {
+  max-width: 1080px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 40px;
+  padding-bottom: 32px;
+  border-bottom: 1px solid var(--line);
 }
-.footer-links a:hover { color: var(--accent); }
-
-.footer-copy {
-  width: 100%;
-  text-align: center;
-  font-size: 12px;
-  color: var(--text-soft);
-  padding-top: 24px;
-  border-top: 1px solid var(--line);
-  margin-top: 24px;
+.footer-brand-block .footer-brand {
+  font-family: var(--font-serif);
+  font-size: 22px;
+  color: var(--text);
+  letter-spacing: 0.1em;
+  margin-bottom: 12px;
+  font-weight: 700;
 }
-
-/* 運営者シグナル（ひっそり・控えめ） */
-.footer-operator {
+.footer-brand-block .footer-brand .accent { color: var(--accent); }
+.footer-brand-block .footer-org {
+  color: var(--text);
+  font-size: 14px;
   margin-bottom: 6px;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+.footer-brand-block .footer-info {
+  color: var(--text-mute);
+  font-size: 12.5px;
+  line-height: 1.85;
+}
+.footer-links-block {
+  display: flex; flex-direction: column;
+  gap: 8px;
+}
+.footer-links-block .footer-links-title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  color: var(--text-mute);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.footer-links-block a {
+  color: var(--text);
+  text-decoration: none;
+  font-size: 13.5px;
+  letter-spacing: 0.05em;
+  padding: 4px 0;
+  transition: color .2s;
+}
+.footer-links-block a:hover { color: var(--accent); }
+.footer-bottom {
+  max-width: 1080px;
+  margin: 24px auto 0;
+  display: flex; justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-mute);
+  letter-spacing: 0.05em;
+}
+.mono { font-family: var(--font-mono); }
+@media (max-width: 720px) {
+  .footer-grid { grid-template-columns: 1fr; gap: 28px; }
+  .footer-bottom { flex-direction: column; gap: 6px; align-items: flex-start; }
 }
 
 /* ========== RESPONSIVE ========== */
@@ -573,9 +596,7 @@ body {
   <div class="header-inner">
     <a href="/" class="logo">Clavis <span class="accent">Note</span></a>
     <nav class="site-nav">
-      <a href="/">ホーム</a>
-      <a href="/#features">特徴</a>
-      <a href="/#pricing">料金</a>
+      <a href="/">← 公式サイトへ</a>
       <a href="/blog/" class="current">ブログ</a>
     </nav>
   </div>
@@ -668,19 +689,28 @@ body {
 </section>
 
 <!-- ========== SITE FOOTER ========== -->
-<footer class="site-footer">
-  <div class="footer-inner">
-    <div class="footer-brand">Clavis Note</div>
-    <div class="footer-links">
+<footer class="site">
+  <div class="footer-grid">
+    <div class="footer-brand-block">
+      <div class="footer-brand">Clavis <span class="accent">Note</span></div>
+      <div class="footer-org">ながみ行政書士事務所</div>
+      <div class="footer-info">
+        代表　長見　恵<br>
+        東京都立川市高松町３－１４－２　２F
+      </div>
+    </div>
+    <div class="footer-links-block">
+      <div class="footer-links-title">Information</div>
+      <a href="/blog/">ブログ</a>
+      <a href="/terms.html">ご利用規約</a>
       <a href="/privacy.html">プライバシーポリシー</a>
-      <a href="/terms.html">利用規約</a>
       <a href="/tokushoho.html">特定商取引法表記</a>
-      <a href="mailto:info@clavis-note.com">お問い合わせ</a>
+      <a href="mailto:info@clavis-note.com">info@clavis-note.com</a>
     </div>
-    <div class="footer-copy">
-      <div class="footer-operator">運営者：長見　恵（行政書士・在留資格専門・ながみ行政書士事務所代表）</div>
-      © 2026 Clavis Note. All rights reserved.
-    </div>
+  </div>
+  <div class="footer-bottom">
+    <span>© 2026 ながみ行政書士事務所</span>
+    <span class="mono">Clavis Note — v1.0</span>
   </div>
 </footer>
 
