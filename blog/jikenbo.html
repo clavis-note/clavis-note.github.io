@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>始まりは事件簿 ─ Clavis Note Blog</title>
+<meta name="description" content="Clavis Note開発のきっかけは、行政書士法で義務付けられた「事件簿」でした。日々の業務をこなすだけで、法定の記載事項を備えた事件簿が自動で作られる仕組みをご紹介します。">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;600;700;800&family=Noto+Sans+JP:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+/* =================================================================
+   Clavis Note Blog — Article page (始まりは事件簿)
+   release.html / azukarisho.html のデザインを継承
+   ================================================================= */
+
+:root {
+  --bg:        #f5f4ee;
+  --bg-alt:    #ebe9e0;
+  --bg-soft:   #faf8f5;
+  --bg-paper:  #fdfcf8;
+  --text:      #1f1c19;
+  --text-mute: #6b6760;
+  --text-soft: #8a8680;
+  --line:      #d4d2c8;
+  --line-soft: #e5e3dd;
+
+  --accent:      #2D7DD2;
+  --accent-soft: #E6F1FB;
+  --accent-deep: #1F5A9E;
+  --gold:        #b48a3c;
+  --gold-soft:   #f3ead4;
+
+  --font-serif: 'Shippori Mincho', 'YuMincho', 'Hiragino Mincho ProN', serif;
+  --font-sans:  'Noto Sans JP', -apple-system, BlinkMacSystemFont, 'Segoe UI', Meiryo, sans-serif;
+  --font-mono:  'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --radius-sm: 6px;
+  --radius:    12px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.8;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ========== HEADER ========== */
+.site-header {
+  background: var(--bg-soft);
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(8px);
+  background: rgba(250, 248, 245, 0.92);
+}
+
+.header-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 18px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.logo {
+  font-family: var(--font-serif);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text);
+  text-decoration: none;
+}
+.logo .accent { color: var(--accent); }
+
+.site-nav { display: flex; gap: 28px; }
+.site-nav a {
+  color: var(--text-mute);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  transition: color 0.2s;
+  position: relative;
+}
+.site-nav a:hover { color: var(--accent); }
+.site-nav a.current {
+  color: var(--text);
+}
+.site-nav a.current::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent);
+}
+
+/* ========== ARTICLE HEADER ========== */
+.article-hero {
+  background: var(--bg-soft);
+  padding: 80px 32px 60px;
+  border-bottom: 1px solid var(--line-soft);
+  position: relative;
+  overflow: hidden;
+}
+
+.article-hero::before {
+  content: '';
+  position: absolute;
+  top: -50px;
+  right: -100px;
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, var(--accent-soft) 0%, transparent 70%);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.article-hero::after {
+  content: '';
+  position: absolute;
+  bottom: -80px;
+  left: -120px;
+  width: 320px;
+  height: 320px;
+  background: radial-gradient(circle, var(--gold-soft) 0%, transparent 70%);
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.hero-inner {
+  max-width: 760px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 1;
+}
+
+.category-badge {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+  background: var(--accent-soft);
+  padding: 6px 14px;
+  border-radius: 100px;
+  margin-bottom: 28px;
+  text-transform: uppercase;
+}
+.category-badge.feature { color: var(--gold); background: var(--gold-soft); }
+.category-badge.howto   { color: #4a6b4a; background: #e8efe5; }
+
+.article-title {
+  font-family: var(--font-serif);
+  font-size: 42px;
+  font-weight: 700;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+  color: var(--text);
+  margin-bottom: 32px;
+}
+
+.article-meta {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  color: var(--text-mute);
+  font-size: 14px;
+}
+
+.article-meta .divider {
+  width: 1px;
+  height: 14px;
+  background: var(--line);
+}
+
+/* ========== ARTICLE BODY ========== */
+.article-body {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 60px 32px 80px;
+}
+
+.article-body .lead {
+  font-family: var(--font-serif);
+  font-size: 20px;
+  line-height: 1.9;
+  color: var(--text);
+  margin-bottom: 32px;
+  padding-left: 24px;
+  border-left: 3px solid var(--gold);
+  font-weight: 500;
+}
+
+.article-body h2 {
+  font-family: var(--font-serif);
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--text);
+  margin: 56px 0 24px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.article-body h3 {
+  font-family: var(--font-serif);
+  font-size: 21px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--text);
+  margin: 40px 0 16px;
+}
+
+.article-body h4 {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.6;
+  color: var(--text);
+  margin: 36px 0 14px;
+  letter-spacing: 0.01em;
+}
+
+.article-body p {
+  font-family: var(--font-serif);
+  font-size: 17px;
+  line-height: 2;
+  margin-bottom: 24px;
+  color: var(--text);
+  letter-spacing: 0.02em;
+}
+
+.article-body a {
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px solid var(--accent-soft);
+  transition: border-color 0.2s;
+}
+.article-body a:hover {
+  border-bottom-color: var(--accent);
+}
+
+.article-body strong {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.article-body ul, .article-body ol {
+  margin: 0 0 24px 24px;
+  font-family: var(--font-serif);
+  font-size: 17px;
+  line-height: 2;
+}
+
+.article-body li {
+  margin-bottom: 10px;
+  color: var(--text);
+}
+
+.article-body blockquote {
+  margin: 32px 0;
+  padding: 24px 32px;
+  background: var(--bg-soft);
+  border-left: 4px solid var(--accent);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  font-family: var(--font-serif);
+  font-size: 16px;
+  line-height: 1.9;
+  color: var(--text-mute);
+}
+
+.article-body blockquote p {
+  margin-bottom: 8px;
+}
+.article-body blockquote p:last-child { margin-bottom: 0; }
+
+.article-body blockquote .law-title {
+  display: block;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 12px;
+  letter-spacing: 0.03em;
+}
+
+/* ========== CALLOUT (設計思想・お知らせボックス) ========== */
+.callout {
+  margin: 48px 0;
+  padding: 30px 34px;
+  background: linear-gradient(135deg, var(--gold-soft) 0%, var(--bg-soft) 100%);
+  border-left: 4px solid var(--gold);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  position: relative;
+}
+
+.callout::before {
+  content: '💡';
+  position: absolute;
+  top: -14px;
+  left: 22px;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.callout-label {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: var(--gold);
+  margin-bottom: 14px;
+  text-transform: uppercase;
+}
+
+.callout p {
+  font-family: var(--font-serif);
+  font-size: 16px;
+  line-height: 1.95;
+  color: var(--text);
+  margin-bottom: 0;
+}
+
+/* ========== HIGHLIGHT BOX (記事の核を強調) ========== */
+.highlight-box {
+  background: var(--accent-soft);
+  border: 1px solid #cfe3f5;
+  border-radius: var(--radius);
+  padding: 24px 30px;
+  margin: 32px 0;
+  text-align: center;
+}
+
+.highlight-box .highlight-text {
+  font-family: var(--font-serif);
+  font-size: 21px;
+  font-weight: 700;
+  line-height: 1.6;
+  color: var(--accent-deep);
+  letter-spacing: 0.02em;
+}
+
+/* ========== ARTICLE FIGURE (記事内画像) ========== */
+.article-figure {
+  margin: 36px 0;
+}
+
+.article-figure img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+}
+
+.article-figure figcaption {
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  color: var(--text-soft);
+  margin-top: 10px;
+  text-align: center;
+  letter-spacing: 0.03em;
+}
+
+/* ========== ABOUT BOX (記事末尾の CTA) ========== */
+.about-box {
+  background: linear-gradient(135deg, var(--accent-soft) 0%, var(--bg-soft) 100%);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  padding: 36px 32px;
+  margin-top: 64px;
+}
+
+.about-label {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--accent);
+  margin-bottom: 14px;
+}
+
+.about-box .about-lead {
+  font-family: var(--font-serif);
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.7;
+  color: var(--text);
+  margin-bottom: 12px;
+  padding-left: 0;
+  border-left: none;
+}
+
+.about-box .about-desc {
+  font-family: var(--font-serif);
+  font-size: 15px;
+  line-height: 1.9;
+  color: var(--text-mute);
+  margin-bottom: 26px;
+}
+
+.about-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 20px;
+  align-items: center;
+}
+
+.about-actions a { border-bottom: none; }
+
+.about-box .about-btn-primary {
+  display: inline-block;
+  background: var(--accent);
+  color: #fff;
+  padding: 13px 28px;
+  border-radius: 100px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+.about-box .about-btn-primary:hover {
+  background: var(--accent-deep);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px -8px rgba(45,125,210,0.5);
+}
+
+.about-link {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--accent);
+}
+.about-link:hover { color: var(--accent-deep); }
+
+/* ========== SITE FOOTER (LP本体と同一仕様) ========== */
+footer.site {
+  background: var(--bg-alt);
+  border-top: 1px solid var(--line);
+  padding: 56px 28px 32px;
+  color: var(--text-mute);
+  font-size: 13px;
+}
+.footer-grid {
+  max-width: 1080px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 40px;
+  padding-bottom: 32px;
+  border-bottom: 1px solid var(--line);
+}
+.footer-brand-block .footer-brand {
+  font-family: var(--font-serif);
+  font-size: 22px;
+  color: var(--text);
+  letter-spacing: 0.1em;
+  margin-bottom: 12px;
+  font-weight: 700;
+}
+.footer-brand-block .footer-brand .accent { color: var(--accent); }
+.footer-brand-block .footer-org {
+  color: var(--text);
+  font-size: 14px;
+  margin-bottom: 6px;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+.footer-brand-block .footer-info {
+  color: var(--text-mute);
+  font-size: 12.5px;
+  line-height: 1.85;
+}
+.footer-links-block {
+  display: flex; flex-direction: column;
+  gap: 8px;
+}
+.footer-links-block .footer-links-title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  color: var(--text-mute);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.footer-links-block a {
+  color: var(--text);
+  text-decoration: none;
+  font-size: 13.5px;
+  letter-spacing: 0.05em;
+  padding: 4px 0;
+  transition: color .2s;
+}
+.footer-links-block a:hover { color: var(--accent); }
+.footer-bottom {
+  max-width: 1080px;
+  margin: 24px auto 0;
+  display: flex; justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-mute);
+  letter-spacing: 0.05em;
+}
+.mono { font-family: var(--font-mono); }
+@media (max-width: 720px) {
+  .footer-grid { grid-template-columns: 1fr; gap: 28px; }
+  .footer-bottom { flex-direction: column; gap: 6px; align-items: flex-start; }
+}
+
+/* ========== RESPONSIVE ========== */
+@media (max-width: 768px) {
+  .header-inner { padding: 14px 20px; }
+  .site-nav { gap: 18px; }
+  .site-nav a { font-size: 13px; }
+  .logo { font-size: 18px; }
+
+  .article-hero { padding: 48px 20px 40px; }
+  .article-title { font-size: 28px; }
+  .article-meta { flex-wrap: wrap; gap: 12px; }
+
+  .article-body { padding: 40px 20px 60px; }
+  .article-body .lead { font-size: 17px; padding-left: 16px; }
+  .article-body h2 { font-size: 22px; }
+  .article-body h3 { font-size: 18px; }
+  .article-body h4 { font-size: 16px; }
+  .article-body p { font-size: 16px; line-height: 1.9; }
+
+  .callout { padding: 24px 22px; margin: 36px 0; }
+  .callout p { font-size: 15px; }
+
+  .highlight-box { padding: 20px 22px; }
+  .highlight-box .highlight-text { font-size: 18px; }
+
+  .about-box { padding: 28px 22px; }
+  .about-box .about-lead { font-size: 17px; }
+
+  .footer-inner { flex-direction: column; }
+}
+</style>
+</head>
+
+<body>
+
+<!-- ========== HEADER ========== -->
+<header class="site-header">
+  <div class="header-inner">
+    <a href="/" class="logo">Clavis <span class="accent">Note</span></a>
+    <nav class="site-nav">
+      <a href="/">← 公式サイトへ</a>
+      <a href="/blog/" class="current">ブログ</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ========== ARTICLE HERO ========== -->
+<section class="article-hero">
+  <div class="hero-inner">
+    <span class="category-badge feature">機能紹介</span>
+    <h1 class="article-title">始まりは事件簿</h1>
+    <div class="article-meta">
+      <span>2026年5月28日</span>
+      <span class="divider"></span>
+      <span>読了 2分</span>
+    </div>
+  </div>
+</section>
+
+<!-- ========== ARTICLE BODY ========== -->
+<article class="article-body">
+
+  <p class="lead">
+    Clavis Note を開発することになったきっかけは、事件簿でした。
+  </p>
+
+  <blockquote>
+    <span class="law-title">行政書士法第9条（帳簿の備付及び保存）</span>
+    <p>行政書士は、その業務に関する帳簿を備え、これに事件の名称、年月日、受けた報酬の額、依頼者の住所氏名その他都道府県知事の定める事項を記載しなければならない。</p>
+    <p>２　行政書士は、前項の帳簿をその関係書類とともに、帳簿閉鎖の時から二年間保存しなければならない。行政書士でなくなつたときも、また同様とする。</p>
+  </blockquote>
+
+  <p>
+    私たち行政書士は、事件簿という帳簿を備え付けるよう定められています。
+  </p>
+
+  <p>
+    私も開業してすぐ、Excel で事件簿フォーマットを作り、記録し続けてきました。でも依頼が立て込んでくると、リアルタイムで事件簿に転記することができなくなってきて、後から記憶や書類を引っ張り出してきてまとめて入力する、ということも増えてきました。
+  </p>
+
+  <figure class="article-figure">
+    <img src="/blog/images/jikenbo/事件簿Excel.png" alt="Excel で作成した事件簿フォーマット">
+  </figure>
+
+  <p>
+    日々、仕事やプライベートでも相棒としている AI の Claude に、もっと便利にできないかな？と相談したことがきっかけになりました。
+  </p>
+
+  <p>
+    元々は、ただ同じクライアントの住所をいちいち打ち込むのが面倒だから、同じ人の住所は勝手に読み込んで欲しいな、とか、そんな簡単なことでした。
+  </p>
+
+  <p>
+    そこから、今、案件の管理をどうしているのか、という話になり、OneNote で書類のテンプレートを作っていることを話したり、請求はネットサービスを使っていることなどを説明していき、全部をオールインワンのアプリで済ませられるように、どんどん設計が膨らんでいきました。
+  </p>
+
+  <!-- ポイポイ式（次回予告 callout） -->
+  <div class="callout">
+    <div class="callout-label">次回詳しく</div>
+    <p>そして、めんどくさがりの私がたどりついたのが…ポイポイ式でした！<br>ポイポイ式については、技術的なことを噛み砕いて正確にお伝えしないといけないので、また別の記事でご紹介します。</p>
+  </div>
+
+  <h2>そしてオールインワンツールの Clavis Note が誕生しました</h2>
+
+  <p>
+    Clavis Note は、ご自分の業務フローに沿って ①クライアント情報 ②案件情報 ③報酬情報 を作成していくだけで、この①②③がそのまま、法律が求める『氏名・住所』『事件の名称・年月日』『報酬の額』となる事件簿を自動で作成します。
+  </p>
+
+  <p>
+    もちろん、Excel へのエクスポートも可能です。例えば Clavis Note の継続利用をストップしても、この事件簿だけはいつでも Excel ファイルとして出力可能なので、安心してお使いいただけるかな、と思っています。
+  </p>
+
+  <figure class="article-figure">
+    <img src="/blog/images/jikenbo/事件簿DEMO画面.png" alt="Clavis Note の事件簿画面（デモ）">
+    <figcaption>※データはデモ用の架空の人名・案件です</figcaption>
+  </figure>
+
+  <p>
+    行政書士法で義務付けられている大事な帳簿だからこそ、業務時間を削って正確に記帳 or 適当につける、の2択ではなく、
+  </p>
+
+  <div class="highlight-box">
+    <span class="highlight-text">日ごろの業務をこなしていたら、自然と事件簿がつけられる</span>
+  </div>
+
+  <p>
+    という、<strong>手間なし漏れなし</strong>の仕組みを作りました。
+  </p>
+
+  <p>
+    事件簿は確定申告と同じで、溜めれば溜めるほど、つけるのが億劫になります。<br>特に行政書士として開業したばかりの方は、早いうちから事件簿をきちんとつける習慣を持つべきだと思います！
+  </p>
+
+  <p>
+    義務ではありますが、こうしてあとから自分の業務歴を振り返れるのは、事件簿のメリットでもあるのではないでしょうか。<br>（日記が3日坊主の私でも、法律で決まっているからこそ6年間もつけてこられました💦）
+  </p>
+
+  <p>
+    Clavis Note の事件簿、ぜひお試しください！
+  </p>
+
+  <!-- ========== Clavis Note について（CTA / about-box） ========== -->
+  <div class="about-box">
+    <div class="about-label">CLAVIS NOTE を試してみる</div>
+    <p class="about-lead">30日間無料で全機能お試しいただけます。</p>
+    <p class="about-desc">現役行政書士が開発・運営する、入管業務に特化したオールインワン管理ツール。</p>
+    <div class="about-actions">
+      <a href="https://buy.stripe.com/8x2fZicdl78hd7DfYB3Je01?prefilled_promo_code=FOUNDER" class="about-btn-primary">30日間無料で始める →</a>
+      <a href="mailto:info@clavis-note.com" class="about-link">お問い合わせ：info@clavis-note.com</a>
+    </div>
+  </div>
+
+</article>
+
+<!-- ========== SITE FOOTER ========== -->
+<footer class="site">
+  <div class="footer-grid">
+    <div class="footer-brand-block">
+      <div class="footer-brand">Clavis <span class="accent">Note</span></div>
+      <div class="footer-org">ながみ行政書士事務所</div>
+      <div class="footer-info">
+        代表　長見　恵<br>
+        東京都立川市高松町３－１４－２　２F
+      </div>
+    </div>
+    <div class="footer-links-block">
+      <div class="footer-links-title">Information</div>
+      <a href="/blog/">ブログ</a>
+      <a href="/terms.html">ご利用規約</a>
+      <a href="/privacy.html">プライバシーポリシー</a>
+      <a href="/tokushoho.html">特定商取引法表記</a>
+      <a href="mailto:info@clavis-note.com">info@clavis-note.com</a>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span>© 2026 ながみ行政書士事務所</span>
+    <span class="mono">Clavis Note — v1.0</span>
+  </div>
+</footer>
+
+</body>
+</html>
