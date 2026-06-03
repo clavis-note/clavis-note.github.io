@@ -10712,6 +10712,12 @@ function App(){
     return "dashboard";
   });
   const [fs,setFs]=useState(()=>localStorage.getItem(FS_KEY)||"1");
+  // ヘッダー応答性: ヘッダーは App ルートの zoom(fs) 配下で拡大され実効幅が縮むため、
+  // 実効幅(=ウィンドウ幅÷ズーム倍率)でタブ/右側コントロールの畳み方を決める。
+  const headerZoom=isMobile?1:(parseFloat(fs)||1);
+  const headerEffW=winW/headerZoom;
+  const navIconOnly=!isMobile&&headerEffW<1080;   // タブをアイコンのみに
+  const headerCompact=!isMobile&&headerEffW<900;  // 右側コントロールのラベルを畳む
   const [showBackup,setShowBackup]=useState(false);
   const [showBackupAdvanced,setShowBackupAdvanced]=useState(false);
   const [showFaq,setShowFaq]=useState(false);
@@ -11858,11 +11864,10 @@ function App(){
           {DEMO_MODE&&<span style={{fontSize:10,padding:"2px 8px",borderRadius:10,background:"linear-gradient(135deg,#FF6B6B,#EE4444)",color:"#fff",fontWeight:700,letterSpacing:"0.08em",boxShadow:"0 1px 3px rgba(238,68,68,0.3)"}}>DEMO</span>}
         </div>
         {!isMobile&&(()=>{
-          // ヘッダーは App ルートの zoom(fs) 配下で拡大されるため、実効幅=ウィンドウ幅÷ズーム倍率で判定。
-          // 「大／特大」など実効幅が狭いときはタブをアイコンのみに畳んでラベルの折り返し崩れを防ぐ。
-          const showLabels=(winW/(parseFloat(fs)||1))>=1080;
+          // 実効幅が狭いときはタブをアイコンのみに畳んでラベルの折り返し崩れを防ぐ（navIconOnly）。
+          const showLabels=!navIconOnly;
           return(
-          <div style={{display:"flex",gap:2,flex:1,minWidth:0}}>
+          <div style={{display:"flex",gap:2,flex:1,minWidth:0,overflow:"hidden"}}>
             {TABS.map(t=>(
               <button key={t.id} data-tour={"tab-"+t.id} title={t.label} onClick={()=>setActiveTab(t.id)}
                 style={{fontSize:showLabels?12:15,padding:showLabels?"6px 14px":"6px 10px",cursor:"pointer",border:"none",borderRadius:6,flexShrink:0,whiteSpace:"nowrap",
@@ -11886,7 +11891,7 @@ function App(){
         </div>}
         {isMobile&&<div style={{flex:1}}/>}
         {/* 右側コントロール */}
-        <div style={{display:"flex",alignItems:"center",gap:8}}>
+        <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
           {stepperTab&&!stepperVisible&&!isMobile&&<button onClick={toggleStepper} title="ワークフローガイドを表示" style={{fontSize:10,padding:"3px 8px",borderRadius:5,border:"0.5px solid var(--border)",background:"transparent",cursor:"pointer",color:"var(--text3)",opacity:0.7}}>① ② ③</button>}
           {/* フォントサイズ */}
           {!isMobile&&<div style={{display:"flex",gap:2,background:"#eeede8",borderRadius:6,padding:2}}>
@@ -11920,7 +11925,7 @@ function App(){
                   background:isOk?"#E6F1FB":"#FFF4E0",
                   color:isOk?"#185FA5":"#6B4C1A",
                   cursor:isOk?(isMobile?"pointer":"default"):"pointer",display:"flex",alignItems:"center",gap:4,whiteSpace:"nowrap",fontWeight:500,userSelect:"none"}}>
-                <span>{icon}</span>{!isMobile&&<span>Drive {label}</span>}
+                <span>{icon}</span>{!isMobile&&!headerCompact&&<span>Drive {label}</span>}
               </Tag>
             );
           })()}
@@ -11928,7 +11933,7 @@ function App(){
           <div style={{position:"relative"}}>
             <button onClick={()=>setShowBackup(p=>!p)}
               style={{fontSize:11,padding:"4px 10px",borderRadius:6,border:"0.5px solid var(--border)",background:"transparent",cursor:"pointer",color:"var(--text2)",display:"flex",alignItems:"center",gap:4}}>
-              💾 {!isMobile&&<span>バックアップ</span>}
+              💾 {!isMobile&&!headerCompact&&<span>バックアップ</span>}
             </button>
             {showBackup&&(
               <>
@@ -12048,7 +12053,7 @@ function App(){
               </>
             )}
           </div>
-          {!isMobile&&<div style={{fontSize:11,color:"var(--text3)",marginLeft:4}}>{(data.office||{}).name||"Clavis Note"}</div>}
+          {!isMobile&&!headerCompact&&<div style={{fontSize:11,color:"var(--text3)",marginLeft:4}}>{(data.office||{}).name||"Clavis Note"}</div>}
         </div>
         </div>
         {showStepper&&(
