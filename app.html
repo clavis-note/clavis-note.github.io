@@ -10716,8 +10716,10 @@ function App(){
   // 実効幅(=ウィンドウ幅÷ズーム倍率)でタブ/右側コントロールの畳み方を決める。
   const headerZoom=isMobile?1:(parseFloat(fs)||1);
   const headerEffW=winW/headerZoom;
-  const navIconOnly=!isMobile&&headerEffW<1080;   // タブをアイコンのみに
-  const headerCompact=!isMobile&&headerEffW<900;  // 右側コントロールのラベルを畳む
+  // 狭くなるほど順に畳む: ①事務所名を隠す → ②Drive/バックアップをアイコン化 → ③タブをアイコン化
+  const showOffice=!isMobile&&headerEffW>=1260;   // 事務所名は十分広いときだけ表示
+  const navIconOnly=!isMobile&&headerEffW<1060;   // タブをアイコンのみに
+  const headerCompact=!isMobile&&headerEffW<900;  // Drive/バックアップをアイコンのみに
   const [showBackup,setShowBackup]=useState(false);
   const [showBackupAdvanced,setShowBackupAdvanced]=useState(false);
   const [showFaq,setShowFaq]=useState(false);
@@ -12053,7 +12055,7 @@ function App(){
               </>
             )}
           </div>
-          {!isMobile&&!headerCompact&&<div style={{fontSize:11,color:"var(--text3)",marginLeft:4}}>{(data.office||{}).name||"Clavis Note"}</div>}
+          {showOffice&&<div style={{fontSize:11,color:"var(--text3)",marginLeft:4,maxWidth:160,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flexShrink:0}}>{(data.office||{}).name||"Clavis Note"}</div>}
         </div>
         </div>
         {showStepper&&(
