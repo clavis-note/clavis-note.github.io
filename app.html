@@ -152,13 +152,23 @@ function getSystemAlerts(office){
           const inPeriod=daysToStart<=0&&daysToEnd>=0;
           const icon=inPeriod?"🔔":"📅";
           const status=inPeriod?`申込受付中（〜${s.enroll_end}）`:`申込開始まで${daysToStart}日`;
-          alerts.push({id:`sys-train-${s.no}`,icon,label:`研修 第${s.no}回 ${s.type}`,due:inPeriod?s.enroll_end:s.enroll_start,days:inPeriod?daysToEnd:daysToStart,note:`${status}｜受講料 ¥${s.cost.toLocaleString()}`});
+          alerts.push({id:`sys-train-${s.no}`,icon,label:`研修 第${s.no}回 ${s.type}`,due:inPeriod?s.enroll_end:s.enroll_start,days:inPeriod?daysToEnd:daysToStart,note:`${status}｜受講料 ¥${s.cost.toLocaleString()}`,muteDate:s.enroll_end});
         }
       });
     }
   }
   return alerts;
 }
+
+// アラートの一時ミュート（手動・復活可能）
+// 保持形式: { [アラートID]: ミュート時点の対象日付 }
+// ミュート対象は研修アラート(sys-train-)と在留期限アラート(exp-)のみ。
+// 記録した対象日付と現在の対象日付が一致しなければミュート無効化＝再表示（期限更新で再び鳴る）。
+const MUTED_ALERTS_KEY="clavis-muted-alerts";
+function loadMutedAlerts(){ try{ const r=localStorage.getItem(MUTED_ALERTS_KEY); return r?JSON.parse(r):{}; }catch(e){ return {}; } }
+function saveMutedAlerts(m){ try{ localStorage.setItem(MUTED_ALERTS_KEY, JSON.stringify(m)); }catch(e){} }
+function isAlertMutable(id){ return !!id && (id.startsWith("sys-train")||id.startsWith("exp-")); }
+
 const DEFAULT_LINKS = [
   {id:"L1",name:"オンライン申請システム",url:"https://www.ras-immi.moj.go.jp/",icon:"🖥️",category:"申請"},
   {id:"L2",name:"出入国在留管理庁",url:"https://www.moj.go.jp/isa/",icon:"🏛️",category:"入管"},
@@ -1495,15 +1505,43 @@ function useDashAccordion(key,defaultOpen=true){
   return [open,toggle];
 }
 
-function DashAlertCard({alerts,onClickItem}){
+function DashAlertCard({alerts,mutedAlerts=[],onClickItem,onMute,onUnmute}){
   const [open,toggle]=useDashAccordion("alerts",true);
+  const [mOpen,mToggle]=useDashAccordion("muted-alerts",false);
+  const hasMuted=mutedAlerts.length>0;
+  // ミュート中アラート一覧（折りたたみ・手動復活）。研修/在留期限のみがミュート対象。
+  const mutedSection=hasMuted?(
+    <div style={{background:"var(--bg)",border:"0.5px solid rgba(0,0,0,0.1)",borderRadius:10,overflow:"hidden"}}>
+      <div onClick={mToggle} style={{padding:"10px 16px",background:"#F1EFE8",borderBottom:mOpen?"0.5px solid rgba(0,0,0,0.08)":"none",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",userSelect:"none"}}>
+        <span style={{fontSize:12,fontWeight:500,color:"#5F5E5A"}}>🔕 ミュート中</span>
+        <span style={{fontSize:11,color:"#5F5E5A"}}>{mutedAlerts.length}件 <span style={{fontSize:10}}>{mOpen?"▲":"▼"}</span></span>
+      </div>
+      {mOpen&&<div style={{padding:"6px 0"}}>
+        {mutedAlerts.map(a=>(
+          <div key={a.id} style={{padding:"8px 16px",display:"flex",alignItems:"center",gap:10,borderBottom:"0.5px solid rgba(0,0,0,0.04)",opacity:0.7}}>
+            <span style={{fontSize:14}}>{a.icon}</span>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:12,fontWeight:500,color:"#5F5E5A",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.label}</div>
+              {a.note&&<div style={{fontSize:11,color:"#999"}}>{a.note}</div>}
+            </div>
+            <button onClick={e=>{e.stopPropagation();if(onUnmute)onUnmute(a);}} title="ミュートを解除して再表示"
+              style={{flexShrink:0,fontSize:11,padding:"3px 9px",borderRadius:6,border:"0.5px solid rgba(0,0,0,0.15)",background:"#fff",color:"#185FA5",cursor:"pointer",fontWeight:500}}>↩️ 復活</button>
+          </div>
+        ))}
+      </div>}
+    </div>
+  ):null;
   if(alerts.length===0) return(
-    <div style={{background:"#EAF3DE",border:"0.5px solid rgba(0,0,0,0.08)",borderRadius:10,padding:"16px 18px",display:"flex",alignItems:"center",gap:10}}>
-      <span style={{fontSize:20}}>✅</span>
-      <span style={{fontSize:13,color:"#3B6D11",fontWeight:500}}>アラートはありません</span>
+    <div style={{display:"flex",flexDirection:"column",gap:14}}>
+      <div style={{background:"#EAF3DE",border:"0.5px solid rgba(0,0,0,0.08)",borderRadius:10,padding:"16px 18px",display:"flex",alignItems:"center",gap:10}}>
+        <span style={{fontSize:20}}>✅</span>
+        <span style={{fontSize:13,color:"#3B6D11",fontWeight:500}}>アラートはありません</span>
+      </div>
+      {mutedSection}
     </div>
   );
   return(
+    <div style={{display:"flex",flexDirection:"column",gap:14}}>
     <div style={{background:"var(--bg)",border:"0.5px solid rgba(0,0,0,0.1)",borderRadius:10,overflow:"hidden"}}>
       <div onClick={toggle} style={{padding:"10px 16px",background:"#FCEBEB",borderBottom:open?"0.5px solid rgba(0,0,0,0.08)":"none",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",userSelect:"none"}}>
         <span style={{fontSize:12,fontWeight:500,color:"#A32D2D"}}>🔔 アラート</span>
@@ -1514,10 +1552,11 @@ function DashAlertCard({alerts,onClickItem}){
           const isExpired=a.days!==null&&a.days<=0, isCritical=a.days!==null&&a.days>0&&a.days<=30, isWarning=a.days!==null&&a.days>30&&a.days<=90;
           const bgColor=isExpired?"#FCEBEB":isCritical?"#FCEBEB":isWarning?"#FAEEDA":"#fff";
           const textColor=isExpired?"#A32D2D":isCritical?"#A32D2D":isWarning?"#854F0B":"#1a1a1a";
+          const mutable=isAlertMutable(a.id);
           return(
             <div key={a.id} onClick={()=>{if(onClickItem)onClickItem(a);}} style={{padding:"8px 16px",display:"flex",alignItems:"center",gap:10,borderBottom:"0.5px solid rgba(0,0,0,0.04)",background:bgColor,cursor:"pointer"}}>
               <span style={{fontSize:14}}>{a.icon}</span>
-              <div style={{flex:1}}>
+              <div style={{flex:1,minWidth:0}}>
                 <div style={{fontSize:12,fontWeight:500,color:textColor}}>{a.label}</div>
                 {a.note&&<div style={{fontSize:11,color:"#666"}}>{a.note}</div>}
               </div>
@@ -1528,10 +1567,14 @@ function DashAlertCard({alerts,onClickItem}){
                 </span>}
                 <div style={{fontSize:10,color:"#999",marginTop:2}}>{a.due}</div>
               </div>
+              {mutable&&<button onClick={e=>{e.stopPropagation();if(onMute)onMute(a);}} title="このアラートを一時ミュート"
+                style={{flexShrink:0,fontSize:14,padding:"2px 6px",borderRadius:6,border:"none",background:"transparent",cursor:"pointer",opacity:0.5,lineHeight:1}}>🔕</button>}
             </div>
           );
         })}
       </div>}
+    </div>
+    {mutedSection}
     </div>
   );
 }
@@ -3011,9 +3054,9 @@ function Dashboard({data,setData,onNavClient,onNavCase,onNavPayment,onNavMaster}
     if(days!==null&&days<=90){
       const tk=getTokureiInfo(c,cases);
       if(tk.isTokurei){
-        alerts.push({id:"exp-"+c.client_id,icon:"🛂",label:`${c.name_roman} 特例期間`,due:tk.tokureiExpiry,days:tk.tokureiDays,note:`${c.residence_status} · 特例期間中`,clientId:c.client_id,client:c});
+        alerts.push({id:"exp-"+c.client_id,icon:"🛂",label:`${c.name_roman} 特例期間`,due:tk.tokureiExpiry,days:tk.tokureiDays,note:`${c.residence_status} · 特例期間中`,clientId:c.client_id,client:c,muteDate:c.residence_expiry});
       } else {
-        alerts.push({id:"exp-"+c.client_id,icon:"🛂",label:`${c.name_roman} 在留期限`,due:c.residence_expiry,days,note:`${c.residence_status} · ${c.company_name}`,clientId:c.client_id,client:c});
+        alerts.push({id:"exp-"+c.client_id,icon:"🛂",label:`${c.name_roman} 在留期限`,due:c.residence_expiry,days,note:`${c.residence_status} · ${c.company_name}`,clientId:c.client_id,client:c,muteDate:c.residence_expiry});
       }
     }
   });
@@ -3023,6 +3066,22 @@ function Dashboard({data,setData,onNavClient,onNavCase,onNavPayment,onNavMaster}
     if(b.id==="sys-license") return 1;
     return (a.days??999)-(b.days??999);
   });
+
+  // アラート一時ミュート（手動・復活可能）
+  const [mutedAlerts,setMutedAlerts]=useState(loadMutedAlerts);
+  // 対象日付が更新された(=記録時と不一致)ミュートは自動解除し、保存もクリーンアップ
+  useEffect(()=>{
+    let changed=false; const next={...mutedAlerts};
+    alerts.forEach(a=>{
+      if(isAlertMutable(a.id)&&next[a.id]!==undefined&&next[a.id]!==a.muteDate){ delete next[a.id]; changed=true; }
+    });
+    if(changed){ setMutedAlerts(next); saveMutedAlerts(next); }
+  });
+  const isAlertMuted=a=>isAlertMutable(a.id)&&mutedAlerts[a.id]!==undefined&&mutedAlerts[a.id]===a.muteDate;
+  const visibleAlerts=alerts.filter(a=>!isAlertMuted(a));
+  const mutedAlertList=alerts.filter(isAlertMuted);
+  const muteAlert=useCallback(a=>{ setMutedAlerts(prev=>{ const next={...prev,[a.id]:a.muteDate}; saveMutedAlerts(next); return next; }); },[]);
+  const unmuteAlert=useCallback(a=>{ setMutedAlerts(prev=>{ const next={...prev}; delete next[a.id]; saveMutedAlerts(next); return next; }); },[]);
 
   const activeCaseCount=cases.filter(c=>!["許可","不許可","完了","完了（許可）","完了（不許可）","完了（結果待ち）","キャンセル","取下","取下げ","取下予定","済","保留"].includes(c.status)).length;
   const thisYear=new Date().getFullYear().toString();
@@ -3101,7 +3160,7 @@ function Dashboard({data,setData,onNavClient,onNavCase,onNavPayment,onNavMaster}
       </div>
       <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14}}>
         <div style={{display:"flex",flexDirection:"column",gap:14}}>
-          <DashAlertCard alerts={alerts} onClickItem={a=>{
+          <DashAlertCard alerts={visibleAlerts} mutedAlerts={mutedAlertList} onMute={muteAlert} onUnmute={unmuteAlert} onClickItem={a=>{
             if(a.id==="sys-license") onNavMaster("office");
             else if(a.id&&a.id.startsWith("sys-train")) setModal({type:"training",data:a,office:data.office});
             else if(a.id&&a.id.startsWith("sys-cred")) setModal({type:"credential",data:a,office:data.office});
