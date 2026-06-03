@@ -10700,6 +10700,7 @@ function TourGuide({stepIndex,setStepIndex,setActiveTab,activeTab,onClose,isMobi
 function App(){
   const [data,_setData]=useState(getInitialData);
   const [isMobile,setIsMobile]=useState(()=>window.innerWidth<768||/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent));
+  const [winW,setWinW]=useState(()=>window.innerWidth);
   const [activeTab,setActiveTab]=useState(()=>{
     // URLのhashを優先(/detailなどのサブパスは切り離してタブ名のみ抽出)
     const hash=location.hash.replace('#','').split('/')[0];
@@ -11528,7 +11529,7 @@ function App(){
 
   // モバイル検出
   useEffect(()=>{
-    const h=()=>setIsMobile(window.innerWidth<768);
+    const h=()=>{setIsMobile(window.innerWidth<768);setWinW(window.innerWidth);};
     window.addEventListener("resize",h);
     return()=>window.removeEventListener("resize",h);
   },[]);
@@ -11856,17 +11857,23 @@ function App(){
           <span><span style={{color:"var(--accent-text)"}}>Clavis</span> Note</span>
           {DEMO_MODE&&<span style={{fontSize:10,padding:"2px 8px",borderRadius:10,background:"linear-gradient(135deg,#FF6B6B,#EE4444)",color:"#fff",fontWeight:700,letterSpacing:"0.08em",boxShadow:"0 1px 3px rgba(238,68,68,0.3)"}}>DEMO</span>}
         </div>
-        {!isMobile&&<div style={{display:"flex",gap:2,flex:1}}>
-          {TABS.map(t=>(
-            <button key={t.id} data-tour={"tab-"+t.id} onClick={()=>setActiveTab(t.id)}
-              style={{fontSize:12,padding:"6px 14px",cursor:"pointer",border:"none",borderRadius:6,
-                background:activeTab===t.id?"var(--accent-bg)":"transparent",
-                color:activeTab===t.id?"var(--accent-text)":"var(--text2)",
-                fontWeight:activeTab===t.id?500:400,display:"flex",alignItems:"center",gap:5}}>
-              <span style={{fontSize:14}}>{t.icon}</span>{t.label}
-            </button>
-          ))}
-        </div>}
+        {!isMobile&&(()=>{
+          // ヘッダーは App ルートの zoom(fs) 配下で拡大されるため、実効幅=ウィンドウ幅÷ズーム倍率で判定。
+          // 「大／特大」など実効幅が狭いときはタブをアイコンのみに畳んでラベルの折り返し崩れを防ぐ。
+          const showLabels=(winW/(parseFloat(fs)||1))>=1080;
+          return(
+          <div style={{display:"flex",gap:2,flex:1,minWidth:0}}>
+            {TABS.map(t=>(
+              <button key={t.id} data-tour={"tab-"+t.id} title={t.label} onClick={()=>setActiveTab(t.id)}
+                style={{fontSize:showLabels?12:15,padding:showLabels?"6px 14px":"6px 10px",cursor:"pointer",border:"none",borderRadius:6,flexShrink:0,whiteSpace:"nowrap",
+                  background:activeTab===t.id?"var(--accent-bg)":"transparent",
+                  color:activeTab===t.id?"var(--accent-text)":"var(--text2)",
+                  fontWeight:activeTab===t.id?500:400,display:"flex",alignItems:"center",gap:showLabels?5:0}}>
+                <span style={{fontSize:14}}>{t.icon}</span>{showLabels&&<span>{t.label}</span>}
+              </button>
+            ))}
+          </div>);
+        })()}
         {isMobile&&<div style={{display:"flex",gap:0,flex:1}}>
           {TABS.map(t=>(
             <button key={t.id} data-tour={"tab-"+t.id} onClick={()=>setActiveTab(t.id)}
