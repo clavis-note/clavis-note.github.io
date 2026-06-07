@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>できること一覧 ─ Clavis Note</title>
+<meta name="description" content="在留資格・入管業務に特化したオールインワン管理ツール「Clavis Note」でできることの一覧。クライアント台帳・預り証・案件管理・事件簿・報酬入金管理・マスター登録まで、現役行政書士が現場目線で実装した機能をカテゴリごとにご紹介します。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;600;700;800&family=Noto+Sans+JP:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#f5f4ee; --bg-alt:#ebe9e0; --bg-soft:#faf8f5; --bg-paper:#fdfcf8;
+  --text:#1f1c19; --text-mute:#6b6760; --text-soft:#8a8680;
+  --line:#d4d2c8; --line-soft:#e5e3dd;
+  --accent:#2D7DD2; --accent-soft:#E6F1FB; --accent-deep:#1F5A9E; --accent-ink:#0d2742;
+  --gold:#b48a3c; --gold-soft:#f3ead4; --gold-wash:#faf5e9;
+  --ok:#1F8A5B; --ok-soft:#e4f1ea;
+  --bg-deep:#1a1d24;
+  --font-serif:'Shippori Mincho','YuMincho','Hiragino Mincho ProN',serif;
+  --font-sans:'Noto Sans JP',-apple-system,BlinkMacSystemFont,'Segoe UI',Meiryo,sans-serif;
+  --font-mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --radius-sm:6px; --radius:12px; --radius-lg:20px;
+  --shadow-sm:0 1px 2px rgba(20,18,16,.06),0 1px 1px rgba(20,18,16,.04);
+  --shadow:0 12px 28px -10px rgba(20,18,16,.18),0 4px 10px -4px rgba(20,18,16,.08);
+  --shadow-lg:0 30px 60px -22px rgba(20,18,16,.28),0 10px 24px -12px rgba(20,18,16,.12);
+}
+* { box-sizing:border-box; margin:0; padding:0; }
+html { scroll-behavior:smooth; }
+body {
+  background:var(--bg); color:var(--text); font-family:var(--font-sans);
+  font-size:16px; line-height:1.8; -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+  background-image:radial-gradient(circle at 18% 24%,rgba(180,138,60,.035) 0,transparent 42%),
+                   radial-gradient(circle at 84% 68%,rgba(45,125,210,.03) 0,transparent 42%);
+}
+.eyebrow { font-family:var(--font-mono); font-size:12px; letter-spacing:.22em; text-transform:uppercase; color:var(--gold); }
+
+/* ===== NAV ===== */
+.site-nav { background:rgba(250,248,245,.92); backdrop-filter:blur(8px); border-bottom:1px solid var(--line); position:sticky; top:0; z-index:100; }
+.nav-inner { max-width:1180px; margin:0 auto; padding:15px 32px; display:flex; align-items:center; justify-content:space-between; gap:16px; }
+.nav-brand { font-family:var(--font-serif); font-size:22px; font-weight:700; letter-spacing:.04em; color:var(--text); text-decoration:none; white-space:nowrap; }
+.nav-brand .accent { color:var(--accent); }
+.nav-actions { display:flex; align-items:center; gap:22px; }
+.nav-link { color:var(--text-mute); text-decoration:none; font-size:14px; font-weight:500; transition:color .2s; }
+.nav-link:hover { color:var(--accent); }
+.nav-cta { background:var(--accent); color:#fff; text-decoration:none; font-size:13px; font-weight:600; padding:9px 18px; border-radius:var(--radius-sm); white-space:nowrap; transition:background .2s; }
+.nav-cta:hover { background:var(--accent-deep); }
+
+/* ===== HERO (index) ===== */
+.hero { max-width:1180px; margin:0 auto; padding:74px 32px 24px; }
+.hero-top { max-width:680px; margin:0 auto 40px; text-align:center; }
+.hero-top .eyebrow { margin-bottom:18px; }
+.hero-top h1 { font-family:var(--font-serif); font-size:clamp(30px,5vw,44px); font-weight:700; line-height:1.4; letter-spacing:.02em; margin-bottom:18px; }
+.hero-top h1 .accent { color:var(--accent); }
+.hero-top .lead { font-size:15.5px; color:var(--text-mute); line-height:1.95; }
+.hero-top .lead strong { color:var(--text); font-weight:600; }
+.idx-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(232px,1fr)); gap:14px; }
+.idx { background:var(--bg-paper); border:1px solid var(--line-soft); border-radius:var(--radius); padding:20px 20px;
+       display:flex; gap:15px; align-items:flex-start; box-shadow:var(--shadow-sm); text-decoration:none; color:inherit;
+       transition:transform .25s,box-shadow .25s,border-color .25s; }
+.idx:hover { transform:translateY(-3px); box-shadow:var(--shadow); border-color:var(--line); }
+.idx-ic { width:42px; height:42px; flex-shrink:0; border-radius:11px; background:var(--accent-soft); color:var(--accent-deep); display:flex; align-items:center; justify-content:center; }
+.idx-ic svg { width:22px; height:22px; }
+.idx-body { flex:1; min-width:0; }
+.idx-num { font-family:var(--font-mono); font-size:10px; color:var(--gold); letter-spacing:.12em; display:block; margin-bottom:3px; }
+.idx-t { display:block; font-family:var(--font-serif); font-size:17px; font-weight:600; line-height:1.4; }
+.idx-c { display:block; font-size:11.5px; color:var(--text-soft); margin-top:6px; line-height:1.6; }
+.idx-cnt { font-family:var(--font-mono); font-size:10px; color:var(--text-soft); margin-top:10px; display:inline-block; border:1px solid var(--line); border-radius:999px; padding:2px 9px; }
+
+/* ===== CATALOG ===== */
+.catalog { max-width:1080px; margin:0 auto; padding:36px 32px 30px; }
+.cat-sec { padding:40px 0; border-top:1px dashed var(--line); scroll-margin-top:80px; }
+.cat-sec:first-child { border-top:none; }
+.cat-head2 { display:flex; align-items:center; gap:18px; margin-bottom:22px; }
+.ch-num { font-family:var(--font-serif); font-size:34px; font-weight:700; color:var(--gold-soft); -webkit-text-stroke:1px var(--gold); line-height:.8; flex-shrink:0; }
+.ch-ic { width:46px; height:46px; flex-shrink:0; border-radius:12px; background:var(--accent-soft); color:var(--accent-deep); display:flex; align-items:center; justify-content:center; }
+.ch-ic svg { width:24px; height:24px; }
+.ch-titles { flex:1; min-width:0; }
+.ch-titles h2 { font-family:var(--font-serif); font-size:25px; font-weight:600; letter-spacing:.02em; line-height:1.35; }
+.ch-titles p { font-size:13px; color:var(--text-soft); margin-top:3px; }
+.ch-cnt { font-family:var(--font-mono); font-size:11px; color:var(--text-soft); border:1px solid var(--line); border-radius:999px; padding:4px 11px; flex-shrink:0; white-space:nowrap; }
+
+/* star showcase */
+.star-card { display:grid; grid-template-columns:1fr 1fr; background:var(--bg-paper); border:1px solid var(--line);
+             border-radius:var(--radius-lg); overflow:hidden; box-shadow:var(--shadow); margin-bottom:16px; }
+.sc-copy { padding:34px 34px; display:flex; flex-direction:column; justify-content:center;
+           background:linear-gradient(160deg,var(--gold-wash),#fdfaf2); border-right:1px solid var(--line-soft); }
+.sc-eyebrow { font-family:var(--font-mono); font-size:10.5px; letter-spacing:.2em; text-transform:uppercase; color:var(--gold); display:flex; align-items:center; gap:8px; margin-bottom:14px; }
+.sc-eyebrow::before { content:"★"; font-size:11px; }
+.sc-copy h3 { font-family:var(--font-serif); font-size:20px; font-weight:600; line-height:1.5; letter-spacing:.01em; margin-bottom:12px; }
+.sc-copy p { font-size:13.5px; color:var(--text-mute); line-height:1.85; }
+.sc-visual { padding:30px 28px; background:var(--bg-soft); display:flex; align-items:center; justify-content:center; position:relative; }
+.sc-visual::after { content:""; position:absolute; inset:0; background:repeating-linear-gradient(135deg,rgba(20,18,16,.018) 0 1px,transparent 1px 8px); pointer-events:none; }
+.star-card.flip .sc-copy { order:2; border-right:none; border-left:1px solid var(--line-soft); }
+.star-card.flip .sc-visual { order:1; }
+.sc-shot { position:relative; z-index:1; width:100%; border-radius:10px; border:1px solid var(--line); box-shadow:var(--shadow-lg); overflow:hidden; background:#fff; }
+.sc-shot img { display:block; width:100%; height:auto; }
+
+/* feature grid */
+.feat-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(264px,1fr)); gap:14px; }
+.feat-grid.three { grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); }
+.fcard { background:var(--bg-paper); border:1px solid var(--line-soft); border-radius:var(--radius); padding:19px 20px; box-shadow:var(--shadow-sm); transition:transform .22s,box-shadow .22s,border-color .22s; }
+.fcard:hover { transform:translateY(-3px); box-shadow:var(--shadow); border-color:var(--line); }
+.fcard .fn { font-size:14.5px; font-weight:600; line-height:1.5; display:flex; gap:9px; align-items:flex-start; }
+.fcard .fn::before { content:""; width:6px; height:6px; border-radius:50%; background:var(--accent); opacity:.5; flex-shrink:0; margin-top:8px; }
+.fcard .fd { font-size:12.5px; color:var(--text-mute); margin-top:8px; line-height:1.78; }
+
+/* ===== mini product UI (dummy) ===== */
+.ui { width:100%; max-width:340px; position:relative; z-index:1; font-family:var(--font-sans); }
+.ui-win { background:#fff; border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow-lg); overflow:hidden; }
+.ui-bar { background:var(--bg-deep); padding:8px 12px; display:flex; align-items:center; gap:5px; }
+.ui-bar i { width:7px; height:7px; border-radius:50%; background:#4a4e58; }
+.ui-bar em { color:#fff; font-style:normal; font-family:var(--font-serif); font-size:11px; margin-left:7px; opacity:.85; }
+.ui-pad { padding:14px 15px; }
+.kv { display:flex; justify-content:space-between; gap:10px; font-size:11.5px; padding:6px 0; border-bottom:.5px solid var(--line-soft); }
+.kv:last-child { border-bottom:none; }
+.kv .k { color:var(--text-soft); }
+.kv .v { font-family:var(--font-mono); font-size:11px; color:var(--text); text-align:right; }
+.drop { border:1.5px dashed var(--accent); border-radius:10px; background:var(--accent-soft); color:var(--accent-deep);
+        text-align:center; padding:13px 10px; font-size:11.5px; font-weight:600; margin-bottom:12px; }
+.drop .big { font-size:18px; display:block; margin-bottom:3px; }
+.toast { margin-top:12px; background:var(--accent-soft); color:var(--accent-deep); font-size:11px; font-weight:600; padding:7px 11px; border-radius:7px; text-align:center; }
+.sec-label { font-family:var(--font-mono); font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--text-soft); margin-bottom:9px; }
+
+/* timeline */
+.tl { position:relative; padding-left:18px; }
+.tl::before { content:""; position:absolute; left:4px; top:4px; bottom:4px; width:1.5px; background:var(--line); }
+.tl-item { position:relative; padding:0 0 13px; }
+.tl-item:last-child { padding-bottom:0; }
+.tl-item::before { content:""; position:absolute; left:-17.5px; top:4px; width:8px; height:8px; border-radius:50%; background:var(--accent); border:2px solid var(--bg-soft); }
+.tl-date { font-family:var(--font-mono); font-size:10px; color:var(--text-soft); }
+.tl-txt { font-size:12px; color:var(--text); margin-top:1px; line-height:1.5; }
+.tl-txt .ok { color:var(--ok); font-weight:600; font-size:11px; margin-left:5px; }
+
+/* checklist */
+.chk-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:11px; }
+.chk-chip { font-size:10.5px; font-weight:600; color:var(--accent-deep); background:var(--accent-soft); border-radius:999px; padding:3px 10px; }
+.chk-prog { font-family:var(--font-mono); font-size:10px; color:var(--text-soft); }
+.chk-row { display:flex; align-items:center; gap:9px; font-size:12px; padding:7px 0; border-bottom:.5px solid var(--line-soft); }
+.chk-row:last-child { border-bottom:none; }
+.chk-box { width:15px; height:15px; border-radius:4px; border:1.5px solid var(--line); flex-shrink:0; display:flex; align-items:center; justify-content:center; }
+.chk-row.done .chk-box { background:var(--ok); border-color:var(--ok); }
+.chk-row.done .chk-box svg { width:9px; height:9px; color:#fff; }
+.chk-row.done .chk-label { color:var(--text-soft); }
+
+/* phone */
+.phone { width:188px; border-radius:26px; background:#23262e; padding:8px; box-shadow:var(--shadow-lg); position:relative; z-index:1; }
+.phone-screen { background:var(--bg); border-radius:19px; overflow:hidden; }
+.phone-status { display:flex; justify-content:space-between; align-items:center; padding:7px 14px 4px; font-size:9px; color:var(--text-mute); font-family:var(--font-mono); }
+.phone-app { padding:6px 13px 15px; }
+.phone-title { font-family:var(--font-serif); font-size:13px; font-weight:600; text-align:center; padding:5px 0 11px; }
+.phone-btn { background:var(--accent); color:#fff; text-align:center; font-size:11.5px; font-weight:600; padding:9px; border-radius:8px; margin-top:11px; }
+.phone .kv .k { white-space:nowrap; }
+.phone .kv .v { font-size:10px; }
+
+/* lang tabs */
+.lang-tabs { display:flex; flex-wrap:wrap; gap:5px; margin-bottom:11px; }
+.lang-tab { font-size:10.5px; padding:3px 9px; border-radius:999px; border:1px solid var(--line); color:var(--text-soft); white-space:nowrap; }
+.lang-tab.on { background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600; }
+.remark { font-size:11.5px; line-height:1.6; }
+.remark .src { color:var(--text); padding-bottom:8px; margin-bottom:8px; border-bottom:.5px dashed var(--line); }
+.remark .tr { color:var(--accent-deep); }
+.remark .tr .flag { font-family:var(--font-mono); font-size:9px; letter-spacing:.08em; color:var(--text-soft); display:block; margin-bottom:2px; }
+
+/* price table */
+.price-row { display:flex; justify-content:space-between; align-items:center; gap:10px; font-size:11.5px; padding:8px 0; border-bottom:.5px solid var(--line-soft); }
+.price-row:last-child { border-bottom:none; }
+.price-row .nm { color:var(--text); }
+.price-row .amt { font-family:var(--font-mono); font-size:12px; font-weight:500; color:var(--accent-deep); white-space:nowrap; }
+
+/* data-safety diagram */
+.safe { display:flex; flex-direction:column; gap:11px; align-items:center; width:100%; max-width:300px; }
+.safe-node { width:100%; background:#fff; border:1px solid var(--line); border-radius:11px; padding:13px 15px; display:flex; align-items:center; gap:12px; box-shadow:var(--shadow-sm); }
+.safe-node .si { width:34px; height:34px; border-radius:9px; background:var(--accent-soft); color:var(--accent-deep); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.safe-node .si svg { width:18px; height:18px; }
+.safe-node .st { display:block; font-size:12.5px; font-weight:600; }
+.safe-node .ss { display:block; font-size:10.5px; color:var(--text-soft); margin-top:2px; }
+.safe-sync { font-family:var(--font-mono); font-size:9.5px; color:var(--text-soft); letter-spacing:.06em; }
+.safe-no { width:100%; border:1px dashed var(--line); border-radius:11px; padding:11px 15px; display:flex; align-items:center; gap:10px; opacity:.75; }
+.safe-no .x { color:#b4534a; font-weight:700; font-size:15px; flex-shrink:0; }
+.safe-no .nt { font-size:11.5px; color:var(--text-mute); }
+
+/* ===== CTA ===== */
+.cta-band { max-width:1080px; margin:24px auto 0; padding:0 32px; }
+.cta-card { background:var(--bg-soft); border:1px solid var(--line); border-radius:var(--radius-lg); padding:48px 36px; text-align:center; position:relative; overflow:hidden; }
+.cta-card::before { content:""; position:absolute; inset:0; background:radial-gradient(circle at 50% 0%,var(--accent-soft) 0,transparent 60%); opacity:.6; pointer-events:none; }
+.cta-card > * { position:relative; }
+.cta-card .label { font-family:var(--font-mono); font-size:11px; letter-spacing:.2em; text-transform:uppercase; color:var(--gold); margin-bottom:14px; }
+.cta-card h2 { font-family:var(--font-serif); font-size:24px; font-weight:700; line-height:1.5; margin-bottom:10px; }
+.cta-card p { font-size:14px; color:var(--text-mute); margin-bottom:26px; }
+.cta-btn { display:inline-block; background:var(--accent); color:#fff; text-decoration:none; font-size:15px; font-weight:600; padding:14px 34px; border-radius:var(--radius-sm); box-shadow:0 10px 22px -10px rgba(45,125,210,.6); transition:background .2s,transform .15s; }
+.cta-btn:hover { background:var(--accent-deep); transform:translateY(-1px); }
+.cta-note { margin-top:16px; font-size:12.5px; color:var(--text-soft); }
+.cta-note a { color:var(--accent); text-decoration:none; }
+
+/* ===== FOOTER ===== */
+footer.site { margin-top:64px; background:var(--bg-alt); border-top:1px solid var(--line); padding:48px 32px 28px; }
+.footer-grid { max-width:1180px; margin:0 auto; display:grid; grid-template-columns:1.4fr 1fr; gap:40px; }
+.footer-brand { font-family:var(--font-serif); font-size:20px; font-weight:700; letter-spacing:.04em; }
+.footer-brand .accent { color:var(--accent); }
+.footer-org { font-size:13.5px; color:var(--text-mute); margin-top:8px; font-weight:500; }
+.footer-info { font-size:13px; color:var(--text-soft); margin-top:6px; line-height:1.8; }
+.footer-links-title { font-family:var(--font-mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--text-soft); margin-bottom:14px; }
+.footer-links-block a { display:block; color:var(--text-mute); text-decoration:none; font-size:13.5px; padding:4px 0; transition:color .2s; }
+.footer-links-block a:hover { color:var(--accent); }
+.footer-bottom { max-width:1180px; margin:32px auto 0; padding-top:20px; border-top:1px solid var(--line); display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--text-soft); }
+.footer-bottom .mono { font-family:var(--font-mono); }
+
+/* ===== RESPONSIVE ===== */
+@media (max-width:860px) {
+  .star-card { grid-template-columns:1fr; }
+  .sc-copy { border-right:none; border-bottom:1px solid var(--line-soft); padding:28px 26px; }
+  .star-card.flip .sc-copy { order:0; border-left:none; border-bottom:1px solid var(--line-soft); }
+  .star-card.flip .sc-visual { order:0; }
+  .sc-visual { padding:26px 22px; }
+}
+@media (max-width:640px) {
+  body { font-size:15px; }
+  .nav-inner { padding:13px 18px; }
+  .nav-actions { gap:14px; }
+  .nav-link { display:none; }
+  .hero { padding:46px 18px 18px; }
+  .hero-top { margin-bottom:30px; }
+  .idx-grid { grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; }
+  .idx { padding:15px 14px; gap:11px; flex-direction:column; }
+  .idx-ic { width:38px; height:38px; }
+  .idx-t { font-size:15px; }
+  .idx-c { display:none; }
+  .idx-cnt { margin-top:8px; }
+  .catalog { padding:20px 18px; }
+  .cat-sec { padding:32px 0; }
+  .cat-head2 { gap:13px; margin-bottom:18px; }
+  .ch-num { font-size:26px; }
+  .ch-ic { width:40px; height:40px; }
+  .ch-titles h2 { font-size:21px; }
+  .feat-grid, .feat-grid.three { grid-template-columns:1fr; }
+  .cta-band { padding:0 18px; }
+  .cta-card { padding:38px 24px; }
+  .footer-grid { grid-template-columns:1fr; gap:28px; }
+  .footer-bottom { flex-direction:column; gap:6px; align-items:flex-start; }
+}
+</style>
+</head>
+<body>
+
+<!-- ===== NAV ===== -->
+<header class="site-nav">
+  <div class="nav-inner">
+    <a href="/" class="nav-brand">Clavis <span class="accent">Note</span></a>
+    <nav class="nav-actions">
+      <a href="/#features" class="nav-link">機能</a>
+      <a href="/#pricing" class="nav-link">料金</a>
+      <a href="/#faq" class="nav-link">FAQ</a>
+      <a href="https://buy.stripe.com/8x2fZicdl78hd7DfYB3Je01?prefilled_promo_code=FOUNDER" class="nav-cta">30日間無料で始める</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ===== HERO (index) ===== -->
+<section class="hero">
+  <div class="hero-top">
+    <div class="eyebrow">All Features</div>
+    <h1>Clavis Note で<span class="accent">できること</span></h1>
+    <p class="lead">在留資格・入管業務の現場で「本当に必要なもの」だけを、現役行政書士が形にしました。<br><strong>気になるカテゴリから、すぐに飛べます。</strong></p>
+  </div>
+  <nav class="idx-grid" aria-label="カテゴリ索引">
+    <a class="idx" href="#cat-01"><span class="idx-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><span class="idx-body"><span class="idx-num">01</span><span class="idx-t">クライアント台帳</span><span class="idx-c">在留カードから家族・勤務先まで</span><span class="idx-cnt">8 機能</span></span></a>
+    <a class="idx" href="#cat-02"><span class="idx-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="M6 15h4"/><circle cx="16.5" cy="15" r="1.5"/></svg></span><span class="idx-body"><span class="idx-num">02</span><span class="idx-t">在留カード預り証</span><span class="idx-c">撮影 → 発行 → 返却記録まで</span><span class="idx-cnt">4 機能</span></span></a>
+    <a class="idx" href="#cat-03"><span class="idx-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="M8 14h4M8 18h6"/></svg></span><span class="idx-body"><span class="idx-num">03</span><span class="idx-t">案件管理</span><span class="idx-c">入管も、たまの一般業務も</span><span class="idx-cnt">8 機能</span></span></a>
+    <a class="idx" href="#cat-04"><span class="idx-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></span><span class="idx-body"><span class="idx-num">04</span><span class="idx-t">事件簿</span><span class="idx-c">こなすだけで法定の事件簿に</span><span class="idx-cnt">3 機能</span></span></a>
+    <a class="idx" href="#cat-05"><span class="idx-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2-1.5L8 22l2-1.5L12 22l2-1.5L16 22l2-1.5L20 22V2l-2 1.5L16 2l-2 1.5L12 2l-2 1.5L8 2 6 3.5z"/><path d="M8 8h8M8 12h6"/></svg></span><span class="idx-body"><span class="idx-num">05</span><span class="idx-t">報酬・入金管理</span><span class="idx-c">見積から領収書、入金まで</span><span class="idx-cnt">8 機能</span></span></a>
+    <a class="idx" href="#cat-06"><span class="idx-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span><span class="idx-body"><span class="idx-num">06</span><span class="idx-t">マスター登録</span><span class="idx-c">ロゴ・印影から料金まで自分仕様に</span><span class="idx-cnt">5 機能</span></span></a>
+    <a class="idx" href="#cat-07"><span class="idx-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg></span><span class="idx-body"><span class="idx-num">07</span><span class="idx-t">データ管理・安心</span><span class="idx-c">大切な情報は外に預けない</span><span class="idx-cnt">4 機能</span></span></a>
+  </nav>
+</section>
+
+<!-- ===== CATALOG ===== -->
+<div class="catalog">
+
+  <!-- 01 クライアント台帳 -->
+  <section class="cat-sec" id="cat-01">
+    <div class="cat-head2">
+      <span class="ch-num">01</span>
+      <span class="ch-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+      <div class="ch-titles"><h2>クライアント台帳</h2><p>在留カード情報から家族・勤務先まで、一人をまるごと管理</p></div>
+      <span class="ch-cnt">8 機能</span>
+    </div>
+
+    <article class="star-card">
+      <div class="sc-copy">
+        <div class="sc-eyebrow">Highlight</div>
+        <h3>ポイポイ式 ─ 書類を投げ込んで自動読取</h3>
+        <p>在留カード・パスポート・雇用契約書などをまとめてドロップ（または下のボタンで選択）するだけ。AIが券面を読み取って台帳の項目を自動入力し、そのまま名寄せしてクライアント詳細へジャンプします。読み取りに使うのは入力内容を学習しないAPIなので、預けた情報が学習に使われる心配もありません。</p>
+      </div>
+      <div class="sc-visual"><div class="sc-shot"><img src="shots/poipoi.png" alt="ポイポイ式 ─ 書類をドロップして自動読取する画面"></div></div>
+    </article>
+
+    <article class="star-card flip">
+      <div class="sc-copy">
+        <div class="sc-eyebrow">Highlight</div>
+        <h3>案件履歴の一覧表示</h3>
+        <p>そのクライアントが過去にどんな申請をしてきたか、クライアント詳細の「案件履歴」タブから時系列でたどれます。前回の在留資格・報酬・受付番号までひと目で分かるので、次の更新・変更の見立てが早くなります。</p>
+      </div>
+      <div class="sc-visual"><div class="sc-shot"><img src="shots/case-history.png" alt="クライアント詳細の案件履歴タブ"></div></div>
+    </article>
+
+    <div class="feat-grid">
+      <div class="fcard"><div class="fn">在留カード・パスポート情報の一元管理</div><div class="fd">在留資格、在留期限、カード番号、国籍などをひとつの台帳に集約。一人の情報を探し回らずに済みます。</div></div>
+      <div class="fcard"><div class="fn">最低賃金の自動チェック</div><div class="fd">月給・時給と就労時間から最低賃金マスタと自動照合。「最賃OK」か「最賃割れ」かをその場で判定し、就労ビザの落とし穴を入口で防ぎます。</div></div>
+      <div class="fcard"><div class="fn">職歴・給与履歴の記録</div><div class="fd">給与を入れて保存すると、職歴と一緒に給与履歴へも自動登録。賃金の推移を時系列で残せます。</div></div>
+      <div class="fcard"><div class="fn">家族・扶養関係の関連付け</div><div class="fd">扶養する側・される側をひも付けて、家族滞在系の関係をひと目で把握。世帯まとめての管理がラクになります。</div></div>
+      <div class="fcard"><div class="fn">勤務先（会社）との紐付け</div><div class="fd">クライアントと所属会社をつなげて管理。会社DBを作れば、所属する外国人従業員が自動でリスト化され、Excel出力もできます。</div></div>
+      <div class="fcard"><div class="fn">在留期限アラート</div><div class="fd">期限切れ・期限間近をダッシュボードで通知。更新のうっかり忘れを防ぎます。</div></div>
+    </div>
+  </section>
+
+  <!-- 02 在留カード預り証 -->
+  <section class="cat-sec" id="cat-02">
+    <div class="cat-head2">
+      <span class="ch-num">02</span>
+      <span class="ch-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="M6 15h4"/><circle cx="16.5" cy="15" r="1.5"/></svg></span>
+      <div class="ch-titles"><h2>在留カード預り証</h2><p>撮影 → 発行 → 返却記録まで、スマホひとつでノンストップ</p></div>
+      <span class="ch-cnt">4 機能</span>
+    </div>
+
+    <article class="star-card">
+      <div class="sc-copy">
+        <div class="sc-eyebrow">Highlight</div>
+        <h3>スマホ対応 ─ 訪問先でその場で発行</h3>
+        <p>クライアントのところに出向いて在留カードを預かったら、スマホでもその場で預り証を発行。表裏を撮るだけで証跡をすぐ手渡しでき、事務所に戻る必要がありません。アップロードした画像は印刷に一度利用するだけで、Clavis Note には保存されません（閉じると破棄）。</p>
+      </div>
+      <div class="sc-visual"><div class="sc-shot"><img src="shots/azukari.png" alt="在留カード預り証の発行・印刷プレビュー画面"></div></div>
+    </article>
+
+    <div class="feat-grid three">
+      <div class="fcard"><div class="fn">撮影 → 預り証発行までワンストップ</div><div class="fd">在留カードの表裏を撮って、その場で預り証を発行。預かった証跡をすぐ手渡しできます。</div></div>
+      <div class="fcard"><div class="fn">預り ↔ 返却の履歴管理</div><div class="fd">預かった日と返却した日を記録。複数回の預り・返却のサイクルも履歴に残るので、今どちらが持っているか迷いません。</div></div>
+      <div class="fcard"><div class="fn">画像は保存しない安心設計</div><div class="fd">在留カードの画像は発行時だけ受け取って即破棄。預かるのは日付と記録だけ。「データを預からない」設計思想と一貫しています。</div></div>
+    </div>
+  </section>
+
+  <!-- 03 案件管理 -->
+  <section class="cat-sec" id="cat-03">
+    <div class="cat-head2">
+      <span class="ch-num">03</span>
+      <span class="ch-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="M8 14h4M8 18h6"/></svg></span>
+      <div class="ch-titles"><h2>案件管理</h2><p>入管業務はもちろん、たまの一般業務まで。現場のリアルに対応</p></div>
+      <span class="ch-cnt">8 機能</span>
+    </div>
+
+    <article class="star-card">
+      <div class="sc-copy">
+        <div class="sc-eyebrow">Highlight</div>
+        <h3>在留資格別の書類チェックリスト</h3>
+        <p>申請に必要な書類を在留資格別にあらかじめプリセット。取得済み／不要をその場で切り替えられ、提出状況がパーセンテージで見えるので「あと何が足りないか」がひと目で分かり、集め忘れを防げます。書類は自分で追加することもできます。</p>
+      </div>
+      <div class="sc-visual"><div class="sc-shot"><img src="shots/checklist.png" alt="在留資格別の書類チェックリスト画面"></div></div>
+    </article>
+
+    <article class="star-card flip">
+      <div class="sc-copy">
+        <div class="sc-eyebrow">Highlight</div>
+        <h3>追加資料の対応履歴</h3>
+        <p>追加資料の求めに、いつ・何を・どう対応したかを記録。要請日・提出締切・提出日・提出方法まで残せるので、やり取りの抜け漏れを防ぎ、後から経緯をそのまま追えます。複数案件を抱えていても混乱しません。</p>
+      </div>
+      <div class="sc-visual"><div class="sc-shot"><img src="shots/additional-docs.png" alt="追加資料の対応履歴を記録する画面"></div></div>
+    </article>
+
+    <div class="feat-grid">
+      <div class="fcard"><div class="fn">入管案件と一般業務の両対応</div><div class="fd">在留資格の申請が中心だけど、たまに相続などそれ以外も引き受ける ── そんな現場に合わせ、一般業務も同じツールで。入力内容は事件簿へも自動反映されます。</div></div>
+      <div class="fcard"><div class="fn">在留資格別のヒアリング項目</div><div class="fd">在留資格ごとに、聞いておくべき項目をプリセット。何を確認すべきか迷わず進められます。</div></div>
+      <div class="fcard"><div class="fn">職務上請求書の番号管理</div><div class="fd">戸籍や住民票を職務上請求した際の番号を、案件ごとに記録。どの案件で、いつ使ったかを残せます。</div></div>
+      <div class="fcard"><div class="fn">関係者リスト</div><div class="fd">家族、勤務先、関係する人を案件ごとに整理。誰が関わっているかを一覧で把握できます。</div></div>
+      <div class="fcard"><div class="fn">審査官・勤務先とのやり取り履歴</div><div class="fd">いつ、誰と、どんなやり取りをしたか。案件ごとに記録を残せるので、後から経緯を追えます。</div></div>
+      <div class="fcard"><div class="fn">クライアント台帳との相互リンク</div><div class="fd">案件から台帳へ、台帳から案件へ。行ったり来たりがスムーズです。</div></div>
+    </div>
+  </section>
+
+  <!-- 04 事件簿（主役なし・3均等） -->
+  <section class="cat-sec" id="cat-04">
+    <div class="cat-head2">
+      <span class="ch-num">04</span>
+      <span class="ch-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></span>
+      <div class="ch-titles"><h2>事件簿</h2><p>日々の業務をこなすだけで、法定の事件簿ができあがる</p></div>
+      <span class="ch-cnt">3 機能</span>
+    </div>
+    <div class="feat-grid three">
+      <div class="fcard"><div class="fn">法定事件簿の自動生成</div><div class="fd">日々の案件・報酬の入力から、行政書士法で備え付けが義務付けられた事件簿が自動でできあがります。事件簿のために改めて手を動かす必要がありません。</div></div>
+      <div class="fcard"><div class="fn">記載事項に沿った形式</div><div class="fd">受任年月日、依頼者、事件の概要など、法定の記載事項に沿って整理されます。</div></div>
+      <div class="fcard"><div class="fn">事件簿のエクスポート</div><div class="fd">必要なときに事件簿を書き出せます。保管・提出にそのまま使えます。</div></div>
+    </div>
+  </section>
+
+  <!-- 05 報酬・入金管理 -->
+  <section class="cat-sec" id="cat-05">
+    <div class="cat-head2">
+      <span class="ch-num">05</span>
+      <span class="ch-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2-1.5L8 22l2-1.5L12 22l2-1.5L16 22l2-1.5L20 22V2l-2 1.5L16 2l-2 1.5L12 2l-2 1.5L8 2 6 3.5z"/><path d="M8 8h8M8 12h6"/></svg></span>
+      <div class="ch-titles"><h2>報酬・入金管理</h2><p>見積から領収書、入金記録まで、お金の流れをまるごと</p></div>
+      <span class="ch-cnt">8 機能</span>
+    </div>
+
+    <article class="star-card">
+      <div class="sc-copy">
+        <div class="sc-eyebrow">Highlight</div>
+        <h3>6か国語に自動翻訳できる備考欄</h3>
+        <p>見積書・請求書の備考を、英語・中国語・ベトナム語など6か国語にワンクリックで翻訳し、日本語と併記。外国人のクライアントにも内容が伝わる書類を渡せます。追加してほしい言語があれば、ぜひご要望をお寄せください。</p>
+      </div>
+      <div class="sc-visual"><div class="sc-shot"><img src="shots/translate.png" alt="備考欄を6か国語に翻訳して併記する画面"></div></div>
+    </article>
+
+    <div class="feat-grid">
+      <div class="fcard"><div class="fn">見積書・請求書・領収書のPDF発行</div><div class="fd">見積から請求、領収書まで一気通貫。事務所情報やロゴを載せたPDFをそのまま発行できます。</div></div>
+      <div class="fcard"><div class="fn">タイミングの異なる請求も、まとめて見通せる</div><div class="fd">着手金と成功報酬のように入金時期が分かれる案件でも、請求ごとの入金状況と未収（売掛）の残りをひとつに把握。キャッシュフローの見通しが立てやすくなります。</div></div>
+      <div class="fcard"><div class="fn">複数案件のまとめ請求</div><div class="fd">同じ宛先の複数案件を、一通にまとめて請求。月締めの請求がラクになります。</div></div>
+      <div class="fcard"><div class="fn">会社請求から個人請求への切り出し</div><div class="fd">会社ごとにまとめた請求から、個人分だけを切り出すことも。会社負担から個人負担へ切り替わるとき、請求書を一から作り直す必要がありません。</div></div>
+      <div class="fcard"><div class="fn">立替金・実費の追跡</div><div class="fd">印紙代や交通費などの立替・実費を、報酬と分けて管理。請求に含める分も明確にできます。</div></div>
+      <div class="fcard"><div class="fn">現金入金もその場で記録</div><div class="fd">現金でいただいた報酬は、その場で入金記録 → 領収書発行まで。現場で完結します。</div></div>
+      <div class="fcard"><div class="fn">入金ステータス管理</div><div class="fd">未収・一部入金・入金済をひと目で。ダッシュボードの「入金待ち」と合わせて、取りこぼしを防ぎます。</div></div>
+    </div>
+  </section>
+
+  <!-- 06 マスター登録 -->
+  <section class="cat-sec" id="cat-06">
+    <div class="cat-head2">
+      <span class="ch-num">06</span>
+      <span class="ch-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
+      <div class="ch-titles"><h2>マスター登録</h2><p>ロゴ・印影から料金・テンプレートまで、ツールを自分仕様に</p></div>
+      <span class="ch-cnt">5 機能</span>
+    </div>
+
+    <article class="star-card">
+      <div class="sc-copy">
+        <div class="sc-eyebrow">Highlight</div>
+        <h3>料金マスタ</h3>
+        <p>自分の事務所の報酬体系をカテゴリごとに登録。見積や請求の作成時に、登録した料金をそのまま呼び出せます。毎回金額を打ち直す手間がなくなり、付け値のブレも防げます。</p>
+      </div>
+      <div class="sc-visual"><div class="sc-shot"><img src="shots/price-master.png" alt="料金マスタの登録画面"></div></div>
+    </article>
+
+    <div class="feat-grid">
+      <div class="fcard"><div class="fn">事務所設定（ロゴ・印影・振込先）</div><div class="fd">事務所名・住所・ロゴ・印影・振込先などを登録。請求書も領収書も預り証も、発行する書類が一気に「自分の事務所のもの」になります。</div></div>
+      <div class="fcard"><div class="fn">書類テンプレートのカスタマイズ</div><div class="fd">書類のテンプレートを、自分の業務の流れに合わせて編集・追加できます。いつものやり方を、そのまま型にできます。</div></div>
+      <div class="fcard"><div class="fn">会社DB</div><div class="fd">よく扱う企業を登録しておけば、クライアントの勤務先としてすぐ紐付け。同じ会社の案件をまとめて扱えます。</div></div>
+      <div class="fcard"><div class="fn">最低賃金マスタ</div><div class="fd">地域別の最低賃金を登録。毎年10月の改定にも、施行日と引上額を指定して一括更新で対応できます。</div></div>
+    </div>
+  </section>
+
+  <!-- 07 データ管理・安心 -->
+  <section class="cat-sec" id="cat-07">
+    <div class="cat-head2">
+      <span class="ch-num">07</span>
+      <span class="ch-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg></span>
+      <div class="ch-titles"><h2>データ管理・安心</h2><p>大切な情報は、外に預けない。手元とご自身のDriveに</p></div>
+      <span class="ch-cnt">4 機能</span>
+    </div>
+
+    <article class="star-card">
+      <div class="sc-copy">
+        <div class="sc-eyebrow">Highlight</div>
+        <h3>クライアントデータを外部に預けない設計</h3>
+        <p>在留カードやパスポートなどの機微情報は、運営のサーバーには置きません。お使いのブラウザと、ご自身のGoogle Driveに保管されます。「あずからない」ことを、いちばんの安心にしています。</p>
+      </div>
+      <div class="sc-visual">
+        <div class="safe">
+          <div class="safe-node">
+            <span class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg></span>
+            <span><span class="st">お使いのPC（ブラウザ）</span><span class="ss">入力したデータはまず手元に</span></span>
+          </div>
+          <span class="safe-sync">↑↓ 自動バックアップ・同期</span>
+          <div class="safe-node">
+            <span class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 14h16L12 3z" opacity=".0"/><path d="M7.5 5h9l4.5 8-2.5 4.5h-13L3 13z"/><path d="M7.5 5 3 13M16.5 5 21 13M3 13h18"/></svg></span>
+            <span><span class="st">ご自身の Google Drive</span><span class="ss">バックアップはあなたの管理下に</span></span>
+          </div>
+          <div class="safe-no"><span class="x">✕</span><span class="nt">運営のサーバーには保存しません</span></div>
+        </div>
+      </div>
+    </article>
+
+    <div class="feat-grid three">
+      <div class="fcard"><div class="fn">Google Drive への自動バックアップ</div><div class="fd">入力したデータをご自身のGoogle Driveへ自動でバックアップ。万一のときも、ご自身の手元から復元できます。</div></div>
+      <div class="fcard"><div class="fn">ダッシュボードでひと目で把握</div><div class="fd">在留期限のアラートと入金待ちを、ログインしてすぐのダッシュボードに集約。今日見るべきことが分かります。</div></div>
+      <div class="fcard"><div class="fn">よく使うリンクをダッシュボードに集約</div><div class="fd">オンライン申請システム、出入国在留管理庁、手数料の電子納付など、何度も開くページへのリンクをまとめて配置。表示するリンクは自分で追加・編集できます。</div></div>
+    </div>
+  </section>
+
+</div>
+
+<!-- ===== CTA ===== -->
+<div class="cta-band">
+  <div class="cta-card">
+    <div class="label">Free Trial</div>
+    <h2>30日間、全機能を無料でお試しいただけます。</h2>
+    <p>件数制限なし。クレジットカードの登録も不要です。</p>
+    <a href="https://buy.stripe.com/8x2fZicdl78hd7DfYB3Je01?prefilled_promo_code=FOUNDER" class="cta-btn">30日間無料で始める →</a>
+    <p class="cta-note">ご不明な点は <a href="mailto:info@clavis-note.com">info@clavis-note.com</a> までお気軽に。</p>
+  </div>
+</div>
+
+<!-- ===== FOOTER ===== -->
+<footer class="site">
+  <div class="footer-grid">
+    <div class="footer-brand-block">
+      <div class="footer-brand">Clavis <span class="accent">Note</span></div>
+      <div class="footer-org">ながみ行政書士事務所</div>
+      <div class="footer-info">代表　長見　恵<br>東京都立川市高松町３－１４－２　２F</div>
+    </div>
+    <div class="footer-links-block">
+      <div class="footer-links-title">Information</div>
+      <a href="/">トップ（LP）</a>
+      <a href="/blog/">ブログ</a>
+      <a href="/terms.html">ご利用規約</a>
+      <a href="/privacy.html">プライバシーポリシー</a>
+      <a href="/tokushoho.html">特定商取引法表記</a>
+      <a href="mailto:info@clavis-note.com">info@clavis-note.com</a>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span>© 2026 ながみ行政書士事務所</span>
+    <span class="mono">Clavis Note — v1.0</span>
+  </div>
+</footer>
+
+</body>
+</html>
