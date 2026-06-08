@@ -7016,6 +7016,16 @@ function escapeHtml(s) {
   return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
+// 帳票の件名フォールバックに使う案件名を返す。
+// 一般案件(case_type==="general")は applicant にクライアント名がコピーされているため、
+// 業務内容が入る case_title を優先する。入管案件は従来どおり申請人名(applicant)を優先。
+// 案件ごとに case_type を見て個別判定するので、入管・一般の混在請求にも耐える。
+function caseSubjectName(c) {
+  return c.case_type === "general"
+    ? (c.case_title || c.applicant)
+    : (c.applicant || c.case_title);
+}
+
 function generateEstimate(p, cases, clients, office) {
   const ofc = office || {};
   const cs = p.case_ids.map(id => cases.find(x => x.case_id === id)).filter(Boolean);
@@ -7034,7 +7044,7 @@ function generateEstimate(p, cases, clients, office) {
   if (p.subject && p.subject.trim()) {
     subject = p.subject.trim();
   } else {
-    const names = cs.map(c => c.applicant || c.case_title).filter(Boolean);
+    const names = cs.map(caseSubjectName).filter(Boolean);
     if (names.length === 0) subject = "";
     else if (names.length <= 2) subject = names.join("、");
     else subject = names[0] + " 他" + (names.length - 1) + "名";
@@ -7219,7 +7229,7 @@ function generateInvoice(p, cases, clients, office) {
   if (p.subject && p.subject.trim()) {
     subject = p.subject.trim();
   } else {
-    const names = cs.map(c => c.applicant || c.case_title).filter(Boolean);
+    const names = cs.map(caseSubjectName).filter(Boolean);
     if (names.length === 0) subject = "";
     else if (names.length <= 2) subject = names.join("、");
     else subject = names[0] + " 他" + (names.length - 1) + "名";
@@ -7447,7 +7457,7 @@ function generateReceipt(p, cases, clients, office, paymentLogId) {
   if (p.subject && p.subject.trim()) {
     subject = p.subject.trim();
   } else {
-    const names = cs.map(c => c.applicant || c.case_title).filter(Boolean);
+    const names = cs.map(caseSubjectName).filter(Boolean);
     if (names.length === 0) subject = "";
     else if (names.length <= 2) subject = names.join("、");
     else subject = names[0] + " 他" + (names.length - 1) + "名";
