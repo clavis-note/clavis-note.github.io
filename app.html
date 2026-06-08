@@ -8074,6 +8074,70 @@ function syncCaseFromPayment(prevCases,payment){
   });
 }
 
+// CSVセルのエスケープ（カンマ・改行・引用符を含む値は "" で囲む）
+function csvCell(v){
+  const s=(v===null||v===undefined)?"":String(v);
+  return /[",\r\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+}
+// 帳票の件名（手入力 p.subject 優先、無ければ案件名フォールバック＝請求書と同じロジック）
+function paymentDocSubject(p, cases){
+  if(p.subject && p.subject.trim()) return p.subject.trim();
+  const cs=(p.case_ids||[]).map(id=>(cases||[]).find(x=>x.case_id===id)).filter(Boolean);
+  const names=cs.map(caseSubjectName).filter(Boolean);
+  if(names.length===0) return "";
+  if(names.length<=2) return names.join("、");
+  return names[0]+" 他"+(names.length-1)+"名";
+}
+// 期間指定で 見積書・請求書・入金 を 1行=1イベント の汎用CSVに出力する（Excel向け UTF-8 BOM）。
+// 既存の payments[] を期間で絞って整形するだけ（帳票は新規生成しない）。見込案件の見積書も対象に含める。
+// 税抜/消費税/税込は請求書表示と同じ calcGrandTotal / calcTax で算出（税込モードは内税表示）。
+// start/end は "YYYY-MM-DD"。日付はISO文字列の辞書順比較で範囲判定する。
+function exportPaymentsCSV(payments, cases, clients, office, start, end){
+  const inRange=(d)=> !!d && d>=start && d<=end;
+  const COLS=["種別","日付","宛先","件名","案件化ステータス","税抜額","消費税額","税込額","入金額","入金状況","書類番号","案件ID"];
+  const rows=[];
+  (payments||[]).forEach(p=>{
+    const billTo=resolveBillName(p);
+    const subject=paymentDocSubject(p, cases);
+    const caseIds=(p.case_ids||[]).join(" / ");
+    const promote=p.is_prospect?"未案件化(見込)":"案件化済み";
+    const itemsTotal=calcItemsTotal(p.items);
+    const taxMode=p.tax_mode||"tax_incl";
+    const grand=calcGrandTotal(p.items,p.expenses,taxMode);
+    const tax=calcTax(itemsTotal,taxMode);
+    const net=grand-tax;
+    // 見積書（見込案件の見積書も含める）
+    if((p.estimate_date||p.estimate_number) && inRange(p.estimate_date)){
+      rows.push(["見積書",p.estimate_date,billTo,subject,promote,net,tax,grand,"","",p.estimate_number||"",caseIds]);
+    }
+    // 請求書（見込案件からは請求書を発行しないため除外）
+    if(!p.is_prospect && (p.invoice_date||p.invoice_number) && inRange(p.invoice_date)){
+      const paid=(p.payments_history||[]).reduce((s,h)=>s+(h.amount||0),0);
+      rows.push(["請求書",p.invoice_date,billTo,subject,promote,net,tax,grand,paid,paymentStatus(p),p.invoice_number||"",caseIds]);
+    }
+    // 入金（入金履歴の各エントリを1行ずつ）
+    if(!p.is_prospect){
+      (p.payments_history||[]).forEach(h=>{
+        if(inRange(h.date)){
+          rows.push(["入金",h.date,billTo,subject,promote,"","","",h.amount||0,h.note||"",p.invoice_number||"",caseIds]);
+        }
+      });
+    }
+  });
+  // 日付昇順 → 同日は 見積→請求→入金 の順
+  const typeOrder={"見積書":0,"請求書":1,"入金":2};
+  rows.sort((a,b)=> (String(a[1]||"")).localeCompare(String(b[1]||"")) || (typeOrder[a[0]]-typeOrder[b[0]]));
+  const lines=[COLS.join(",")].concat(rows.map(r=>r.map(csvCell).join(",")));
+  const csv="﻿"+lines.join("\r\n"); // UTF-8 BOM（Excelで日本語が文字化けしない）
+  const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url; a.download=`報酬一覧_${start}_${end}.csv`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  return rows.length;
+}
+
 function PaymentManagement({data,setData,navigatePaymentId,clearNavigate}){
   const isMobile=useMobile();
   const {cases,clients,payments}=data;
@@ -8088,6 +8152,10 @@ function PaymentManagement({data,setData,navigatePaymentId,clearNavigate}){
   const [searchPay,setSearchPay]=useState("");
   const [mergeMode,setMergeMode]=useState(false);
   const [mergeIds,setMergeIds]=useState([]);
+  const [showExport,setShowExport]=useState(false);
+  const thisYear=new Date().getFullYear();
+  const [expStart,setExpStart]=useState(thisYear+"-01-01");
+  const [expEnd,setExpEnd]=useState(thisYear+"-12-31");
 
   useEffect(()=>{
     if(navigatePaymentId){
@@ -8305,6 +8373,9 @@ function PaymentManagement({data,setData,navigatePaymentId,clearNavigate}){
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
             <span style={{fontSize:14,fontWeight:500}}>報酬管理</span>
             <div style={{display:"flex",gap:4}}>
+              <button onClick={()=>setShowExport(true)} title="期間を指定して見積・請求・入金の一覧をCSV出力"
+                style={{fontSize:10,padding:"3px 8px",cursor:"pointer",borderRadius:5,
+                  border:"0.5px solid rgba(0,0,0,0.15)",background:"transparent",color:"var(--text3)"}}>⬇ CSV</button>
               <button onClick={()=>{setMergeMode(p=>!p);setMergeIds([]);}}
                 style={{fontSize:10,padding:"3px 8px",cursor:"pointer",borderRadius:5,
                   border:`0.5px solid ${mergeMode?"#A32D2D":"rgba(0,0,0,0.15)"}`,
@@ -8402,6 +8473,43 @@ function PaymentManagement({data,setData,navigatePaymentId,clearNavigate}){
         }
       </div>
 
+      {showExport&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:400}} onClick={()=>setShowExport(false)}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg)",borderRadius:12,border:"0.5px solid rgba(0,0,0,0.15)",width:isMobile?"90%":400,maxWidth:"92vw",display:"flex",flexDirection:"column"}}>
+            <div style={{padding:"14px 18px",borderBottom:"0.5px solid rgba(0,0,0,0.1)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span style={{fontSize:14,fontWeight:600}}>期間指定CSV出力</span>
+              <button onClick={()=>setShowExport(false)} style={{border:"none",background:"none",fontSize:18,cursor:"pointer",color:"#999"}}>×</button>
+            </div>
+            <div style={{padding:18,display:"flex",flexDirection:"column",gap:14}}>
+              <div style={{fontSize:11,color:"var(--text2)",lineHeight:1.6}}>
+                指定期間に発生した<b>見積書・請求書・入金</b>を一覧でCSV出力します（Excelで開けます）。確定申告用や、期間の活動の見渡しにどうぞ。見込案件の見積書も含まれます。
+              </div>
+              <div style={{display:"flex",gap:10,alignItems:"flex-end"}}>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:11,color:"#999",marginBottom:3}}>開始日</div>
+                  <DateInput value={expStart} onChange={v=>setExpStart(v)} style={{width:"100%",fontSize:13,padding:"6px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)"}}/>
+                </div>
+                <span style={{fontSize:13,color:"var(--text3)",paddingBottom:7}}>〜</span>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:11,color:"#999",marginBottom:3}}>終了日</div>
+                  <DateInput value={expEnd} onChange={v=>setExpEnd(v)} style={{width:"100%",fontSize:13,padding:"6px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)"}}/>
+                </div>
+              </div>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                {[["今年",thisYear+"-01-01",thisYear+"-12-31"],["前年",(thisYear-1)+"-01-01",(thisYear-1)+"-12-31"]].map(([label,s,e])=>(
+                  <button key={label} onClick={()=>{setExpStart(s);setExpEnd(e);}} style={{fontSize:11,padding:"3px 10px",borderRadius:10,border:"0.5px solid rgba(0,0,0,0.15)",background:expStart===s&&expEnd===e?"#E6F1FB":"transparent",color:expStart===s&&expEnd===e?"#185FA5":"var(--text2)",cursor:"pointer"}}>{label}</button>
+                ))}
+              </div>
+              <button onClick={()=>{
+                if(expStart>expEnd){alert("開始日は終了日より前にしてください。");return;}
+                const n=exportPaymentsCSV(payments,cases,clients,data.office,expStart,expEnd);
+                setShowExport(false);
+                if(n===0)alert("指定期間に該当するデータがありませんでした。");
+              }} style={{fontSize:13,padding:"9px 0",cursor:"pointer",borderRadius:8,border:"none",background:"var(--accent)",color:"#fff",fontWeight:500}}>CSVを出力</button>
+            </div>
+          </div>
+        </div>
+      )}
       {showNew&&<NewPaymentModal onClose={()=>setShowNew(false)} onSave={handleNew} cases={cases} clients={clients} payments={allPayments} feeMaster={data.fee_master}/>}
       {mergeConfirm&&<MergeConfirmModal targets={mergeConfirm.targets} billCandidates={mergeConfirm.billCandidates}
         onClose={()=>setMergeConfirm(null)} onConfirm={handleMergeExecute}/>}
