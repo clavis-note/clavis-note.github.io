@@ -3548,8 +3548,8 @@ function TabBasic({c,editMode,update,allClients}){
         </div>
       </div>
 
-      {/* === 申請情報（入管オンライン申請の入力順）=== */}
-      <Card title={isGenClient?"基本情報":"申請情報（入管オンライン申請の入力順）"}>
+      {/* === 申請情報 ===（入管オンライン申請の入力順。説明は別途、汎用ヘルプUIのiマーク＋モーダルへ移す予定）*/}
+      <Card title={isGenClient?"基本情報":"申請情報"}>
         <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14}}>
           {!isGenClient&&<Field label="国籍" value={c.nationality} editMode={editMode} field="nationality" update={update} placeholder="例: ベトナム"/>}
           {!isGenClient&&<div>
