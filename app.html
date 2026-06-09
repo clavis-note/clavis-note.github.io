@@ -5189,7 +5189,7 @@ function TemplatePreviewModal({templateId,templates,onClose}){
   );
 }
 
-function NewCaseModal({onClose,onSave,clients,nextNo,templates,companies}){
+function NewCaseModal({onClose,onSave,clients,nextNo,templates,companies,onNavMaster}){
   const [clientId,setClientId]=useState("");
   const [templateId,setTemplateId]=useState("");
   const [title,setTitle]=useState("");
@@ -5226,7 +5226,8 @@ function NewCaseModal({onClose,onSave,clients,nextNo,templates,companies}){
           {clientId&&<div><div style={{fontSize:10,color:"#999",marginBottom:4}}>申請種別</div>
             <div style={{display:"flex",gap:6}}><select value={templateId} onChange={e=>{setTemplateId(e.target.value);if(e.target.value)setTitle(templates[e.target.value].label);}} style={{flex:1,fontSize:13,padding:"6px 8px",borderRadius:6,border:"0.5px solid rgba(0,0,0,0.2)",background:"var(--bg2)"}}>
               <option value="">選択してください</option>{availableTemplates.map(([tid,t])=><option key={tid} value={tid}>{t.label}</option>)}
-            </select>{templateId&&<button onClick={()=>setPreview(true)} style={{fontSize:11,padding:"5px 10px",cursor:"pointer",borderRadius:6,border:"0.5px solid #378ADD",background:"#E6F1FB",color:"#185FA5",whiteSpace:"nowrap"}}>書類確認</button>}</div></div>}
+            </select>{templateId&&<button onClick={()=>setPreview(true)} style={{fontSize:11,padding:"5px 10px",cursor:"pointer",borderRadius:6,border:"0.5px solid #378ADD",background:"#E6F1FB",color:"#185FA5",whiteSpace:"nowrap"}}>書類確認</button>}</div>
+            <div style={{fontSize:11,color:"#999",marginTop:5,lineHeight:1.5}}>お探しの申請区分が無い場合は <span onClick={()=>{onClose();onNavMaster&&onNavMaster("template");}} style={{color:"#185FA5",cursor:"pointer",textDecoration:"underline",textUnderlineOffset:2,fontWeight:500}}>書類テンプレートを追加</span> してください。</div></div>}
           {templateId&&<div>
             <div style={{fontSize:10,color:"#999",marginBottom:4}}>依頼主（任意）</div>
             <div style={{display:"flex",gap:4}}>
@@ -6316,7 +6317,7 @@ function GeneralCaseDetail({c,onUpdate,onDelete,clients,payments,onNavigateToCli
   );
 }
 
-function CaseManagement({data,setData,navigateCaseId,clearNavigate,onNavigateToClient}){
+function CaseManagement({data,setData,navigateCaseId,clearNavigate,onNavigateToClient,onNavMaster}){
   const isMobile=useMobile();
   const {clients,cases,companies,payments}=data;
   const setCases=useCallback(fn=>{setData(prev=>{const nc=typeof fn==="function"?fn(prev.cases):fn;return{...prev,cases:nc};});},[setData]);
@@ -6426,7 +6427,7 @@ function CaseManagement({data,setData,navigateCaseId,clearNavigate,onNavigateToC
           :isGeneral?<GeneralCaseDetail c={sel} onUpdate={updated=>{setCases(prev=>prev.map(c=>c.case_id===updated.case_id?updated:c));setSelected(updated);}} onDelete={()=>{if(confirm(`「${sel.case_title}」を削除しますか？\n\n⚠️ 事件簿からも完全に消えます。\n記録を残したい場合は「キャンセル」を押して\nステータスを「キャンセル」に変更してください。`)){setCases(prev=>prev.filter(x=>x.case_id!==sel.case_id));setSelected(null);}}} clients={clients} payments={payments||[]} onNavigateToClient={onNavigateToClient}/>
           :<CaseDetail c={sel} onUpdate={updated=>{setCases(prev=>prev.map(c=>c.case_id===updated.case_id?updated:c));setSelected(updated);}} onDelete={()=>{if(confirm(`「${sel.case_title}」を削除しますか？\n\n⚠️ 事件簿からも完全に消えます。\n記録を残したい場合は「キャンセル」を押して\nステータスを「キャンセル」に変更してください。`)){setCases(prev=>prev.filter(x=>x.case_id!==sel.case_id));setSelected(null);}}} clients={clients} allCases={cases} payments={payments||[]} templates={data.templates||DEFAULT_TEMPLATES} companies={data.companies} onUpdateClient={onUpdateClient} onNavigateToClient={onNavigateToClient}/>}
       </div>
-      {showNew&&subTab==="immigration"&&<NewCaseModal onClose={()=>setShowNew(false)} clients={clients} nextNo={nextNo} templates={data.templates||DEFAULT_TEMPLATES} companies={data.companies} onSave={nc=>{setCases(prev=>[nc,...prev]);setSelected(nc);setShowNew(false);}}/>}
+      {showNew&&subTab==="immigration"&&<NewCaseModal onClose={()=>setShowNew(false)} clients={clients} nextNo={nextNo} templates={data.templates||DEFAULT_TEMPLATES} companies={data.companies} onNavMaster={onNavMaster} onSave={nc=>{setCases(prev=>[nc,...prev]);setSelected(nc);setShowNew(false);}}/>}
       {showNew&&subTab==="general"&&<NewGeneralCaseModal onClose={()=>setShowNew(false)} clients={clients} companies={companies||[]} nextNo={nextNo} onSave={nc=>{setCases(prev=>[nc,...prev]);setSelected(nc);setShowNew(false);}}/>}
     </div>
   );
@@ -12229,7 +12230,7 @@ function App(){
         </div>
       )}
       {activeTab==="clients"&&<ClientLedger data={data} setData={setData} navigateClientId={navigateClientId} clearNavigate={()=>setNavigateClientId(null)} onNavigateToCase={handleNavigateToCase}/>}
-      {activeTab==="cases"&&<CaseManagement data={data} setData={setData} navigateCaseId={navigateCaseId} clearNavigate={()=>setNavigateCaseId(null)} onNavigateToClient={handleNavigateToClient}/>}
+      {activeTab==="cases"&&<CaseManagement data={data} setData={setData} navigateCaseId={navigateCaseId} clearNavigate={()=>setNavigateCaseId(null)} onNavigateToClient={handleNavigateToClient} onNavMaster={handleNavigateToMaster}/>}
       {activeTab==="journal"&&<CaseJournal data={data} setData={setData} onNavCase={handleNavigateToCase}/>}
       {activeTab==="payments"&&<PaymentManagement data={data} setData={setData} navigatePaymentId={navigatePaymentId} clearNavigate={()=>setNavigatePaymentId(null)}/>}
       {SHOW_DOCS&&activeTab==="docs"&&<CompanyDocs data={data} setData={setData}/>}
