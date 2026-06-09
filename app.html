@@ -34,8 +34,6 @@ table { width:100%; border-collapse:collapse; }
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
-<script src="https://accounts.google.com/gsi/client" async defer></script>
-<script src="https://apis.google.com/js/api.js" async defer></script>
 </head><body><div id="root"></div><div id="loading-overlay" style="position:fixed;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#FAF8F5;font-family:-apple-system,BlinkMacSystemFont,sans-serif;z-index:9999;transition:opacity 0.4s ease"><div style="display:flex;align-items:center;gap:12px;margin-bottom:16px"><span style="font-size:28px;font-weight:600;color:#185FA5">Clavis</span><span style="font-size:28px;font-weight:400;color:#1a1a1a">Note</span></div><div style="display:flex;gap:6px"><div style="width:8px;height:8px;border-radius:50%;background:#185FA5;animation:bounce 1.4s ease-in-out infinite"></div><div style="width:8px;height:8px;border-radius:50%;background:#185FA5;animation:bounce 1.4s ease-in-out 0.2s infinite"></div><div style="width:8px;height:8px;border-radius:50%;background:#185FA5;animation:bounce 1.4s ease-in-out 0.4s infinite"></div></div><style>@keyframes bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-10px)}}</style></div>
 <script type="text/babel">
 const { useState, useEffect, useCallback, useMemo, useRef, createContext, useContext } = React;
@@ -384,16 +382,31 @@ const DEFAULT_DOC_TYPES = [
 ];
 
 // ============================================================
-// 2.5. Google Drive同期
+// 2.5. Google Drive同期（Authorization Code Flow / サーバー型）
 // ============================================================
-const GOOGLE_CLIENT_ID = "531890884615-pv6jvdhqegkera9nbqm3ppskisg1ar2a.apps.googleusercontent.com";
-const GOOGLE_SCOPES = "https://www.googleapis.com/auth/drive.file";
+// 旧GISトークン方式（initTokenClient + prompt:'none'）はChromeでsilent refreshが
+// 100%失敗するため廃止。認証は clavis-api(Workers) のサーバー型 Code Flow へ移行。
+//  - 連携開始: /auth/google/start へ全画面リダイレクト（Google同意 → callback → 戻る）
+//  - トークン取得: /auth/google/token を X-Clavis-License で叩き短命access_tokenを得る
+//  - 更新トークンはWorkers側でSupabaseに暗号化保管。ブラウザは更新トークンを持たない。
+//  - ファイル本体(clavis-note-sync.json)のup/downは従来どおりブラウザ↔Google直送。
+const CLAVIS_API_BASE = "https://api.clavis-note.com";
 const DRIVE_FILE_NAME = "clavis-note-sync.json";
 
-let googleTokenClient = null;
 let googleAccessToken = null;
-let tokenRefreshPromise = null; // サイレント再認証の二重実行防止
+let tokenRefreshPromise = null; // トークン再取得の二重実行防止
 let initialSyncFlowInProgress = false; // 起動時同期の途中ならリフレッシュ成功トーストを抑制
+
+// 現在のライセンスキーを保存データから読む（モジュールレベル関数用）。
+// 認証エンドポイントは X-Clavis-License でユーザーを特定するため必須。
+function getLicenseKey(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return "";
+    const d = JSON.parse(raw);
+    return ((d.office && d.office.license_key) || "").trim();
+  }catch(e){ return ""; }
+}
 
 // トークンを localStorage に保存し、有効期限（絶対時刻ms）も記録する
 // expires_in は秒単位（GIS仕様、通常3599）。60秒の安全マージンを引く
@@ -431,160 +444,80 @@ function isStoredTokenExpired(){
   return Date.now() >= n;
 }
 
-// GIS の core.js 内部で発生する `Cannot read properties of undefined (reading 'payload')`
-// 等の unhandled promise rejection をキャッチし、アプリ全体のエラー扱いから隔離する。
-// silent refresh 自体は callback ベースで完結しており、この rejection は副次的ノイズ。
-// 一度だけ登録するためのフラグで二重登録を防ぐ。
-if (!window.__clavisAuthRejectionHandlerRegistered){
-  window.__clavisAuthRejectionHandlerRegistered = true;
-  window.addEventListener('unhandledrejection', (event) => {
-    try {
-      const reason = event && event.reason;
-      const msg = reason && (reason.message || (typeof reason === 'string' ? reason : ''));
-      const stack = reason && reason.stack ? String(reason.stack) : '';
-      const fromGis = (stack.indexOf('core.js') !== -1) || (stack.indexOf('accounts.google.com') !== -1);
-      if (fromGis || (typeof msg === 'string' && msg.indexOf("'payload'") !== -1)){
-        console.warn("[auth] suppressed GIS-internal rejection:", msg || reason);
-        event.preventDefault();
-      }
-    } catch(e){ /* 何もしない */ }
-  });
-}
-
+// GIS廃止により初期化処理は不要。呼び出し側の構造を維持するため true を返すだけ。
 function initGoogleClient() {
-  return new Promise((resolve) => {
-    if (typeof google === 'undefined' || !google.accounts) {
-      console.log("Google API not loaded yet");
-      resolve(false);
-      return;
-    }
-    if (googleTokenClient) {
-      // 既に初期化済み（HMRや二重呼び出し対策）
-      resolve(true);
-      return;
-    }
-    try {
-      googleTokenClient = google.accounts.oauth2.initTokenClient({
-        client_id: GOOGLE_CLIENT_ID,
-        scope: GOOGLE_SCOPES,
-        callback: (response) => {
-          // デフォルトコールバック。実際のサインイン/リフレッシュ時は個別に上書き
-          if (response && response.access_token) {
-            saveAccessToken(response);
-          }
-        },
-      });
-      console.log("[auth] token client initialized");
-      resolve(true);
-    } catch(e) {
-      console.error("initGoogleClient failed:", e);
-      resolve(false);
-    }
-  });
+  return Promise.resolve(true);
 }
 
+// 連携開始：Workers の /auth/google/start へ全画面リダイレクト。
+// Google同意 → /auth/google/callback → app.html#drive-linked=1 で戻ってくる。
+// 画面を離れるので解決しない Promise を返す（ライセンス未登録時のみ即 reject）。
 function googleSignIn() {
-  return new Promise((resolve, reject) => {
-    if (!googleTokenClient) {
-      reject(new Error("Google client not initialized"));
-      return;
-    }
-    googleTokenClient.callback = (response) => {
-      if (!response){
-        reject(new Error("Empty response from GIS"));
-        return;
-      }
-      if (response.error) {
-        reject(new Error(response.error_description || response.error));
-        return;
-      }
-      if (!response.access_token){
-        reject(new Error("No access token returned"));
-        return;
-      }
-      saveAccessToken(response);
-      resolve(response.access_token);
-    };
-    try {
-      googleTokenClient.requestAccessToken({ prompt: "consent" });
-    } catch(e){ reject(e); }
-  });
-}
-
-function googleSignOut() {
-  if (googleAccessToken) {
-    try { google.accounts.oauth2.revoke(googleAccessToken); } catch(e){}
-    googleAccessToken = null;
-    localStorage.removeItem("clavis-google-token");
-    localStorage.removeItem("clavis-google-token-expires");
+  const key = getLicenseKey();
+  if (!key){
+    return Promise.reject(new Error("ライセンスキーが未登録です。先に事務所設定でキーを登録してください。"));
   }
+  const url = CLAVIS_API_BASE + "/auth/google/start"
+    + "?lk=" + encodeURIComponent(key)
+    + "&origin=" + encodeURIComponent(location.origin);
+  try { logSyncEvent("auth","redirect-to-start"); } catch(e){}
+  location.href = url;
+  return new Promise(()=>{}); // 画面遷移するので解決しない
 }
 
-// サイレント再認証（prompt: 'none'）
-// 既に承認済みのGoogleアカウントから、ユーザー操作なしで新しいaccess_tokenを取得
-// 同時に複数のAPI呼び出しが401になっても、refresh自体は1回だけ走る（promise共有）
-//
-// GIS の応答パターン（観測ベース）:
-//   1) {access_token, expires_in, scope, ...}        … 正常
-//   2) {error: "...", error_description: "..."}      … エラー（access_token なし）
-//   3) undefined / null                              … 通信失敗等の異常
-//   4) callback が呼ばれず、core.js 内部で payload undefined の TypeError が
-//      unhandled rejection として外に漏れるケース    … タイムアウトで救済
+// ログアウト：ローカルのaccess_tokenを破棄。更新トークンはWorkers側に残るので
+// 再ログインボタンで即復帰できる（revokeによる完全切断は将来対応）。
+function googleSignOut() {
+  googleAccessToken = null;
+  localStorage.removeItem("clavis-google-token");
+  localStorage.removeItem("clavis-google-token-expires");
+}
+
+// access_token を Workers 経由で再取得（旧 silent refresh の置き換え＝本丸）。
+// /auth/google/token を X-Clavis-License で叩く。サーバーが更新トークンで短命
+// access_tokenを発行して返す（GISの100%失敗が100%成功になる）。
+//   200     -> saveAccessToken し access_token を返す
+//   404/401 -> 未連携 or 更新トークン失効 → err.code="not_linked" で reject（再連携バナー）
+//   その他/通信断 -> 通常のエラーで reject（呼び出し側で既存トークン継続 or バナー）
+// 同時に複数の401が来てもfetch自体は1回だけ走る（promise共有）。
 function refreshAccessTokenSilently() {
   if (tokenRefreshPromise) return tokenRefreshPromise;
-  console.log("[auth] silent refresh start");
-  tokenRefreshPromise = new Promise((resolve, reject) => {
-    if (!googleTokenClient) {
-      reject(new Error("Token client not initialized"));
-      return;
+  console.log("[auth] worker token fetch start");
+  tokenRefreshPromise = (async () => {
+    const key = getLicenseKey();
+    if (!key){
+      const e = new Error("not_linked"); e.code = "not_linked"; throw e;
     }
-    let settled = false;
-    const settle = (fn, arg) => { if (settled) return; settled = true; clearTimeout(timer); fn(arg); };
-    // 3秒タイムアウト：㉒タスク調査により silent refresh は 100%失敗が確定済み
-    // （token model が Chrome 上で実質的に機能停止・user gesture 経由でも timeout）
-    // 10秒待たせると起動時の体感が悪いため、失敗確定にすぐ落として再ログインバナーを早く出す
-    // 根本対応（Code flow + PKCE 移行）は Supabase 統合フェーズで合算予定
-    const timer = setTimeout(() => {
-      console.warn("[auth] silent refresh timeout (no callback within 3s)");
-      settle(reject, new Error("Silent refresh timeout"));
-    }, 3000);
-    googleTokenClient.callback = (response) => {
-      try {
-        if (!response){
-          console.warn("[auth] silent refresh: empty response from GIS");
-          settle(reject, new Error("Empty response from GIS"));
-          return;
-        }
-        if (response.error) {
-          const detail = response.error + (response.error_description ? `: ${response.error_description}` : "");
-          console.warn("[auth] silent refresh: error response:", detail);
-          settle(reject, new Error(detail));
-          return;
-        }
-        if (!response.access_token) {
-          console.warn("[auth] silent refresh: no access_token in response", response);
-          settle(reject, new Error("No access token returned"));
-          return;
-        }
-        saveAccessToken(response);
-        console.log("[auth] silent refresh success");
-        settle(resolve, response.access_token);
-      } catch(e){
-        console.warn("[auth] silent refresh: callback threw:", e);
-        settle(reject, e instanceof Error ? e : new Error(String(e)));
-      }
-    };
+    let res;
     try {
-      googleTokenClient.requestAccessToken({ prompt: 'none' });
-    } catch(e){
-      console.warn("[auth] silent refresh: requestAccessToken threw:", e);
-      settle(reject, e);
+      res = await fetch(CLAVIS_API_BASE + "/auth/google/token", {
+        method: "POST",
+        headers: { "X-Clavis-License": key },
+      });
+    } catch(netErr){
+      console.warn("[auth] worker token fetch network error:", netErr);
+      throw netErr;
     }
-  });
-  // 成否に関わらずpromiseをクリア（次回リフレッシュに備える）
+    if (res.status === 404 || res.status === 401){
+      const e = new Error("not_linked"); e.code = "not_linked";
+      console.warn("[auth] worker token: not linked ("+res.status+")");
+      throw e;
+    }
+    if (!res.ok){
+      throw new Error("token endpoint " + res.status);
+    }
+    const data = await res.json();
+    if (!data || !data.access_token){
+      throw new Error("No access token in worker response");
+    }
+    saveAccessToken(data);
+    console.log("[auth] worker token fetch success");
+    return data.access_token;
+  })();
+  // 成否に関わらずpromiseをクリア（次回取得に備える）
   tokenRefreshPromise.then(
     () => { tokenRefreshPromise = null; },
-    (err) => { tokenRefreshPromise = null; console.log("[auth] silent refresh failed:", err && err.message ? err.message : err); }
+    (err) => { tokenRefreshPromise = null; console.log("[auth] worker token fetch failed:", err && err.message ? err.message : err); }
   );
   return tokenRefreshPromise;
 }
@@ -11153,54 +11086,75 @@ function App(){
     if(driveInitStartedRef.current) return;
     driveInitStartedRef.current=true;
     let cancelled = false;
-    const init = async () => {
-      let ok = false;
-      for (let attempt = 0; attempt < 6 && !cancelled; attempt++){
-        await new Promise(r => setTimeout(r, 500));
-        ok = await initGoogleClient();
-        if (ok) break;
+
+    // ── 認証v2移行：旧GISトークン方式の残骸を一度だけ掃除 ──
+    // 旧access_token（clavis-google-token/-expires）は新方式では無意味。混在による
+    // 誤動作を避けるため、v2初回起動でクリアして再連携に乗せる。
+    // 消すのはトークンのみ。同期データ(STORAGE_KEY)には一切触れない。
+    try{
+      if(localStorage.getItem("clavis-auth-v2")!=="1"){
+        localStorage.removeItem("clavis-google-token");
+        localStorage.removeItem("clavis-google-token-expires");
+        localStorage.setItem("clavis-auth-v2","1");
+        logSyncEvent("auth","migrated-to-v2-cleared-old-token");
       }
-      if (cancelled) return;
-      setGdriveReady(ok);
-      if (!ok){
-        console.warn("Google Drive: initGoogleClient failed after retries");
+    }catch(e){}
+
+    // ── コールバックからの戻り（#drive-linked=1 / #drive-error=...）を処理 ──
+    let cameFromLink = false;
+    try{
+      const h = location.hash || "";
+      if(h.indexOf("drive-linked=1")!==-1){
+        cameFromLink = true;
+        history.replaceState(null,"", location.pathname + location.search);
+        localStorage.removeItem("clavis-pending-reauth");
+        logSyncEvent("auth","callback-linked");
+      } else if(h.indexOf("drive-error=")!==-1){
+        const m = h.match(/drive-error=([^&]+)/);
+        const reason = m ? decodeURIComponent(m[1]) : "unknown";
+        history.replaceState(null,"", location.pathname + location.search);
+        logSyncEvent("auth","callback-error:"+reason);
+        const t=document.getElementById("toast");
+        if(t){ t.textContent="⚠️ Drive連携に失敗しました（"+reason+"）。もう一度お試しください"; t.style.opacity=1; setTimeout(()=>t.style.opacity=0,5000); }
+      }
+    }catch(e){}
+
+    // GISは廃止したので初期化待ちは不要。即 ready。
+    initGoogleClient().then(()=>{ if(!cancelled) setGdriveReady(true); });
+
+    const init = async () => {
+      // 1) access_tokenキャッシュが期限内ならWorkersを叩かず即サインイン（可用性保険）
+      const savedToken = localStorage.getItem("clavis-google-token");
+      if (savedToken && isStoredTokenFresh()){
+        googleAccessToken = savedToken;
+        if(!cancelled){ setGdriveSignedIn(true); setShowAuthBanner(false); }
+        console.log("[auth] cached access token fresh, signed in without worker call");
         return;
       }
-      const savedToken = localStorage.getItem("clavis-google-token");
-      if (savedToken) {
-        if (isStoredTokenExpired()){
-          // 起動時点で期限切れ確定 → サイレント再認証を試みる（成功すればバナー出さずに続行）
-          console.log("[auth] saved token expired on boot, attempting silent refresh");
-          googleAccessToken = savedToken; // refreshAccessTokenSilently の前に設定（callback override 都合）
-          try {
-            await refreshAccessTokenSilently();
-            if (cancelled) return;
-            console.log("[auth] silent refresh on boot succeeded, signed in without banner");
-            setGdriveSignedIn(true);
-            localStorage.removeItem("clavis-pending-reauth");
-            setShowAuthBanner(false);
-            logSyncEvent("auth","silent-refresh-on-boot-success");
-          } catch(e){
-            if (cancelled) return;
-            console.warn("[auth] silent refresh on boot failed:", e && e.message ? e.message : e);
-            googleAccessToken = null;
-            localStorage.removeItem("clavis-google-token");
-            localStorage.removeItem("clavis-google-token-expires");
-            localStorage.setItem("clavis-pending-reauth","1");
-            setGdriveSignedIn(false);
-            setShowAuthBanner(true);
-            logSyncEvent("auth","silent-refresh-on-boot-failed:"+((e&&e.message)||"unknown"));
-          }
+      // 2) それ以外はWorkersに更新トークンで access_token 再発行を依頼
+      try {
+        await refreshAccessTokenSilently();
+        if (cancelled) return;
+        setGdriveSignedIn(true);
+        localStorage.removeItem("clavis-pending-reauth");
+        setShowAuthBanner(false);
+        logSyncEvent("auth","worker-token-on-boot-success");
+        if(cameFromLink){
+          const t=document.getElementById("toast");
+          if(t){ t.textContent="✅ Drive連携が完了しました✨ 自動同期が有効です"; t.style.opacity=1; setTimeout(()=>t.style.opacity=0,3500); }
+        }
+      } catch(e){
+        if (cancelled) return;
+        googleAccessToken = null;
+        setGdriveSignedIn(false);
+        if (e && e.code === "not_linked"){
+          // 未連携 or 更新トークン失効 → 一度だけ再連携を促す
+          localStorage.setItem("clavis-pending-reauth","1");
+          setShowAuthBanner(true);
+          logSyncEvent("auth","worker-token-on-boot-not-linked");
         } else {
-          // 期限内 or 期限不明 → そのままトークンを使用。期限不明（旧版保存）の場合は
-          // 初回 API 呼び出しで 401 が出たら fetchWithAuth 内でサイレント再認証される
-          googleAccessToken = savedToken;
-          setGdriveSignedIn(true);
-          if (isStoredTokenFresh()){
-            console.log("[auth] saved token is fresh, skipping silent refresh on boot");
-          } else {
-            console.log("[auth] saved token expiry unknown, will rely on 401-triggered silent refresh");
-          }
+          // ネットワーク断等の一時障害 → バナーは出さず次回起動に委ねる
+          logSyncEvent("auth","worker-token-on-boot-failed:"+((e&&e.message)||"unknown"));
         }
       }
     };
