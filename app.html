@@ -1203,7 +1203,7 @@ async function readDocument(fileBase64, mediaType, apiKey){
   "email": "メールアドレス",
   "postal_code": "郵便番号（ハイフンなし7桁。日本国内の住所のもののみ）",
   "address": "日本国内の現住所（日本語）。本国（海外）の住所は絶対にここへ入れずnullにする",
-  "home_residence": "本国の居住地。パスポートの出生地（Place of Birth）欄のみを読み取って入れる。履歴書・退職証明書・在留申請書などに記載された海外の住所はここに入れずnullにする（このフィールドのソースはパスポートの出生地のみ）",
+  "home_residence": "本国の居住地。パスポートの出生地（Place of Birth）を読み取り、入管申請の入力形式『国名（カタカナ）　出生地（カタカナ）』（全角スペース区切り）に変換して返す。英字の地名は日本語のカタカナ読みに変換し（例: BAGLUNG→バグルン、NAWALPARASI→ナワルパラシ）、国名を国籍からカタカナで前置する（例: ネパール）。総合例: 「ネパール　バグルン」。出生地が読み取れなければnull。履歴書・退職証明書・在留申請書などに記載された海外の住所はここに入れない（ソースはパスポートの出生地のみ）",
   "residence_status": "在留資格（日本語のみ。例: 技能、技術・人文知識・国際業務）",
   "residence_period": "在留期間（例: 1年、3年、5年、6月、11月など。在留カードの「在留期間」欄から読み取る）",
   "residence_expiry": "YYYY-MM-DD形式（在留期間の満了日）",
@@ -1235,7 +1235,7 @@ async function readDocument(fileBase64, mediaType, apiKey){
 - 在留資格は日本語のみ返す（英語表記は除外）
 - 日付は必ずYYYY-MM-DD形式
 - address は日本国内の現住所のみ。退職証明書・パスポート等にある本国（海外）の住所は address に入れずnullにする
-- home_residence はパスポートの出生地（Place of Birth）のみを入れる。履歴書・退職証明書・在留申請書等に記載された海外住所は home_residence に入れない（null）。address に本国住所を入れない既存ルールは従来どおり維持
+- home_residence はパスポートの出生地（Place of Birth）のみがソース。出生地と国籍から『国名（カタカナ）　出生地（カタカナ）』形式（全角スペース区切り）に変換して返す（例: ネパール　バグルン）。英字の地名はカタカナ読みに変換。履歴書・退職証明書・在留申請書等に記載された海外住所は home_residence に入れない（null）。address に本国住所を入れない既存ルールは従来どおり維持
 - 雇用契約書は「現在の雇用先」→ company_name と work_start_date に入れる（work_history には入れない）
 - 退職証明書は「過去に退職した職歴」→ work_history に勤務先・start・end を入れる。現勤務先(company_name)には入れない
 - 日付はすべて西暦（グレゴリオ暦）で返す。ネパールの退職証明書等で「2078/01/10 (2021/04/23)」のようにネパール暦（ビクラム暦/Bikram Sambat。西暦+約57年で2078・2080等になる）と西暦が併記されている場合は、必ず西暦（括弧内などの20xx年）を採用する。work_history の start/end・work_start_date・その他すべての日付に適用
@@ -3594,7 +3594,7 @@ function TabBasic({c,editMode,update,allClients}){
             <select value={c.gender||""} onChange={e=>update("gender",e.target.value)} style={selS}><option value="">選択してください</option><option value="男">男</option><option value="女">女</option></select>
           </div>}
           {!isGenClient&&<CopyTextField label="職業" value={c.occupation} field="occupation" update={update} ime placeholder="例: 調理師" toast="📋 職業をコピー"/>}
-          {!isGenClient&&<CopyTextField label="本国の居住地（※出生地を転記）" value={c.home_residence} field="home_residence" update={update} ime fmt={fmtZen} placeholder="例: ネパール　カトマンズ" toast="📋 本国の居住地（全角）をコピー" infoTitle="本国の居住地" info={"ポイポイ式では、パスポートの出生地（Place of Birth）を自動転記しています。\n現在の本国居住地はクライアントへの確認のうえ、手動で上書きしてください。\n\n※自動転記は空欄のときのみ。一度入力された値は再ポイポイでも上書きされません。"}/>}
+          {!isGenClient&&<CopyTextField label="本国の居住地（※出生地を転記）" value={c.home_residence} field="home_residence" update={update} ime fmt={fmtZen} placeholder="例: ネパール　カトマンズ" toast="📋 本国の居住地（全角）をコピー" infoTitle="本国の居住地" info={"ポイポイ式では、パスポートの出生地（Place of Birth）を「国名＋カタカナ」に変換して自動転記しています（例: ネパール　バグルン）。\nカタカナ読みは推定のため、現在の本国居住地はクライアントへの確認のうえ、手動で上書きしてください。\n\n※自動転記は空欄のときのみ。一度入力された値は再ポイポイでも上書きされません。"}/>}
           {/* 住所（郵便番号込み）*/}
           <div style={{gridColumn:"1/-1"}}>
             <div style={lbl}>住所</div>
