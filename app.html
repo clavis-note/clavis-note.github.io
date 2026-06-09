@@ -3454,6 +3454,8 @@ function ImageCropModal({src,onSave,onClose}){
 const COPY_BTN_STYLE={fontSize:12,padding:"5px 9px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text2)",cursor:"pointer",whiteSpace:"nowrap",flexShrink:0,lineHeight:1};
 const fmtDigits=v=>(v==null?"":String(v)).replace(/[^0-9]/g,"");          // ハイフン等除去（郵便番号・電話番号）
 const fmtYMD8=v=>(v==null?"":String(v)).replace(/[-/.]/g,"").slice(0,8);  // YYYY-MM-DD → YYYYMMDD（8桁）
+// 半角→全角（住所用。入管オンライン申請の住所欄は全角必須。番地 1-2-3 → １－２－３。日本語はそのまま）
+const fmtZenkaku=v=>(v==null?"":String(v)).replace(/[!-~]/g,ch=>String.fromCharCode(ch.charCodeAt(0)+0xFEE0)).replace(/ /g,"　");
 // コピーボタン：get() が返す整形済み文字列をクリップボードへ。#toast で成功を通知。
 function CopyBtn({get,toast}){
   return <button type="button" title="コピー" onClick={()=>{
@@ -3570,7 +3572,7 @@ function TabBasic({c,editMode,update,allClients}){
               </div>
               <div style={{display:"flex",gap:6,alignItems:"center"}}>
                 <IMEInput value={c.address||""} onChange={v=>update("address",v)} placeholder="住所を入力" style={{fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)",flex:1}}/>
-                <CopyBtn get={()=>c.address||""} toast="📋 住所をコピー"/>
+                <CopyBtn get={()=>fmtZenkaku(c.address)} toast="📋 住所（全角）をコピー"/>
               </div>
             </div>
           </div>
