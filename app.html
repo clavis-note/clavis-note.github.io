@@ -1203,6 +1203,7 @@ async function readDocument(fileBase64, mediaType, apiKey){
   "email": "メールアドレス",
   "postal_code": "郵便番号（ハイフンなし7桁。日本国内の住所のもののみ）",
   "address": "日本国内の現住所（日本語）。本国（海外）の住所は絶対にここへ入れずnullにする",
+  "home_residence": "本国の居住地。パスポートの出生地（Place of Birth）欄のみを読み取って入れる。履歴書・退職証明書・在留申請書などに記載された海外の住所はここに入れずnullにする（このフィールドのソースはパスポートの出生地のみ）",
   "residence_status": "在留資格（日本語のみ。例: 技能、技術・人文知識・国際業務）",
   "residence_period": "在留期間（例: 1年、3年、5年、6月、11月など。在留カードの「在留期間」欄から読み取る）",
   "residence_expiry": "YYYY-MM-DD形式（在留期間の満了日）",
@@ -1234,6 +1235,7 @@ async function readDocument(fileBase64, mediaType, apiKey){
 - 在留資格は日本語のみ返す（英語表記は除外）
 - 日付は必ずYYYY-MM-DD形式
 - address は日本国内の現住所のみ。退職証明書・パスポート等にある本国（海外）の住所は address に入れずnullにする
+- home_residence はパスポートの出生地（Place of Birth）のみを入れる。履歴書・退職証明書・在留申請書等に記載された海外住所は home_residence に入れない（null）。address に本国住所を入れない既存ルールは従来どおり維持
 - 雇用契約書は「現在の雇用先」→ company_name と work_start_date に入れる（work_history には入れない）
 - 退職証明書は「過去に退職した職歴」→ work_history に勤務先・start・end を入れる。現勤務先(company_name)には入れない
 - 日付はすべて西暦（グレゴリオ暦）で返す。ネパールの退職証明書等で「2078/01/10 (2021/04/23)」のようにネパール暦（ビクラム暦/Bikram Sambat。西暦+約57年で2078・2080等になる）と西暦が併記されている場合は、必ず西暦（括弧内などの20xx年）を採用する。work_history の start/end・work_start_date・その他すべての日付に適用
@@ -2709,7 +2711,8 @@ function classifyDocType(dt){
 //  - 書類の処理順に依存せず、上記ソース規則で最終的に在留カードの住所・現職が勝つ。
 function mergeExtractedToClient(existing, extracted){
   const ALWAYS_OVERWRITE = ["residence_status","residence_period","residence_expiry","residence_card","passport_number","passport_expiry"];
-  const FIELD_MAP = {"name_roman":"name_roman","name_kana":"name_kana","nationality":"nationality","date_of_birth":"dob","gender":"gender","phone":"phone","email":"email","postal_code":"postal_code","address":"address","residence_status":"residence_status","residence_period":"residence_period","residence_expiry":"residence_expiry","residence_card":"residence_card","passport_number":"passport_number","passport_expiry":"passport_expiry","company_name":"company_name","store":"store","work_start_date":"work_start_date"};
+  // home_residence は ALWAYS_OVERWRITE に含めない＝空欄のときだけ出生地で充当（初期値方式）。手動・再ポイポイ問わず既存値は維持。
+  const FIELD_MAP = {"name_roman":"name_roman","name_kana":"name_kana","nationality":"nationality","date_of_birth":"dob","gender":"gender","phone":"phone","email":"email","postal_code":"postal_code","address":"address","home_residence":"home_residence","residence_status":"residence_status","residence_period":"residence_period","residence_expiry":"residence_expiry","residence_card":"residence_card","passport_number":"passport_number","passport_expiry":"passport_expiry","company_name":"company_name","store":"store","work_start_date":"work_start_date"};
   const PLACEHOLDER_PATTERNS = ["未定","未登録","未記入","不明","N/A","未記載"];
   const isPlaceholder = v => typeof v==="string" && PLACEHOLDER_PATTERNS.some(p=>v.includes(p));
   const dc = classifyDocType(extracted.document_type);
@@ -2790,6 +2793,7 @@ function createClientFromExtracted(extracted){
     company_name:(currentJobAllowed&&extracted.company_name)||"", store:(currentJobAllowed&&extracted.store)||"",
     work_start_date:(currentJobAllowed&&extracted.work_start_date)||"",
     notes:"", address:(addrAllowed&&extracted.address)||"", postal_code:(addrAllowed&&extracted.postal_code)||"",
+    occupation:"", home_residence:extracted.home_residence||"", // home_residence＝パスポート出生地（プロンプトでソース限定済み）
     dependent_of:null, client_status:"active", relationship:null, school_name:null,
     photo:null, archived:false, salary_history:[], work_history:wh,
     drive_path:"", drive_url:"",
@@ -3496,11 +3500,12 @@ function CopyBtn({get,toast}){
   }} style={COPY_BTN_STYLE}>📋</button>;
 }
 // ラベル＋入力欄＋コピーボタンの1行。fmt 省略時はそのままコピー。ime=true で IME 合成対応入力。
-function CopyTextField({label,value,field,update,fmt,toast,placeholder,mono,ime}){
+// info を渡すとラベル横に汎用ヘルプUI（iマーク＋モーダル）を表示。infoTitle 省略時はラベルから（…）を除いた文字列をモーダル見出しに使う。
+function CopyTextField({label,value,field,update,fmt,toast,placeholder,mono,ime,info,infoTitle}){
   const inp={fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)",flex:1,width:"auto",fontFamily:mono?"monospace":"inherit"};
   return(
     <div>
-      <div style={{fontSize:10,color:"var(--text3)",fontWeight:500,marginBottom:3,letterSpacing:"0.05em"}}>{label}</div>
+      <div style={{fontSize:10,color:"var(--text3)",fontWeight:500,marginBottom:3,letterSpacing:"0.05em",display:"flex",alignItems:"center"}}>{label}{info&&<HelpInfo title={infoTitle||(typeof label==="string"?label.replace(/（[^）]*）/g,""):label)} size={13}>{info}</HelpInfo>}</div>
       <div style={{display:"flex",gap:6,alignItems:"center"}}>
         {ime
           ? <IMEInput value={value||""} onChange={v=>update(field,v)} placeholder={placeholder||""} style={inp}/>
@@ -3589,7 +3594,7 @@ function TabBasic({c,editMode,update,allClients}){
             <select value={c.gender||""} onChange={e=>update("gender",e.target.value)} style={selS}><option value="">選択してください</option><option value="男">男</option><option value="女">女</option></select>
           </div>}
           {!isGenClient&&<CopyTextField label="職業" value={c.occupation} field="occupation" update={update} ime placeholder="例: 調理師" toast="📋 職業をコピー"/>}
-          {!isGenClient&&<CopyTextField label="本国の居住地" value={c.home_residence} field="home_residence" update={update} ime fmt={fmtZen} placeholder="例: ネパール　カトマンズ" toast="📋 本国の居住地（全角）をコピー"/>}
+          {!isGenClient&&<CopyTextField label="本国の居住地（※出生地を転記）" value={c.home_residence} field="home_residence" update={update} ime fmt={fmtZen} placeholder="例: ネパール　カトマンズ" toast="📋 本国の居住地（全角）をコピー" infoTitle="本国の居住地" info={"ポイポイ式では、パスポートの出生地（Place of Birth）を自動転記しています。\n現在の本国居住地はクライアントへの確認のうえ、手動で上書きしてください。\n\n※自動転記は空欄のときのみ。一度入力された値は再ポイポイでも上書きされません。"}/>}
           {/* 住所（郵便番号込み）*/}
           <div style={{gridColumn:"1/-1"}}>
             <div style={lbl}>住所</div>
