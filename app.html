@@ -7062,19 +7062,20 @@ function generateEstimate(p, cases, clients, office) {
   const items = (p.items || []).map(item => ({
     name: (item.applicant && !item.name.includes(item.applicant)) ? item.applicant + " ／ " + item.name : item.name,
     qty: item.quantity || 1,
-    price: item.unit_price * (item.quantity || 1)
+    unitPrice: item.unit_price,
+    amount: item.unit_price * (item.quantity || 1)
   }));
   (p.expenses || []).filter(e => e.billable).forEach(e => {
-    items.push({ name: "【立替】" + e.name, qty: 1, price: e.amount });
+    items.push({ name: "【立替】" + e.name, qty: 1, unitPrice: e.amount, amount: e.amount });
   });
   if (taxMode === "tax_excl") {
     const itemsTax = calcTax(itemsTotal, taxMode);
-    items.push({ name: "消費税（10%）", qty: 1, price: itemsTax });
+    items.push({ name: "消費税（10%）", qty: 1, unitPrice: itemsTax, amount: itemsTax });
   }
 
   const MIN_ROWS = 6;
   let itemsHtml = items.map(item =>
-    `<tr><td>${item.name}</td><td class="center">${item.qty}</td><td class="right">${item.price.toLocaleString()}</td><td class="right">${(item.price * item.qty).toLocaleString()}</td></tr>`
+    `<tr><td>${item.name}</td><td class="center">${item.qty}</td><td class="right">${item.unitPrice.toLocaleString()}</td><td class="right">${item.amount.toLocaleString()}</td></tr>`
   ).join("");
   for (let i = 0; i < Math.max(0, MIN_ROWS - items.length); i++) {
     itemsHtml += `<tr class="empty-row"><td></td><td></td><td></td><td></td></tr>`;
@@ -7249,7 +7250,8 @@ function generateInvoice(p, cases, clients, office) {
   const items = (p.items || []).map(item => ({
     name: (item.applicant && !item.name.includes(item.applicant)) ? item.applicant + " ／ " + item.name : item.name,
     qty: item.quantity || 1,
-    price: item.unit_price * (item.quantity || 1),
+    unitPrice: item.unit_price,
+    amount: item.unit_price * (item.quantity || 1),
     origDate: item.original_date || ""
   }));
 
@@ -7263,20 +7265,20 @@ function generateInvoice(p, cases, clients, office) {
 
   // Add expenses if billable
   (p.expenses || []).filter(e => e.billable).forEach(e => {
-    items.push({ name: "【立替】" + e.name, qty: 1, price: e.amount, origDate: "" });
+    items.push({ name: "【立替】" + e.name, qty: 1, unitPrice: e.amount, amount: e.amount, origDate: "" });
   });
 
   // Tax line for tax_excl mode
   if (taxMode === "tax_excl") {
     const itemsTax = calcTax(itemsTotal, taxMode);
-    items.push({ name: "消費税（10%）", qty: 1, price: itemsTax, origDate: "" });
+    items.push({ name: "消費税（10%）", qty: 1, unitPrice: itemsTax, amount: itemsTax, origDate: "" });
   }
 
   const hasOrigDate = items.some(i => i.origDate);
 
   const MIN_ROWS = 6;
   let itemsHtml = items.map(item =>
-    `<tr><td>${item.name}</td>${hasOrigDate ? `<td class="center" style="font-size:8pt;color:#666">${item.origDate||""}</td>` : ""}<td class="center">${item.qty}</td><td class="right">${item.price.toLocaleString()}</td><td class="right">${(item.price * item.qty).toLocaleString()}</td></tr>`
+    `<tr><td>${item.name}</td>${hasOrigDate ? `<td class="center" style="font-size:8pt;color:#666">${item.origDate||""}</td>` : ""}<td class="center">${item.qty}</td><td class="right">${item.unitPrice.toLocaleString()}</td><td class="right">${item.amount.toLocaleString()}</td></tr>`
   ).join("");
   for (let i = 0; i < Math.max(0, MIN_ROWS - items.length); i++) {
     itemsHtml += `<tr class="empty-row"><td></td>${hasOrigDate ? "<td></td>" : ""}<td></td><td></td><td></td></tr>`;
