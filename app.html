@@ -3452,12 +3452,15 @@ function ImageCropModal({src,onSave,onClose}){
 // クライアント詳細：コピー用ヘルパー（入管オンライン申請コピペ動線）
 // ============================================================
 const COPY_BTN_STYLE={fontSize:12,padding:"5px 9px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text2)",cursor:"pointer",whiteSpace:"nowrap",flexShrink:0,lineHeight:1};
-const fmtDigits=v=>(v==null?"":String(v)).replace(/[^0-9]/g,"");          // ハイフン等除去（郵便番号・電話番号）
+// 入管オンライン申請の入力形式に合わせたコピー整形（公式PDF「手続き申込」準拠）
+const fmtDigits=v=>(v==null?"":String(v)).replace(/[^0-9]/g,"");          // 半角数字のみ（郵便番号7桁・電話番号）
 const fmtYMD8=v=>(v==null?"":String(v)).replace(/[-/.]/g,"").slice(0,8);  // YYYY-MM-DD → YYYYMMDD（8桁）
-// 住所コピー整形（入管オンライン申請の住所欄向け）。
-//  ・半角英数記号→全角（1-2-3 → １－２－３）。日本語はそのまま。
-//  ・スペース禁止のため、半角/全角スペースは中黒「・」に置換（３－１４－2　２Ｆ → ３－１４－２・２Ｆ）。
-const fmtZenkaku=v=>(v==null?"":String(v)).replace(/[!-~]/g,ch=>String.fromCharCode(ch.charCodeAt(0)+0xFEE0)).trim().replace(/[\s　]+/g,"・");
+// 半角・大文字化（氏名ローマ字＝半角英大文字スペース区切り／在留カード番号＝半角大文字）
+const fmtUpper=v=>(v==null?"":String(v)).replace(/[！-～]/g,ch=>String.fromCharCode(ch.charCodeAt(0)-0xFEE0)).replace(/　/g," ").replace(/\s+/g," ").trim().toUpperCase();
+// 全角化（本国の居住地・学校名・所属機関名など。スペースは全角スペースのまま維持）例）米国　ニューヨーク
+const fmtZen=v=>(v==null?"":String(v)).replace(/[!-~]/g,ch=>String.fromCharCode(ch.charCodeAt(0)+0xFEE0)).replace(/ /g,"　");
+// 住所＝全角化＋スペース禁止のため半角/全角スペース（連続含む）を中黒「・」へ（３－１４－2　２Ｆ → ３－１４－２・２Ｆ）
+const fmtAddr=v=>(v==null?"":String(v)).replace(/[!-~]/g,ch=>String.fromCharCode(ch.charCodeAt(0)+0xFEE0)).trim().replace(/[\s　]+/g,"・");
 // コピーボタン：get() が返す整形済み文字列をクリップボードへ。#toast で成功を通知。
 function CopyBtn({get,toast}){
   return <button type="button" title="コピー" onClick={()=>{
@@ -3529,7 +3532,7 @@ function TabBasic({c,editMode,update,allClients}){
             <div style={lbl}>{isGenClient?"氏名":"氏名（ローマ字）"}</div>
             <div style={{display:"flex",gap:6,alignItems:"center"}}>
               <input value={c.name_roman||""} onChange={e=>update("name_roman",e.target.value)} placeholder={isGenClient?"氏名":"例: THAPA RAM"} style={{...selS,width:"auto",flex:1}}/>
-              <CopyBtn get={()=>c.name_roman||""} toast="📋 氏名（ローマ字）をコピー"/>
+              {!isGenClient&&<CopyBtn get={()=>fmtUpper(c.name_roman)} toast="📋 氏名（半角大文字）をコピー"/>}
             </div>
           </div>
           <div>
@@ -3561,7 +3564,7 @@ function TabBasic({c,editMode,update,allClients}){
             <select value={c.gender||""} onChange={e=>update("gender",e.target.value)} style={selS}><option value="">選択してください</option><option value="男">男</option><option value="女">女</option></select>
           </div>}
           {!isGenClient&&<CopyTextField label="職業" value={c.occupation} field="occupation" update={update} ime placeholder="例: 調理師" toast="📋 職業をコピー"/>}
-          {!isGenClient&&<CopyTextField label="本国の居住地" value={c.home_residence} field="home_residence" update={update} ime placeholder="例: ネパール カトマンズ" toast="📋 本国の居住地をコピー"/>}
+          {!isGenClient&&<CopyTextField label="本国の居住地" value={c.home_residence} field="home_residence" update={update} ime fmt={fmtZen} placeholder="例: ネパール　カトマンズ" toast="📋 本国の居住地（全角）をコピー"/>}
           {/* 住所（郵便番号込み）*/}
           <div style={{gridColumn:"1/-1"}}>
             <div style={lbl}>住所</div>
@@ -3574,7 +3577,7 @@ function TabBasic({c,editMode,update,allClients}){
               </div>
               <div style={{display:"flex",gap:6,alignItems:"center"}}>
                 <IMEInput value={c.address||""} onChange={v=>update("address",v)} placeholder="住所を入力" style={{fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)",flex:1}}/>
-                <CopyBtn get={()=>fmtZenkaku(c.address)} toast="📋 住所（全角）をコピー"/>
+                <CopyBtn get={()=>fmtAddr(c.address)} toast="📋 住所（全角）をコピー"/>
               </div>
             </div>
           </div>
@@ -3605,7 +3608,7 @@ function TabBasic({c,editMode,update,allClients}){
               <CopyBtn get={()=>fmtYMD8(c.residence_expiry)} toast="📋 在留期限（YYYYMMDD）をコピー"/>
             </div>
           </div>}
-          {!isGenClient&&<CopyTextField label="在留カード番号" value={c.residence_card} field="residence_card" update={update} mono toast="📋 在留カード番号をコピー"/>}
+          {!isGenClient&&<CopyTextField label="在留カード番号" value={c.residence_card} field="residence_card" update={update} mono fmt={fmtUpper} toast="📋 在留カード番号（半角大文字）をコピー"/>}
           <div style={{gridColumn:"1/-1"}}>
             <div style={lbl}>備考</div>
             <textarea value={c.notes||""} onChange={e=>update("notes",e.target.value)} rows={2} placeholder="入国日・連絡事項など自由記入" style={{width:"100%",fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)",resize:"vertical",fontFamily:"inherit",lineHeight:1.5}}/>
@@ -3616,10 +3619,16 @@ function TabBasic({c,editMode,update,allClients}){
       {/* === 管理情報 ===（一般クライアントは申請情報のみ）*/}
       {!isGenClient&&<Card title="管理情報">
         <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14}}>
-          <Field label="所属会社" value={c.company_name} editMode={editMode} field="company_name" update={update}/>
-          <Field label="店舗・部署" value={c.store} editMode={editMode} field="store" update={update}/>
-          <Field label="最終学歴の学校名" value={c.education_school} editMode={editMode} field="education_school" update={update}/>
-          <Field label="卒業年月日" value={c.education_date} editMode={editMode} field="education_date" update={update} type="date"/>
+          <CopyTextField label="所属会社" value={c.company_name} field="company_name" update={update} ime fmt={fmtZen} toast="📋 所属会社（全角）をコピー"/>
+          <CopyTextField label="店舗・部署" value={c.store} field="store" update={update} ime toast="📋 店舗・部署をコピー"/>
+          <CopyTextField label="最終学歴の学校名" value={c.education_school} field="education_school" update={update} ime fmt={fmtZen} toast="📋 学校名（全角）をコピー"/>
+          <div>
+            <div style={lbl}>卒業年月日</div>
+            <div style={{display:"flex",gap:6,alignItems:"center"}}>
+              <DateInput max="9999-12-31" min="1900-01-01" value={c.education_date||""} onChange={v=>update("education_date",v)} style={dateS}/>
+              <CopyBtn get={()=>fmtYMD8(c.education_date)} toast="📋 卒業年月日（YYYYMMDD）をコピー"/>
+            </div>
+          </div>
           <div>
             <div style={lbl}>勤務開始日</div>
             <div style={{display:"flex",gap:6,alignItems:"center"}}>
@@ -3629,6 +3638,7 @@ function TabBasic({c,editMode,update,allClients}){
               <label style={{fontSize:11,color:"var(--text2)",display:"flex",alignItems:"center",gap:3,cursor:"pointer",whiteSpace:"nowrap"}}>
                 <input type="checkbox" checked={c.work_start_date==="未定"} onChange={e=>update("work_start_date",e.target.checked?"未定":"")}/>未定
               </label>
+              <CopyBtn get={()=>c.work_start_date==="未定"?"":fmtYMD8(c.work_start_date)} toast="📋 勤務開始日（YYYYMMDD）をコピー"/>
             </div>
           </div>
           <div>
@@ -3689,7 +3699,7 @@ function TabBasic({c,editMode,update,allClients}){
               })()}
             </div>
           )}
-          {isFamily&&c.relationship==="子"&&<Field label="学校名" value={c.school_name} editMode={editMode} field="school_name" update={update}/>}
+          {isFamily&&c.relationship==="子"&&<CopyTextField label="学校名" value={c.school_name} field="school_name" update={update} ime fmt={fmtZen} toast="📋 学校名（全角）をコピー"/>}
         </div>
       </Card>}
     </div>
