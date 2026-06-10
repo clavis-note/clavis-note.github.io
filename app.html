@@ -91,7 +91,7 @@ const JOURNAL_RESULT_LIST=["","許可","不許可","条件付き許可","取下"
 const INTL_PRESETS=["在留期間更新許可申請","在留資格認定証明書交付申請","在留資格変更許可申請","在留期間更新許可申請・資格外活動許可","在留資格更新・資格外活動許可"];
 const GENERAL_CASE_CATEGORIES=JOURNAL_CATEGORIES.filter(c=>c!=="国際");
 const GENERAL_STATUS_LIST=["相談中","受任","作業中","提出済","完了","キャンセル","保留"];
-const COMM_METHODS=["電話","メール","LINE","対面","郵送","その他"];
+const COMM_METHODS=["電話","メール","LINE","対面","郵送","作業","その他"];
 
 // 令和8年度 行政書士申請取次関係研修会 日程データ
 const DEFAULT_TRAINING_SCHEDULE = {
@@ -3967,7 +3967,7 @@ function TabCaseHistory({c,cases,payments,onNavigateCase}){
                 {commLog.length>0&&<div>
                   <div style={{fontSize:11,color:"#666",fontWeight:500,marginBottom:6}}>💬 やり取り履歴（直近5件）</div>
                   {commLog.slice(0,5).map(l=>{
-                    const mIcon={"電話":"📞","メール":"✉️","LINE":"💬","対面":"🤝","郵送":"📮","その他":"📝"}[l.method]||"📝";
+                    const mIcon={"電話":"📞","メール":"✉️","LINE":"💬","対面":"🤝","郵送":"📮","作業":"✍️","その他":"📝"}[l.method]||"📝";
                     return(
                       <div key={l.id} style={{padding:"4px 0",borderBottom:"0.5px solid rgba(0,0,0,0.05)"}}>
                         <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:1}}>
@@ -5984,8 +5984,8 @@ function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments,templates,com
 // ============================================================
 // 8b. 共通：関係者リスト
 // ============================================================
-const ROLE_PRESETS_IMMIGRATION=["本人","司法書士","税理士","社労士","弁護士","担当者","審査官","その他"];
-const ROLE_PRESETS_GENERAL=["本人","司法書士","税理士","社労士","弁護士","担当者","相続人","被相続人","市区町村役場","その他"];
+const ROLE_PRESETS_IMMIGRATION=["司法書士","税理士","社労士","弁護士","担当者","審査官","その他"];
+const ROLE_PRESETS_GENERAL=["司法書士","税理士","社労士","弁護士","担当者","相続人","被相続人","市区町村役場","その他"];
 function ContactsSection({contacts,onChange,rolePresets}){
   const [showForm,setShowForm]=useState(false);
   const [editId,setEditId]=useState(null);
@@ -6076,9 +6076,8 @@ function CommLogSection({logs,contacts,onChange}){
           <div style={{display:"grid",gridTemplateColumns:"120px 1fr 100px",gap:8,marginBottom:8}}>
             <div><div style={{fontSize:10,color:"#999",marginBottom:2}}>日付</div><DateInput max="9999-12-31" min="1900-01-01" value={form.date} onChange={v=>up("date",v)} style={{width:"100%",fontSize:12,padding:"4px 6px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)"}}/></div>
             <div><div style={{fontSize:10,color:"#999",marginBottom:2}}>相手</div>
-              {contacts.length>0?<select value={form.contact_name} onChange={e=>up("contact_name",e.target.value)} style={{width:"100%",fontSize:12,padding:"4px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)"}}><option value="">選択 or 直接入力↓</option>{contacts.map(ct=><option key={ct.id} value={ct.name}>{ct.name}{ct.role?" ("+ct.role+")":""}</option>)}</select>
-              :<input value={form.contact_name} onChange={e=>up("contact_name",e.target.value)} placeholder="相手の名前" style={{width:"100%",fontSize:12,padding:"4px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)"}}/>}
-              {contacts.length>0&&<input value={form.contact_name} onChange={e=>up("contact_name",e.target.value)} placeholder="または直接入力" style={{width:"100%",fontSize:12,padding:"4px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)",marginTop:4}}/>}
+              <select value={form.contact_name} onChange={e=>up("contact_name",e.target.value)} style={{width:"100%",fontSize:12,padding:"4px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)"}}><option value="">選択 or 直接入力↓</option><option value="本人">本人</option>{contacts.map(ct=><option key={ct.id} value={ct.name}>{ct.name}{ct.role?" ("+ct.role+")":""}</option>)}</select>
+              <input value={form.contact_name} onChange={e=>up("contact_name",e.target.value)} placeholder="または直接入力" style={{width:"100%",fontSize:12,padding:"4px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)",marginTop:4}}/>
             </div>
             <div><div style={{fontSize:10,color:"#999",marginBottom:2}}>手段</div><select value={form.method} onChange={e=>up("method",e.target.value)} style={{width:"100%",fontSize:12,padding:"4px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)"}}>{COMM_METHODS.map(m=><option key={m}>{m}</option>)}</select></div>
           </div>
@@ -6091,7 +6090,7 @@ function CommLogSection({logs,contacts,onChange}){
       )}
       {logs.length===0&&!showForm&&<div style={{fontSize:12,color:"#bbb",textAlign:"center",padding:8}}>やり取りの記録はありません</div>}
       {logs.map(l=>{
-        const mIcon={"電話":"📞","メール":"✉️","LINE":"💬","対面":"🤝","郵送":"📮","その他":"📝"}[l.method]||"📝";
+        const mIcon={"電話":"📞","メール":"✉️","LINE":"💬","対面":"🤝","郵送":"📮","作業":"✍️","その他":"📝"}[l.method]||"📝";
         return(
           <div key={l.id} style={{padding:"8px 10px",borderLeft:"2px solid #D3D1C7",marginBottom:4,marginLeft:4,display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
             <div style={{flex:1}}>
