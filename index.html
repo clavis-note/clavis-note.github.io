@@ -2169,13 +2169,12 @@ body.theme-premium .nav-cta {
 .cockpit .console-shot .shot-caption .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
 /* updates tray */
 .cockpit .updates { background: linear-gradient(180deg, var(--bg-soft), var(--bg-alt)); border-top: 1px solid var(--line); padding: 22px 26px; }
-.cockpit .updates-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 6px; }
+.cockpit .updates-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
 .cockpit .updates-label { display: flex; align-items: center; gap: 11px; font-size: 14.5px; font-weight: 700; letter-spacing: 0.06em; color: var(--text); font-family: var(--font-serif); }
 .cockpit .updates-label .pulse { width: 9px; height: 9px; border-radius: 50%; background: var(--green); position: relative; flex-shrink: 0; }
 .cockpit .updates-label .pulse::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; border: 1.5px solid var(--green); opacity: 0; animation: cockpit-ripple 2.4s ease-out infinite; }
 @keyframes cockpit-ripple { 0% { transform: scale(.5); opacity: .7; } 70% { transform: scale(1.35); opacity: 0; } 100% { opacity: 0; } }
 .cockpit .updates-label .en { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.22em; color: var(--gold); text-transform: uppercase; }
-.cockpit .updates-sub { font-size: 12.5px; line-height: 1.8; color: var(--text-mute); margin: 0 0 14px; letter-spacing: 0.02em; }
 .cockpit .updates-list { list-style: none; margin: 0; padding: 0; }
 .cockpit .updates-list li { display: flex; align-items: baseline; gap: 16px; padding: 11px 10px; border-radius: 8px; border-top: 1px solid var(--line-soft); font-size: 13.5px; line-height: 1.75; transition: background .2s ease; }
 .cockpit .updates-list li:first-child { border-top: none; }
@@ -2506,7 +2505,6 @@ body.theme-premium .nav-cta {
             <span class="en">Changelog</span>
           </div>
         </div>
-        <p class="updates-sub">現役行政書士が、現場の声をそのまま反映。気づいた不便は、すぐに直して届けています。</p>
 
         <ul class="updates-list" id="lpUpdatesList">
           <li>

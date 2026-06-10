@@ -55,15 +55,7 @@ body {
   color:var(--accent); margin-bottom:20px;
 }
 .uh .eyebrow::before, .uh .eyebrow::after { content:''; width:26px; height:1px; background:currentColor; opacity:.5; }
-.uh h1 { font-family:var(--font-serif); font-size:clamp(28px,4.4vw,40px); font-weight:700; line-height:1.45; letter-spacing:.03em; margin-bottom:18px; }
-.uh .lead {
-  display:inline-flex; align-items:center; gap:11px;
-  font-size:15px; color:var(--text-mute); line-height:1.9;
-}
-.uh .lead .pulse { width:9px; height:9px; border-radius:50%; background:var(--green); position:relative; flex-shrink:0; }
-.uh .lead .pulse::after { content:''; position:absolute; inset:-4px; border-radius:50%; border:1.5px solid var(--green); opacity:0; animation:u-ripple 2.4s ease-out infinite; }
-@keyframes u-ripple { 0%{transform:scale(.5);opacity:.7;} 70%{transform:scale(1.35);opacity:0;} 100%{opacity:0;} }
-@media (prefers-reduced-motion: reduce) { .uh .lead .pulse::after { animation:none; } }
+.uh h1 { font-family:var(--font-serif); font-size:clamp(28px,4.4vw,40px); font-weight:700; line-height:1.45; letter-spacing:.03em; }
 
 /* ===== TIMELINE ===== */
 .tl-wrap { max-width:760px; margin:0 auto; padding:30px 32px 24px; }
@@ -141,7 +133,6 @@ footer.site { margin-top:64px; background:var(--bg-alt); border-top:1px solid va
 <section class="uh">
   <div class="eyebrow">Changelog</div>
   <h1>更新履歴</h1>
-  <p class="lead"><span class="pulse"></span>現役行政書士が、現場の声をそのまま反映。気づいた不便は、すぐに直して届けています。</p>
 </section>
 
 <!-- ===== TIMELINE ===== -->
