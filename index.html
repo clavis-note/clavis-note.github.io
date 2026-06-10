@@ -2171,6 +2171,17 @@ body.theme-premium .nav-cta {
   backdrop-filter: blur(6px); box-shadow: 0 6px 16px -6px rgba(0,0,0,.4); pointer-events: none;
 }
 .cockpit .console-shot .shot-caption .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+/* bottom fade — 画像下端を背景色に溶かし「ここから先は省略」の合図にする（更新帯がスクショを隠して見える問題への対応） */
+.cockpit .console-shot::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 0;
+  height: clamp(64px, 18%, 120px);
+  background: linear-gradient(180deg,
+    transparent 0%,
+    color-mix(in srgb, var(--bg-soft) 55%, transparent) 52%,
+    var(--bg-soft) 97%);
+  pointer-events: none;
+}
+.cockpit .console-shot .shot-caption { z-index: 1; }
 /* updates tray */
 .cockpit .updates { background: linear-gradient(180deg, var(--bg-soft), var(--bg-alt)); border-top: 1px solid var(--line); padding: 22px 26px; }
 .cockpit .updates-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
