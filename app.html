@@ -62,7 +62,7 @@ const PAY_STATUS_COLORS = {
   "入金済":{bg:"#EAF3DE",color:"#3B6D11"},"一部入金":{bg:"#FAEEDA",color:"#854F0B"},
 };
 const CLIENT_STATUS = { "active":{label:"在籍",bg:"#EAF3DE",color:"#3B6D11"}, "incoming":{label:"入社予定",bg:"#E6F1FB",color:"#185FA5"}, "resigned":{label:"退職",bg:"#FCEBEB",color:"#A32D2D"}, "preschool":{label:"未就学児",bg:"#FBE6F1",color:"#A5186E"}, "student":{label:"就学中",bg:"#EEEDFE",color:"#534AB7"}, "homemaker":{label:"主婦・主夫",bg:"#DBF4EE",color:"#0F6E56"}, "returned":{label:"帰国済み",bg:"#FAEEDA",color:"#854F0B"}, "unknown":{label:"不明",bg:"#F1EFE8",color:"#5F5E5A"}, "none":{label:"ー（旧）",bg:"#F1EFE8",color:"#5F5E5A"} };
-const COE_BADGE_COLORS = { "予定":{bg:"#E6F1FB",color:"#185FA5"}, "準備中":{bg:"#FAEEDA",color:"#854F0B"}, "申請中":{bg:"#EEEDFE",color:"#534AB7"} };
+const COE_BADGE_COLORS = { "予定":{bg:"#E6F1FB",color:"#185FA5"}, "準備中":{bg:"#FAEEDA",color:"#854F0B"}, "申請中":{bg:"#EEEDFE",color:"#534AB7"}, "不許可":{bg:"#FCEBEB",color:"#A32D2D"} };
 const AVATAR_COLORS = ["#185FA5","#0F6E56","#534AB7","#854F0B","#993C1D","#3B6D11"];
 
 // 案件管理用定数
@@ -4702,15 +4702,18 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
   // Keep selected in sync with clients
   const cur=clients.find(c=>c.client_id===selected?.client_id)||null;
   const depsForAlert=(c)=>clients.filter(x=>x.dependent_of===c.client_id&&!x.archived);
-  // COE準備中・申請中・予定 を案件ステータスから動的算出
+  // COE準備中・申請中・不許可・予定 を案件ステータスから動的算出
   // 1) 申請中/追加資料対応中 → 申請中  2) 相談中/書類収集中 → 準備中
-  // 3) 上記なしで 許可/完了（許可） がある → null（バッジ非表示）  4) 案件なし or 上記いずれにも該当しない → 予定
+  // 3) 上記なしで 許可/完了（許可） がある → null（バッジ非表示）
+  // 4) 不許可系のみ → 不許可（再招へい保留の受け皿。新案件を作れば準備中に自動復帰）
+  // 5) 案件なし or 上記いずれにも該当しない → 予定
   function getCOEPhaseLabel(client,allCases){
     if(!client||!client.coe_phase) return null;
     const myCases=(allCases||[]).filter(cs=>cs.client_id===client.client_id||cs.applicant_id===client.client_id);
     if(myCases.some(cs=>cs.status==="申請中"||cs.status==="追加資料対応中")) return "申請中";
     if(myCases.some(cs=>cs.status==="相談中"||cs.status==="書類収集中")) return "準備中";
     if(myCases.some(cs=>cs.status==="許可"||cs.status==="完了（許可）")) return null;
+    if(myCases.some(cs=>cs.status==="不許可"||cs.status==="完了（不許可）")) return "不許可";
     return "予定";
   }
 
