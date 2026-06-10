@@ -10868,6 +10868,8 @@ function App(){
     if(r) r(choice);
   }
   const [swUpdateReady,setSwUpdateReady]=useState(false);
+  const [swUpdateEntries,setSwUpdateEntries]=useState(null); // updates.json の配列（取得成功時のみ）
+  const [showUpdateInfo,setShowUpdateInfo]=useState(false);  // 「更新内容」ポップアップの表示
   const [isOnline,setIsOnline]=useState(typeof navigator!=="undefined"?navigator.onLine:true);
   function handleNavigateToClient(clientId){setNavigateClientId(clientId);setActiveTab("clients");}
   function handleNavigateToCase(caseId){setNavigateCaseId(caseId);setActiveTab("cases");}
@@ -11003,7 +11005,14 @@ function App(){
 
   // Service Worker: 新版検知イベント / online-offline 監視
   useEffect(()=>{
-    const onUpdate=()=>setSwUpdateReady(true);
+    const onUpdate=()=>{
+      setSwUpdateReady(true);
+      // 更新内容（updates.json）を取得。失敗時はリンクを出さない＝バナーの再読み込みは従来どおり動く
+      fetch("/updates.json",{cache:"no-cache"})
+        .then(r=>r.ok?r.json():Promise.reject())
+        .then(d=>{ if(Array.isArray(d)&&d.length) setSwUpdateEntries(d); })
+        .catch(()=>{});
+    };
     const onOnline=()=>setIsOnline(true);
     const onOffline=()=>setIsOnline(false);
     window.addEventListener("clavis-update-ready",onUpdate);
@@ -11932,6 +11941,20 @@ function App(){
           <span style={{flex:1,lineHeight:1.4}}>
             {isMobile?"新しいバージョンがあります":"新しいバージョンがあります。再読み込みしますか？"}
           </span>
+          {swUpdateEntries&&(
+            <button onClick={()=>setShowUpdateInfo(true)} style={{
+              fontSize:isMobile?11:12,
+              padding:isMobile?"4px 8px":"5px 10px",
+              borderRadius:6,
+              border:"none",
+              background:"transparent",
+              color:"#185FA5",
+              cursor:"pointer",
+              fontWeight:600,
+              textDecoration:"underline",
+              flexShrink:0
+            }}>更新内容</button>
+          )}
           <button onClick={handleApplySwUpdate} style={{
             fontSize:isMobile?11:12,
             padding:isMobile?"4px 10px":"5px 14px",
@@ -11956,6 +11979,61 @@ function App(){
             flexShrink:0,
             opacity:0.6
           }}>✕</button>
+        </div>
+      )}
+      {showUpdateInfo&&swUpdateEntries&&(
+        <div onClick={()=>setShowUpdateInfo(false)} style={{
+          position:"fixed",inset:0,zIndex:9700,
+          background:"rgba(20,18,16,0.5)",
+          display:"flex",alignItems:"center",justifyContent:"center",
+          padding:16
+        }}>
+          <div onClick={e=>e.stopPropagation()} role="dialog" aria-label="このアップデートの内容" style={{
+            background:"#fff",borderRadius:14,
+            maxWidth:440,width:"100%",maxHeight:"80vh",overflow:"auto",
+            boxShadow:"0 30px 60px -20px rgba(0,0,0,0.35)",
+            border:"1px solid #e5e3dd"
+          }}>
+            <div style={{
+              display:"flex",alignItems:"center",justifyContent:"space-between",
+              gap:12,padding:"15px 20px",borderBottom:"1px solid #eceae3"
+            }}>
+              <span style={{fontWeight:700,fontSize:15,color:"#1f1c19"}}>このアップデートの内容</span>
+              <button onClick={()=>setShowUpdateInfo(false)} aria-label="閉じる" style={{
+                border:"none",background:"transparent",fontSize:18,
+                cursor:"pointer",color:"#6b6760",lineHeight:1,flexShrink:0
+              }}>✕</button>
+            </div>
+            <div style={{padding:"6px 20px 10px"}}>
+              {swUpdateEntries.slice(0,5).map((e,i)=>{
+                const tag={fix:{label:"改修",color:"#1F5A9E",bg:"#E6F1FB"},feature:{label:"新機能",color:"#8a6a22",bg:"#f3ead4"},improve:{label:"改善",color:"#2f8f5b",bg:"#e3f1e9"}}[e.tag]||{label:e.tag||"",color:"#6b6760",bg:"#eceae3"};
+                return (
+                  <div key={i} style={{
+                    display:"flex",gap:12,alignItems:"baseline",
+                    padding:"11px 0",borderTop:i===0?"none":"1px solid #f0eee7"
+                  }}>
+                    <span style={{
+                      fontFamily:"ui-monospace,SFMono-Regular,Menlo,monospace",
+                      fontSize:11.5,color:"#6b6760",flexShrink:0,paddingTop:2,whiteSpace:"nowrap"
+                    }}>{String(e.date||"").replace(/-/g,".")}</span>
+                    <span style={{fontSize:13.5,lineHeight:1.7,color:"#1f1c19"}}>
+                      <span style={{
+                        display:"inline-block",fontSize:10,fontWeight:600,letterSpacing:"0.04em",
+                        padding:"2px 8px",borderRadius:100,marginRight:8,verticalAlign:1.5,
+                        whiteSpace:"nowrap",color:tag.color,background:tag.bg
+                      }}>{tag.label}</span>
+                      {e.summary||""}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{padding:"0 20px 16px",textAlign:"right"}}>
+              <a href="/updates.html" target="_blank" rel="noopener" style={{
+                fontSize:12.5,fontWeight:600,color:"#2D7DD2",textDecoration:"none"
+              }}>すべての更新を見る →</a>
+            </div>
+          </div>
         </div>
       )}
       {!isOnline&&(
