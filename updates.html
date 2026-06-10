@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>更新履歴 ─ Clavis Note</title>
+<meta name="description" content="Clavis Note の更新履歴。現役行政書士が現場の声をそのまま反映し、気づいた不便をすぐに直して届けています。改修・新機能・改善の記録を新しい順に掲載しています。">
+<meta property="og:title" content="更新履歴 ─ Clavis Note">
+<meta property="og:description" content="現役行政書士が、現場の声をそのまま反映。気づいた不便は、すぐに直して届けています。">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;600;700;800&family=Noto+Sans+JP:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#f5f4ee; --bg-alt:#ebe9e0; --bg-soft:#faf8f5; --bg-paper:#fdfcf8; --bg-deep:#1a1d24;
+  --text:#1f1c19; --text-mute:#6b6760; --text-soft:#8a8680;
+  --line:#d4d2c8; --line-soft:#e5e3dd;
+  --accent:#2D7DD2; --accent-soft:#E6F1FB; --accent-deep:#1F5A9E; --accent-ink:#0d2742;
+  --gold:#b48a3c; --gold-soft:#f3ead4;
+  --green:#2f8f5b; --green-soft:#e3f1e9;
+  --font-serif:'Shippori Mincho','YuMincho','Hiragino Mincho ProN',serif;
+  --font-sans:'Noto Sans JP',-apple-system,BlinkMacSystemFont,'Segoe UI',Meiryo,sans-serif;
+  --font-mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --radius-sm:6px; --radius:12px; --radius-lg:20px;
+  --shadow-sm:0 1px 2px rgba(20,18,16,.06),0 1px 1px rgba(20,18,16,.04);
+  --shadow:0 12px 28px -10px rgba(20,18,16,.18),0 4px 10px -4px rgba(20,18,16,.08);
+  --shadow-lg:0 30px 60px -22px rgba(20,18,16,.28),0 10px 24px -12px rgba(20,18,16,.12);
+}
+* { box-sizing:border-box; margin:0; padding:0; }
+html { scroll-behavior:smooth; }
+body {
+  background:var(--bg); color:var(--text); font-family:var(--font-sans);
+  font-size:16px; line-height:1.8; -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+  background-image:radial-gradient(circle at 18% 18%,rgba(180,138,60,.035) 0,transparent 42%),
+                   radial-gradient(circle at 84% 64%,rgba(45,125,210,.03) 0,transparent 42%);
+}
+
+/* ===== NAV ===== */
+.site-nav { background:rgba(250,248,245,.92); backdrop-filter:blur(8px); border-bottom:1px solid var(--line); position:sticky; top:0; z-index:100; }
+.nav-inner { max-width:1180px; margin:0 auto; padding:15px 32px; display:flex; align-items:center; justify-content:space-between; gap:16px; }
+.nav-brand { font-family:var(--font-serif); font-size:22px; font-weight:700; letter-spacing:.04em; color:var(--text); text-decoration:none; white-space:nowrap; }
+.nav-brand .accent { color:var(--accent); }
+.nav-actions { display:flex; align-items:center; gap:22px; }
+.nav-link { color:var(--text-mute); text-decoration:none; font-size:14px; font-weight:500; transition:color .2s; }
+.nav-link:hover { color:var(--accent); }
+.nav-cta { background:var(--accent); color:#fff; text-decoration:none; font-size:13px; font-weight:600; padding:9px 18px; border-radius:var(--radius-sm); white-space:nowrap; transition:background .2s; }
+.nav-cta:hover { background:var(--accent-deep); }
+
+/* ===== HERO ===== */
+.uh { max-width:760px; margin:0 auto; padding:74px 32px 26px; text-align:center; }
+.uh .eyebrow {
+  display:inline-flex; align-items:center; gap:12px;
+  font-family:var(--font-mono); font-size:11px; letter-spacing:.3em; text-transform:uppercase;
+  color:var(--accent); margin-bottom:20px;
+}
+.uh .eyebrow::before, .uh .eyebrow::after { content:''; width:26px; height:1px; background:currentColor; opacity:.5; }
+.uh h1 { font-family:var(--font-serif); font-size:clamp(28px,4.4vw,40px); font-weight:700; line-height:1.45; letter-spacing:.03em; margin-bottom:18px; }
+.uh .lead {
+  display:inline-flex; align-items:center; gap:11px;
+  font-size:15px; color:var(--text-mute); line-height:1.9;
+}
+.uh .lead .pulse { width:9px; height:9px; border-radius:50%; background:var(--green); position:relative; flex-shrink:0; }
+.uh .lead .pulse::after { content:''; position:absolute; inset:-4px; border-radius:50%; border:1.5px solid var(--green); opacity:0; animation:u-ripple 2.4s ease-out infinite; }
+@keyframes u-ripple { 0%{transform:scale(.5);opacity:.7;} 70%{transform:scale(1.35);opacity:0;} 100%{opacity:0;} }
+@media (prefers-reduced-motion: reduce) { .uh .lead .pulse::after { animation:none; } }
+
+/* ===== TIMELINE ===== */
+.tl-wrap { max-width:760px; margin:0 auto; padding:30px 32px 24px; }
+.tl-year { font-family:var(--font-mono); font-size:13px; letter-spacing:.16em; color:var(--text-soft); margin:34px 0 10px; padding-left:2px; }
+.tl-year:first-child { margin-top:0; }
+.tl-list { list-style:none; background:var(--bg-paper); border:1px solid var(--line-soft); border-radius:var(--radius); box-shadow:var(--shadow-sm); overflow:hidden; }
+.tl-list li { display:flex; align-items:baseline; gap:18px; padding:16px 20px; border-top:1px solid var(--line-soft); font-size:14.5px; line-height:1.8; transition:background .2s ease; }
+.tl-list li:first-child { border-top:none; }
+.tl-list li:hover { background:var(--bg-soft); }
+.tl-list .date { font-family:var(--font-mono); font-size:12px; color:var(--text-mute); letter-spacing:.03em; flex-shrink:0; padding-top:2px; min-width:84px; }
+.tl-list .body { color:var(--text); }
+.tl-list .tag { display:inline-block; font-size:10.5px; font-weight:600; letter-spacing:.06em; padding:2px 9px; border-radius:100px; margin-right:10px; vertical-align:1.5px; white-space:nowrap; }
+.tag.fix     { color:var(--accent-deep); background:var(--accent-soft); }
+.tag.feature { color:#8a6a22; background:var(--gold-soft); }
+.tag.improve { color:var(--green); background:var(--green-soft); }
+.tl-empty { padding:28px 20px; text-align:center; color:var(--text-soft); font-size:14px; }
+
+/* ===== CTA ===== */
+.cta-band { max-width:760px; margin:18px auto 0; padding:0 32px; }
+.cta-card { background:var(--bg-soft); border:1px solid var(--line); border-radius:var(--radius-lg); padding:42px 32px; text-align:center; position:relative; overflow:hidden; }
+.cta-card::before { content:""; position:absolute; inset:0; background:radial-gradient(circle at 50% 0%,var(--accent-soft) 0,transparent 60%); opacity:.6; pointer-events:none; }
+.cta-card > * { position:relative; }
+.cta-card h2 { font-family:var(--font-serif); font-size:22px; font-weight:700; line-height:1.5; margin-bottom:10px; }
+.cta-card p { font-size:13.5px; color:var(--text-mute); margin-bottom:24px; }
+.cta-btn { display:inline-block; background:var(--accent); color:#fff; text-decoration:none; font-size:15px; font-weight:600; padding:13px 32px; border-radius:var(--radius-sm); box-shadow:0 10px 22px -10px rgba(45,125,210,.6); transition:background .2s,transform .15s; }
+.cta-btn:hover { background:var(--accent-deep); transform:translateY(-1px); }
+.cta-back { display:inline-block; margin-top:18px; font-size:13px; color:var(--accent); text-decoration:none; }
+.cta-back:hover { color:var(--accent-deep); }
+
+/* ===== FOOTER ===== */
+footer.site { margin-top:64px; background:var(--bg-alt); border-top:1px solid var(--line); padding:48px 32px 28px; }
+.footer-grid { max-width:1180px; margin:0 auto; display:grid; grid-template-columns:1.4fr 1fr; gap:40px; }
+.footer-brand { font-family:var(--font-serif); font-size:20px; font-weight:700; letter-spacing:.04em; }
+.footer-brand .accent { color:var(--accent); }
+.footer-org { font-size:13.5px; color:var(--text-mute); margin-top:8px; font-weight:500; }
+.footer-info { font-size:13px; color:var(--text-soft); margin-top:6px; line-height:1.8; }
+.footer-links-title { font-family:var(--font-mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--text-soft); margin-bottom:14px; }
+.footer-links-block a { display:block; color:var(--text-mute); text-decoration:none; font-size:13.5px; padding:4px 0; transition:color .2s; }
+.footer-links-block a:hover { color:var(--accent); }
+.footer-bottom { max-width:1180px; margin:32px auto 0; padding-top:20px; border-top:1px solid var(--line); display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--text-soft); }
+.footer-bottom .mono { font-family:var(--font-mono); }
+
+@media (max-width:640px) {
+  body { font-size:15px; }
+  .nav-inner { padding:13px 18px; }
+  .nav-actions { gap:14px; }
+  .nav-link { display:none; }
+  .uh { padding:46px 18px 18px; }
+  .tl-wrap { padding:24px 18px 18px; }
+  .tl-list li { flex-wrap:wrap; gap:6px 14px; padding:14px 16px; }
+  .tl-list .date { min-width:0; }
+  .cta-band { padding:0 18px; }
+  .cta-card { padding:34px 22px; }
+  .footer-grid { grid-template-columns:1fr; gap:28px; }
+  .footer-bottom { flex-direction:column; gap:6px; align-items:flex-start; }
+}
+</style>
+</head>
+<body>
+
+<!-- ===== NAV ===== -->
+<header class="site-nav">
+  <div class="nav-inner">
+    <a href="/" class="nav-brand">Clavis <span class="accent">Note</span></a>
+    <nav class="nav-actions">
+      <a href="/#features" class="nav-link">機能</a>
+      <a href="/#pricing" class="nav-link">料金</a>
+      <a href="/#faq" class="nav-link">FAQ</a>
+      <a href="https://buy.stripe.com/8x2fZicdl78hd7DfYB3Je01?prefilled_promo_code=FOUNDER" class="nav-cta">30日間無料で始める</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ===== HERO ===== -->
+<section class="uh">
+  <div class="eyebrow">Changelog</div>
+  <h1>更新履歴</h1>
+  <p class="lead"><span class="pulse"></span>現役行政書士が、現場の声をそのまま反映。気づいた不便は、すぐに直して届けています。</p>
+</section>
+
+<!-- ===== TIMELINE ===== -->
+<main class="tl-wrap" id="updatesRoot" aria-label="更新履歴">
+  <!-- 静的フォールバック（JS が updates.json を読めない場合に表示） -->
+  <ul class="tl-list">
+    <li>
+      <span class="date">2026.06.09</span>
+      <span class="body"><span class="tag fix">改修</span>見積書・請求書の品目欄で、数量2以上のときに単価と金額が正しく表示されない問題を修正しました</span>
+    </li>
+    <li>
+      <span class="date">2026.06.05</span>
+      <span class="body"><span class="tag feature">新機能</span>クライアント詳細に、オンライン申請の形式へ整形してコピーできるボタンを追加しました</span>
+    </li>
+    <li>
+      <span class="date">2026.05.28</span>
+      <span class="body"><span class="tag improve">改善</span>Google Drive 連携のログインまわりを改善し、セキュリティ通知メールが毎回届く問題を解消しました</span>
+    </li>
+  </ul>
+</main>
+
+<!-- ===== CTA ===== -->
+<div class="cta-band">
+  <div class="cta-card">
+    <h2>あなたの業務にも、コックピットを。</h2>
+    <p>30日間、すべての機能を無料でお試しいただけます。</p>
+    <a href="https://buy.stripe.com/8x2fZicdl78hd7DfYB3Je01?prefilled_promo_code=FOUNDER" class="cta-btn">30日間無料で始める</a>
+    <br>
+    <a href="/" class="cta-back">← トップページへ戻る</a>
+  </div>
+</div>
+
+<!-- ===== FOOTER ===== -->
+<footer class="site">
+  <div class="footer-grid">
+    <div class="footer-brand-block">
+      <div class="footer-brand">Clavis <span class="accent">Note</span></div>
+      <div class="footer-org">ながみ行政書士事務所</div>
+      <div class="footer-info">代表　長見　恵<br>東京都立川市高松町３－１４－２　２F</div>
+    </div>
+    <div class="footer-links-block">
+      <div class="footer-links-title">Information</div>
+      <a href="/">トップ（LP）</a>
+      <a href="/updates.html">更新履歴</a>
+      <a href="/blog/">ブログ</a>
+      <a href="/terms.html">ご利用規約</a>
+      <a href="/privacy.html">プライバシーポリシー</a>
+      <a href="/tokushoho.html">特定商取引法表記</a>
+      <a href="mailto:info@clavis-note.com">info@clavis-note.com</a>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span>© 2026 ながみ行政書士事務所</span>
+    <span class="mono">Clavis Note — v1.0</span>
+  </div>
+</footer>
+
+<script>
+(function () {
+  'use strict';
+  var root = document.getElementById('updatesRoot');
+  if (!root) return;
+  var TAGS = { fix: { cls: 'fix', label: '改修' }, feature: { cls: 'feature', label: '新機能' }, improve: { cls: 'improve', label: '改善' } };
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function render(data) {
+    if (!Array.isArray(data) || !data.length) return;
+    // 新しい順に整列（date 文字列の降順）
+    var entries = data.slice().filter(function (e) { return e && e.date; }).sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
+    if (!entries.length) return;
+    var html = '';
+    var curYear = null;
+    var openUl = false;
+    entries.forEach(function (e) {
+      var year = String(e.date).slice(0, 4);
+      if (year !== curYear) {
+        if (openUl) { html += '</ul>'; openUl = false; }
+        html += '<div class="tl-year">' + esc(year) + '</div><ul class="tl-list">';
+        openUl = true;
+        curYear = year;
+      }
+      var t = TAGS[e.tag] || { cls: '', label: e.tag || '' };
+      var date = esc(String(e.date).replace(/-/g, '.'));
+      html += '<li><span class="date">' + date + '</span><span class="body"><span class="tag ' + t.cls + '">' + esc(t.label) + '</span>' + esc(e.summary || '') + '</span></li>';
+    });
+    if (openUl) html += '</ul>';
+    root.innerHTML = html;
+  }
+  fetch('/updates.json', { cache: 'no-cache' })
+    .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+    .then(render)
+    .catch(function () { /* 静的フォールバックを維持 */ });
+})();
+</script>
+
+</body>
+</html>

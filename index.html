@@ -39,6 +39,9 @@
   --gold:        #b48a3c;
   --gold-soft:   #f3ead4;
 
+  --green:       #2f8f5b;
+  --green-soft:  #e3f1e9;
+
   /* Typography */
   --font-serif: 'Shippori Mincho', 'YuMincho', 'Hiragino Mincho ProN', serif;
   --font-sans:  'Noto Sans JP', -apple-system, BlinkMacSystemFont, 'Segoe UI', Meiryo, sans-serif;
@@ -2105,6 +2108,101 @@ body.theme-premium .nav-cta {
 .feat-shot { margin: 4px 0 20px; }
 .feat-shot img { aspect-ratio: 700 / 461; }
 
+/* ===== DASHBOARD COCKPIT（見出し＋額装スクショ＋更新帯） ===== */
+.cockpit { position: relative; padding: 88px 28px 96px; overflow: hidden; }
+.cockpit::before {
+  content: ''; position: absolute; top: -120px; left: 50%; transform: translateX(-50%);
+  width: 820px; height: 460px;
+  background: radial-gradient(ellipse at center, color-mix(in srgb, var(--accent) 16%, transparent), transparent 70%);
+  filter: blur(50px); pointer-events: none;
+}
+.cockpit .inner { position: relative; max-width: 980px; margin: 0 auto; }
+.cockpit .section-head { text-align: center; margin-bottom: 48px; }
+.cockpit .eyebrow {
+  display: inline-flex; align-items: center; gap: 12px;
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.3em;
+  color: var(--accent); text-transform: uppercase; margin-bottom: 20px;
+}
+.cockpit .eyebrow::before, .cockpit .eyebrow::after { content: ''; width: 26px; height: 1px; background: currentColor; opacity: .5; }
+.cockpit .section-head h2 {
+  font-family: var(--font-serif); font-size: clamp(26px, 3.6vw, 38px); font-weight: 700;
+  line-height: 1.5; letter-spacing: 0.04em; margin-bottom: 18px; text-wrap: pretty;
+}
+.cockpit .section-head .caption {
+  font-size: 15.5px; line-height: 2.0; color: var(--text-mute); max-width: 600px; margin: 0 auto; text-wrap: pretty;
+}
+.cockpit .console {
+  max-width: 920px; margin: 0 auto; background: #fff; border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg); border: 1px solid var(--line-soft); overflow: hidden;
+}
+.cockpit .console-chrome {
+  display: flex; align-items: center; gap: 14px; padding: 13px 18px;
+  background: linear-gradient(180deg, var(--bg-soft), #fff); border-bottom: 1px solid var(--line-soft);
+}
+.cockpit .console-chrome .lights { display: flex; gap: 6px; flex-shrink: 0; }
+.cockpit .console-chrome .lights span { width: 10px; height: 10px; border-radius: 50%; }
+.cockpit .console-chrome .lights span:nth-child(1) { background: #ff6b6b; }
+.cockpit .console-chrome .lights span:nth-child(2) { background: #ffd966; }
+.cockpit .console-chrome .lights span:nth-child(3) { background: #7ed957; }
+.cockpit .console-chrome .url {
+  flex: 1; display: flex; align-items: center; gap: 7px;
+  font-family: var(--font-mono); font-size: 11.5px; color: var(--text-mute);
+  background: #fff; border: 1px solid var(--line-soft); border-radius: 100px;
+  padding: 5px 14px; letter-spacing: 0.04em; max-width: 340px;
+}
+.cockpit .console-chrome .url svg { color: var(--green); flex-shrink: 0; }
+/* clickable shot — reuse expand modal, framed by console (no card scale/border) */
+.cockpit .console-shot {
+  position: relative; display: block; width: 100%; padding: 0; margin: 0;
+  border: 0; border-radius: 0; background: var(--bg-soft); box-shadow: none;
+  cursor: zoom-in; overflow: hidden; -webkit-tap-highlight-color: transparent;
+}
+.cockpit .console-shot img { display: block; width: 100%; height: auto; object-fit: contain; }
+@media (hover: hover) { .cockpit .console-shot:hover { transform: none; box-shadow: none; border-color: transparent; } }
+.cockpit .console-shot:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
+.cockpit .console-shot .shot-caption {
+  position: absolute; left: 16px; bottom: 16px; display: inline-flex; align-items: center; gap: 7px;
+  background: color-mix(in srgb, var(--bg-deep) 88%, transparent); color: #fff;
+  font-size: 11px; letter-spacing: 0.06em; padding: 6px 13px; border-radius: 100px;
+  backdrop-filter: blur(6px); box-shadow: 0 6px 16px -6px rgba(0,0,0,.4); pointer-events: none;
+}
+.cockpit .console-shot .shot-caption .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+/* updates tray */
+.cockpit .updates { background: linear-gradient(180deg, var(--bg-soft), var(--bg-alt)); border-top: 1px solid var(--line); padding: 22px 26px; }
+.cockpit .updates-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 6px; }
+.cockpit .updates-label { display: flex; align-items: center; gap: 11px; font-size: 14.5px; font-weight: 700; letter-spacing: 0.06em; color: var(--text); font-family: var(--font-serif); }
+.cockpit .updates-label .pulse { width: 9px; height: 9px; border-radius: 50%; background: var(--green); position: relative; flex-shrink: 0; }
+.cockpit .updates-label .pulse::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; border: 1.5px solid var(--green); opacity: 0; animation: cockpit-ripple 2.4s ease-out infinite; }
+@keyframes cockpit-ripple { 0% { transform: scale(.5); opacity: .7; } 70% { transform: scale(1.35); opacity: 0; } 100% { opacity: 0; } }
+.cockpit .updates-label .en { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.22em; color: var(--gold); text-transform: uppercase; }
+.cockpit .updates-sub { font-size: 12.5px; line-height: 1.8; color: var(--text-mute); margin: 0 0 14px; letter-spacing: 0.02em; }
+.cockpit .updates-list { list-style: none; margin: 0; padding: 0; }
+.cockpit .updates-list li { display: flex; align-items: baseline; gap: 16px; padding: 11px 10px; border-radius: 8px; border-top: 1px solid var(--line-soft); font-size: 13.5px; line-height: 1.75; transition: background .2s ease; }
+.cockpit .updates-list li:first-child { border-top: none; }
+.cockpit .updates-list li:hover { background: color-mix(in srgb, #fff 60%, transparent); }
+.cockpit .updates-list .date { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-mute); letter-spacing: 0.03em; flex-shrink: 0; padding-top: 1px; }
+.cockpit .updates-list .body { color: var(--text); }
+.cockpit .updates-list .tag { display: inline-block; font-size: 10px; font-weight: 600; letter-spacing: 0.06em; padding: 2px 9px; border-radius: 100px; margin-right: 9px; vertical-align: 1.5px; white-space: nowrap; }
+.cockpit .tag.fix     { color: var(--accent-deep); background: var(--accent-soft); }
+.cockpit .tag.feature { color: #8a6a22; background: var(--gold-soft); }
+.cockpit .tag.improve { color: var(--green); background: var(--green-soft); }
+.cockpit .updates-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line-soft); }
+.cockpit .updates-foot .note { font-size: 11px; color: var(--text-mute); letter-spacing: 0.02em; }
+.cockpit .updates-all { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--accent); text-decoration: none; letter-spacing: 0.03em; white-space: nowrap; }
+.cockpit .updates-all:hover { color: var(--accent-deep); }
+.cockpit .updates-all .arrow { transition: transform .2s; }
+.cockpit .updates-all:hover .arrow { transform: translateX(3px); }
+@media (prefers-reduced-motion: reduce) { .cockpit .updates-label .pulse::after { animation: none; } }
+@media (max-width: 640px) {
+  .cockpit { padding: 56px 16px 68px; }
+  .cockpit .section-head { margin-bottom: 34px; }
+  .cockpit .console-chrome .url { max-width: none; }
+  .cockpit .updates { padding: 18px 16px; }
+  .cockpit .updates-head { flex-wrap: wrap; gap: 8px; }
+  .cockpit .updates-list li { flex-wrap: wrap; gap: 4px 12px; padding: 11px 6px; }
+  .cockpit .console-shot .shot-caption { left: 10px; bottom: 10px; font-size: 10px; padding: 5px 10px; }
+}
+
 /* ----- expand modal ----- */
 .shot-modal {
   position: fixed;
@@ -2375,15 +2473,64 @@ body.theme-premium .nav-cta {
   </div>
 </section>
 
-<!-- ============== HERO SCREENSHOT ============== -->
-<div class="hero-shot-wrap">
-  <button class="lp-shot hero-shot" type="button" aria-haspopup="dialog"
-          data-shot-full="images/screenshots/full/dashboard.webp"
-          data-shot-alt="Clavis Note ダッシュボードの実画面（デモデータ）">
-    <img src="images/screenshots/full/dashboard.webp" decoding="async"
-         alt="Clavis Note ダッシュボード画面のプレビュー（デモデータ）">
-  </button>
-</div>
+<!-- ============== DASHBOARD COCKPIT（見出し＋額装スクショ＋更新帯） ============== -->
+<section class="cockpit" id="cockpit">
+  <div class="inner">
+    <div class="section-head">
+      <div class="eyebrow">Dashboard</div>
+      <h2>ようこそ、業務のコックピットへ。</h2>
+      <p class="caption">在留期限のアラート、進行中の案件、入金待ち。<br>業務に必要な計器を、ひとつの画面に並べました。</p>
+    </div>
+
+    <div class="console">
+      <div class="console-chrome">
+        <div class="lights"><span></span><span></span><span></span></div>
+        <div class="url">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="4" y="11" width="16" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+          clavis-note.com/app
+        </div>
+      </div>
+      <button class="lp-shot console-shot" type="button" aria-haspopup="dialog"
+              data-shot-full="images/screenshots/full/dashboard-cockpit.webp"
+              data-shot-alt="Clavis Note ダッシュボードの実画面（デモデータ）">
+        <img src="images/screenshots/full/dashboard-cockpit.webp" decoding="async" width="1060" height="908"
+             alt="Clavis Note ダッシュボードの実画面（デモデータ）">
+        <span class="shot-caption"><span class="dot"></span>実際の管理画面（デモデータ）</span>
+      </button>
+
+      <div class="updates">
+        <div class="updates-head">
+          <div class="updates-label">
+            <span class="pulse"></span>
+            最近の更新
+            <span class="en">Changelog</span>
+          </div>
+        </div>
+        <p class="updates-sub">現役行政書士が、現場の声をそのまま反映。気づいた不便は、すぐに直して届けています。</p>
+
+        <ul class="updates-list" id="lpUpdatesList">
+          <li>
+            <span class="date">2026.06.09</span>
+            <span class="body"><span class="tag fix">改修</span>見積書・請求書の品目欄で、数量2以上のときに単価と金額が正しく表示されない問題を修正しました</span>
+          </li>
+          <li>
+            <span class="date">2026.06.05</span>
+            <span class="body"><span class="tag feature">新機能</span>クライアント詳細に、オンライン申請の形式へ整形してコピーできるボタンを追加しました</span>
+          </li>
+          <li>
+            <span class="date">2026.05.28</span>
+            <span class="body"><span class="tag improve">改善</span>Google Drive 連携のログインまわりを改善し、セキュリティ通知メールが毎回届く問題を解消しました</span>
+          </li>
+        </ul>
+
+        <div class="updates-foot">
+          <span class="note">最新3件を表示しています</span>
+          <a class="updates-all" href="/updates.html">すべての更新を見る <span class="arrow">→</span></a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
 
 <!-- ============== TRUST STRIP ============== -->
 <section class="trust-strip">
@@ -3095,6 +3242,7 @@ body.theme-premium .nav-cta {
     </div>
     <div class="footer-links-block">
       <div class="footer-links-title">Information</div>
+      <a href="/updates.html">更新履歴</a>
       <a href="/blog/">ブログ</a>
       <a href="/terms.html">ご利用規約</a>
       <a href="/privacy.html">プライバシーポリシー</a>
@@ -3153,6 +3301,26 @@ body.theme-premium .nav-cta {
       .then(res => { if (!res.ok) throw 0; v.src = src; const p = v.play(); if (p && p.catch) p.catch(() => { v.style.display='none'; }); })
       .catch(() => { v.style.display = 'none'; });
     v.addEventListener('error', () => { v.style.display = 'none'; });
+  })();
+
+  // 更新帯：updates.json の最新3件で帯を上書き（取得失敗時は静的フォールバックを維持）
+  (function renderLpUpdates() {
+    const list = document.getElementById('lpUpdatesList');
+    if (!list) return;
+    const TAGS = { fix: { cls: 'fix', label: '改修' }, feature: { cls: 'feature', label: '新機能' }, improve: { cls: 'improve', label: '改善' } };
+    const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    fetch('/updates.json', { cache: 'no-cache' })
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((data) => {
+        if (!Array.isArray(data) || !data.length) return;
+        const html = data.slice(0, 3).map((e) => {
+          const t = TAGS[e.tag] || { cls: '', label: e.tag || '' };
+          const date = esc(String(e.date || '').replace(/-/g, '.'));
+          return '<li><span class="date">' + date + '</span><span class="body"><span class="tag ' + t.cls + '">' + esc(t.label) + '</span>' + esc(e.summary || '') + '</span></li>';
+        }).join('');
+        if (html) list.innerHTML = html;
+      })
+      .catch(() => {});
   })();
 
   if (window.gsap) {
