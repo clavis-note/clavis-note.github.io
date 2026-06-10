@@ -476,6 +476,27 @@ function googleSignOut() {
   localStorage.removeItem("clavis-google-token-expires");
 }
 
+// 「このデバイスからデータを消去」（共有PC対策）:
+// Clavis NoteがこのlocalStorageに書き込んだ一式（業務データ本体・自動バック
+// アップ世代・トークン類・同期フラグ・同期ログ等）を消し、Drive連携も解除して
+// オンボーディング前の初期状態に戻す。
+// 全キーが "clavis-" プレフィックスで統一されているため、ホワイトリストではなく
+// プレフィックス一括方式を採る（将来キーが増えても消し漏れない）。
+function wipeDeviceData(){
+  try{ googleSignOut(); }catch(e){}
+  try{
+    const keys=[];
+    for(let i=0;i<localStorage.length;i++){
+      const k=localStorage.key(i);
+      if(k&&k.indexOf("clavis-")===0) keys.push(k);
+    }
+    keys.forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} });
+  }catch(e){ console.error("wipe error:",e); }
+  try{ sessionStorage.removeItem("clavis-demo"); }catch(e){}
+  // クエリ・ハッシュを落としてリロード → 初期状態（オンボーディング前）で再起動
+  location.replace(location.pathname);
+}
+
 // access_token を Workers 経由で再取得（旧 silent refresh の置き換え＝本丸）。
 // /auth/google/token を X-Clavis-License で叩く。サーバーが更新トークンで短命
 // access_tokenを発行して返す（GISの100%失敗が100%成功になる）。
@@ -10398,6 +10419,10 @@ const FAQ_ITEMS = [
     q:"自動バックアップにも目当ての時刻がありません",
     a:"Google Drive側に過去30日分・最大100世代のバックアップが保存されています。\nGoogle Drive を開いて、「clavis-note-sync.json」を右クリック →「版を管理」から過去の版を選び、ダウンロードしてください。\nダウンロードしたファイルは、このバックアップ画面の「読み込み(JSONから復元)」で取り込めます。"
   },
+  {
+    q:"共有パソコン（ネットカフェ・職場の共用機など）で使ってもいいですか？",
+    a:"おすすめしません。Clavis Noteはデータをその端末の中に保存するため、共有パソコンでは次に使う人にデータやログイン状態が残ってしまいます。\n\nやむを得ず使う場合は、次の2点を徹底してください:\n\n1. ブラウザの「ゲストモード」や自分専用のプロファイルで開く\n2. 作業が終わったら、バックアップメニュー最下部の「🧹 このデバイスからデータを消去」を押して、端末からデータとログイン状態を消す\n\nDrive連携済みであれば、消去してもDrive上のデータは残るので、ご自身のパソコンで再ログインすれば復元できます。"
+  },
 ];
 
 function FaqModal({onClose, isMobile}){
@@ -10433,6 +10458,35 @@ function FaqModal({onClose, isMobile}){
         </div>
         <div style={{padding:"12px 22px",borderTop:"0.5px solid rgba(0,0,0,0.08)",display:"flex",justifyContent:"flex-end"}}>
           <button onClick={onClose} style={{fontSize:12,padding:"6px 18px",cursor:"pointer",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)",fontWeight:500}}>閉じる</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 「このデバイスからデータを消去」の確認モーダル（Drive未連携時専用）。
+// 未連携＝この端末が唯一の保管場所のため、「消去」のタイプ入力で固くガードする。
+// （連携済みの場合はDriveに正が残るため、軽いconfirm一発で済ませる＝呼び出し側で分岐）
+function WipeConfirmModal({onClose,onWipe,isMobile}){
+  const [text,setText]=useState("");
+  const ok=text.trim()==="消去";
+  return(
+    <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.45)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,padding:isMobile?12:24}}>
+      <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:14,width:"100%",maxWidth:440,boxShadow:"0 8px 32px rgba(0,0,0,0.18)",padding:"22px 24px"}}>
+        <div style={{fontSize:15,fontWeight:600,color:"#A32D2D",marginBottom:12}}>⚠️ このデバイスからデータを消去</div>
+        <div style={{fontSize:13,lineHeight:1.8,color:"#444",marginBottom:14}}>
+          Drive同期がないため、消去するとデータは<b>完全に失われ、復元できません</b>。<br/>
+          消去前に「📤 JSONダウンロード」で手元に控えを残すこともできます。
+        </div>
+        <div style={{fontSize:12,color:"#666",marginBottom:6}}>実行するには「<b>消去</b>」と入力してください</div>
+        <input value={text} onChange={e=>setText(e.target.value)} placeholder="消去"
+          style={{width:"100%",fontSize:14,padding:"8px 10px",borderRadius:7,border:"0.5px solid rgba(0,0,0,0.25)",background:"var(--bg2)",marginBottom:16,boxSizing:"border-box"}}/>
+        <div style={{display:"flex",justifyContent:"flex-end",gap:8}}>
+          <button onClick={onClose} style={{fontSize:12,padding:"7px 16px",cursor:"pointer",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)",fontWeight:500}}>キャンセル</button>
+          <button onClick={()=>{if(ok)onWipe();}} disabled={!ok}
+            style={{fontSize:12,padding:"7px 16px",borderRadius:6,border:"0.5px solid #A32D2D",background:ok?"#A32D2D":"rgba(163,45,45,0.25)",color:"#fff",fontWeight:500,cursor:ok?"pointer":"not-allowed"}}>
+            消去する
+          </button>
         </div>
       </div>
     </div>
@@ -10888,6 +10942,7 @@ function App(){
   const [showBackup,setShowBackup]=useState(false);
   const [showBackupAdvanced,setShowBackupAdvanced]=useState(false);
   const [showFaq,setShowFaq]=useState(false);
+  const [showWipeModal,setShowWipeModal]=useState(false);
   const [navigateClientId,setNavigateClientId]=useState(null);
   const [navigateCaseId,setNavigateCaseId]=useState(null);
   const [navigatePaymentId,setNavigatePaymentId]=useState(null);
@@ -11275,6 +11330,20 @@ function App(){
     initialSyncCheckedRef.current=false;
     logSyncEvent("signout","manual");
     const t=document.getElementById("toast");if(t){t.textContent="ログアウトしました";t.style.opacity=1;setTimeout(()=>t.style.opacity=0,2500);}
+  }
+
+  // 「このデバイスからデータを消去」: Drive連携状態で確認動線を出し分ける。
+  // 連携済み＝Driveに正が残る→軽いconfirm一発／未連携＝消去で完全消失→タイプ入力モーダル。
+  // 「面倒さは消失リスクがある人にだけ課す」設計。
+  function handleWipeDevice(){
+    setShowBackup(false);
+    if(gdriveSignedIn){
+      if(confirm("この端末からデータを消去します。\nDrive上のデータは残るため、再ログインで復元できます。\n\n消去してよろしいですか？")){
+        wipeDeviceData();
+      }
+    }else{
+      setShowWipeModal(true);
+    }
   }
 
   // 同期ログの内部用語を人間語へ変換。
@@ -12315,6 +12384,19 @@ function App(){
                     📚 困ったときは
                   </button>
                 </div>
+
+                {/* このデバイスからデータを消去（共有PC対策。ログアウト＝連携解除とは別概念） */}
+                {!DEMO_MODE&&(
+                  <div style={{marginTop:12,paddingTop:12,borderTop:"0.5px solid rgba(0,0,0,0.08)"}}>
+                    <button onClick={handleWipeDevice}
+                      style={{width:"100%",fontSize:11,padding:"7px 10px",borderRadius:6,border:"0.5px solid rgba(163,45,45,0.35)",background:"transparent",color:"#A32D2D",cursor:"pointer",fontWeight:500,textAlign:"left"}}>
+                      🧹 このデバイスからデータを消去
+                    </button>
+                    <div style={{fontSize:10,color:"var(--text3)",lineHeight:1.6,marginTop:5}}>
+                      共有パソコンで使ったあとなどに。この端末からClavis Noteのデータとログイン状態をすべて消します（「ログアウト」とは別の機能です）。
+                    </div>
+                  </div>
+                )}
               </div>
               </>
             )}
@@ -12367,6 +12449,7 @@ function App(){
       </div>
       {/* 困ったときはFAQモーダル */}
       {showFaq&&<FaqModal onClose={()=>setShowFaq(false)} isMobile={isMobile}/>}
+      {showWipeModal&&<WipeConfirmModal onClose={()=>setShowWipeModal(false)} onWipe={wipeDeviceData} isMobile={isMobile}/>}
       {/* ⑨-B 機能ツアーガイド（DEMOサイトでは動作させない） */}
       {tourActive&&!DEMO_MODE&&(
         <TourGuide stepIndex={tourStep} setStepIndex={setTourStep} setActiveTab={setActiveTab} activeTab={activeTab} onClose={closeTour} isMobile={isMobile}/>
