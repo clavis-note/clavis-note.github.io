@@ -1349,6 +1349,23 @@ function IMEInput({value,onChange,style,...props}){
     onChange={e=>{setLocal(e.target.value);if(!composing.current)onChange(e.target.value);}}/>;
 }
 
+// 自動伸長する件名入力（長い件名を折り返して全文表示）。改行は混入させない。
+function AutoGrowTitleInput({value,onChange,style,onFocus,onBlur,placeholder,...props}){
+  const ref=React.useRef(null);
+  const resize=()=>{const el=ref.current;if(!el)return;el.style.height="auto";el.style.height=el.scrollHeight+"px";};
+  // 値が外部から変わった場合（案件切り替え等）にも高さを追従させる
+  React.useLayoutEffect(()=>{resize();},[value]);
+  const strip=v=>v.replace(/[\r\n]+/g,"");
+  return <textarea ref={ref} rows={1} value={value||""}
+    placeholder={placeholder}
+    onInput={resize}
+    onChange={e=>{const v=strip(e.target.value);onChange(v);}}
+    onKeyDown={e=>{if(e.key==="Enter"&&!e.nativeEvent.isComposing)e.preventDefault();}}
+    onPaste={e=>{e.preventDefault();const t=strip((e.clipboardData||window.clipboardData).getData("text"));const el=e.target;const s=el.selectionStart,en=el.selectionEnd;onChange(strip((value||"").slice(0,s)+t+(value||"").slice(en)));}}
+    style={{resize:"none",overflow:"hidden",display:"block",fontFamily:"inherit",lineHeight:1.4,boxSizing:"border-box",...style}}
+    onFocus={onFocus} onBlur={onBlur} {...props}/>;
+}
+
 function AlertBadge({days,tokurei}){
   if(tokurei&&tokurei.isTokurei){
     const td=tokurei.tokureiDays;
@@ -5572,8 +5589,8 @@ function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments,templates,com
             {c.applicant&&<div style={{fontSize:16,fontWeight:600,marginBottom:2,display:"flex",alignItems:"center",gap:6}}>
               {client?<span onClick={()=>setShowClientModal(true)} style={{cursor:"pointer",borderBottom:"1px dashed #999"}} title="クライアント情報を表示">{c.applicant}</span>:<span>{c.applicant}</span>}
             </div>}
-            <input value={c.case_title||""}
-              onChange={e=>updateField("case_title",e.target.value)}
+            <AutoGrowTitleInput value={c.case_title||""}
+              onChange={v=>updateField("case_title",v)}
               placeholder="件名（例: 技能（調理）COE）"
               style={{fontSize:13,color:c.applicant?"var(--text3)":"#1a1a1a",fontWeight:c.applicant?400:500,marginBottom:3,padding:"3px 6px",borderRadius:4,border:"0.5px solid transparent",background:"transparent",width:"100%"}}
               onFocus={e=>{e.target.style.border="0.5px solid rgba(0,0,0,0.15)";e.target.style.background="var(--bg2)";}}
@@ -6143,7 +6160,7 @@ function GeneralCaseDetail({c,onUpdate,onDelete,clients,payments,onNavigateToCli
             {displayName&&<div style={{fontSize:16,fontWeight:600,marginBottom:2,display:"flex",alignItems:"center",gap:6}}>
               {linkedClient?<span onClick={()=>setShowClientModal(true)} style={{cursor:"pointer",borderBottom:"1px dashed #999"}} title="クライアント情報を表示">{displayName}</span>:<span>{displayName}</span>}
             </div>}
-            <div style={{fontSize:13,color:displayName?"var(--text3)":"#1a1a1a",fontWeight:displayName?400:500,marginBottom:3}}><input value={c.case_title||""} onChange={e=>updateField("case_title",e.target.value)} style={{fontSize:13,fontWeight:displayName?400:500,border:"none",background:"transparent",width:"100%",padding:0,color:displayName?"var(--text3)":"#1a1a1a"}}/></div>
+            <div style={{fontSize:13,color:displayName?"var(--text3)":"#1a1a1a",fontWeight:displayName?400:500,marginBottom:3}}><AutoGrowTitleInput value={c.case_title||""} onChange={v=>updateField("case_title",v)} style={{fontSize:13,fontWeight:displayName?400:500,border:"none",background:"transparent",width:"100%",padding:0,color:displayName?"var(--text3)":"#1a1a1a"}}/></div>
             <div style={{display:"flex",alignItems:"center",gap:6}}>
               <select value={c.category} onChange={e=>updateField("category",e.target.value)} style={{fontSize:11,padding:"2px 6px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:catColor.bg,color:catColor.color,fontWeight:500,cursor:"pointer"}}>{GENERAL_CASE_CATEGORIES.map(cat=><option key={cat}>{cat}</option>)}</select>
               {c.requester&&displayName!==c.requester&&<span style={{fontSize:12,color:"#666"}}>{c.requester}</span>}
