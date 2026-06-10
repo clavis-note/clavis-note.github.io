@@ -738,55 +738,122 @@ function loadData(){
   return null;
 }
 
+// ============================================================
+// UNDO（元に戻す）: 操作単位のスナップショット履歴・直近3世代
+//   - 世代化トリガーは「操作の区切り」= 入力停止2秒（デバウンス）／
+//     画面・タブ切り替え／ページ非表示・離脱時の強制確定
+//   - localStorageに永続化し、リロード・クラッシュをまたいで戻れる
+//   - 旧・5分自動バックアップ(clavis-note-auto-bk-*)はこの仕組みに置き換え
+//     て廃止（2026-06-10）。長距離のロールバックはDrive版管理が担当
+// ============================================================
+const UNDO_PREFIX = DEMO_MODE ? "clavis-note-undo-demo-" : "clavis-note-undo-";
+const UNDO_GENERATIONS = 3;
+const UNDO_DEBOUNCE_MS = 2000;
+let undoBaseline = null;       // 編集バースト開始前のスナップショット(JSON文字列)
+let undoDebounceTimer = null;
+let undoSuppress = false;      // UNDO復元による保存を履歴に積まないためのフラグ
+let undoListeners = [];        // 世代数変化のUI通知用
+
+function notifyUndoChange(){ undoListeners.forEach(fn=>{ try{fn();}catch(e){} }); }
+
+function getUndoCount(){
+  let n=0;
+  for(let i=1;i<=UNDO_GENERATIONS;i++){ try{ if(localStorage.getItem(UNDO_PREFIX+i)) n++; }catch(e){} }
+  return n;
+}
+
+function clearUndoHistory(){
+  for(let i=1;i<=UNDO_GENERATIONS;i++){ try{ localStorage.removeItem(UNDO_PREFIX+i); }catch(e){} }
+  notifyUndoChange();
+}
+
+// ベースラインを1世代として確定（世代シフト: 3→削除, 2→3, 1→2, baseline→1）
+function pushUndoGeneration(snapshotStr){
+  try{
+    for(let i=UNDO_GENERATIONS;i>=2;i--){
+      const prev=localStorage.getItem(UNDO_PREFIX+(i-1));
+      if(prev) localStorage.setItem(UNDO_PREFIX+i,prev);
+      else try{ localStorage.removeItem(UNDO_PREFIX+i); }catch(e){}
+    }
+    localStorage.setItem(UNDO_PREFIX+"1",JSON.stringify({data:snapshotStr,timestamp:new Date().toISOString()}));
+  }catch(e){
+    // 履歴の保存が容量オーバー → 履歴を諦めて本体保存を優先（解放弁）
+    if(isQuotaError(e)){ clearUndoHistory(); console.warn("undo quota exceeded, history cleared"); }
+    else console.warn("undo push error:",e);
+  }
+  notifyUndoChange();
+}
+
+// 未確定の編集バーストがあれば即座に1世代として確定する
+// （タブ切替・モーダル保存・ページ非表示などの「操作の区切り」で呼ぶ）
+function flushUndoSnapshot(){
+  if(undoDebounceTimer){ clearTimeout(undoDebounceTimer); undoDebounceTimer=null; }
+  if(undoBaseline!==null){ const s=undoBaseline; undoBaseline=null; pushUndoGeneration(s); }
+}
+
+// 直近の世代を取り出して履歴から除去（前詰めシフト）。戻り値はdataオブジェクト or null
+function popUndoSnapshot(){
+  flushUndoSnapshot(); // 未確定バーストがあれば、まずそれを確定（=入力直後のUNDOにも対応）
+  try{
+    const raw=localStorage.getItem(UNDO_PREFIX+"1");
+    if(!raw) return null;
+    const parsed=JSON.parse(raw);
+    for(let i=1;i<UNDO_GENERATIONS;i++){
+      const next=localStorage.getItem(UNDO_PREFIX+(i+1));
+      if(next) localStorage.setItem(UNDO_PREFIX+i,next);
+      else try{ localStorage.removeItem(UNDO_PREFIX+i); }catch(e){}
+    }
+    try{ localStorage.removeItem(UNDO_PREFIX+UNDO_GENERATIONS); }catch(e){}
+    notifyUndoChange();
+    return JSON.parse(parsed.data);
+  }catch(e){ console.error("undo pop error:",e); return null; }
+}
+
+// 画面を離れる・隠れるタイミングで未確定バーストを確定（クラッシュ・離脱対策）
+try{
+  document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="hidden") flushUndoSnapshot(); });
+  window.addEventListener("pagehide",flushUndoSnapshot);
+}catch(e){}
+
+// 旧・5分自動バックアップ(2026-06-10廃止)の残骸を起動時に掃除（容量回収・冪等）
+try{ ["1","2","3","meta"].forEach(s=>{ try{ localStorage.removeItem("clavis-note-auto-bk-"+s); }catch(e){} }); }catch(e){}
+
 function saveData(data){
-  const BK_PREFIX="clavis-note-auto-bk-";
-  const BK_GENERATIONS=3;
-  const BK_INTERVAL=5*60*1000; // 5分
-  // 自動バックアップ世代管理（5分以上経過時のみ新世代作成）
-  try {
-    const lastBkMeta=localStorage.getItem(BK_PREFIX+"meta");
-    const lastBkTime=lastBkMeta?JSON.parse(lastBkMeta).t:0;
-    const now=Date.now();
-    if(now-lastBkTime>=BK_INTERVAL){
-      const currentData=localStorage.getItem(STORAGE_KEY);
-      if(currentData){
-        // 世代シフト: 3→削除, 2→3, 1→2, current→1
-        for(let i=BK_GENERATIONS;i>=2;i--){
-          const prev=localStorage.getItem(BK_PREFIX+(i-1));
-          if(prev) localStorage.setItem(BK_PREFIX+i,prev);
-          else try{localStorage.removeItem(BK_PREFIX+i);}catch(e){}
-        }
-        localStorage.setItem(BK_PREFIX+"1",JSON.stringify({data:currentData,timestamp:new Date().toISOString()}));
-        localStorage.setItem(BK_PREFIX+"meta",JSON.stringify({t:now}));
+  const json=JSON.stringify(data);
+  // UNDO世代管理: 上書き前の現在値を「編集バースト開始前のベースライン」として
+  // 確保し、入力停止2秒で1世代に確定する（連続入力中は世代化しない）
+  try{
+    if(undoSuppress){
+      // UNDO復元による保存: ベースライン取得もタイマーも行わず、フラグを戻す
+      undoSuppress=false;
+      if(undoDebounceTimer){ clearTimeout(undoDebounceTimer); undoDebounceTimer=null; }
+      undoBaseline=null;
+    } else {
+      const current=localStorage.getItem(STORAGE_KEY);
+      // current===json（起動直後の初回保存など実質無変更）は履歴に積まない
+      if(current!==null && current!==json){
+        if(undoBaseline===null) undoBaseline=current;
+        if(undoDebounceTimer) clearTimeout(undoDebounceTimer);
+        undoDebounceTimer=setTimeout(flushUndoSnapshot, UNDO_DEBOUNCE_MS);
       }
     }
-  } catch(bkErr){
-    // バックアップ作成自体が容量オーバーで失敗 → 既存バックアップを掃除して空き作成
-    if(isQuotaError(bkErr)){
-      try {
-        for(let i=BK_GENERATIONS;i>=1;i--) try{localStorage.removeItem(BK_PREFIX+i);}catch(e){}
-        try{localStorage.removeItem(BK_PREFIX+"meta");}catch(e){}
-      } catch(e){}
-      console.warn("auto-backup quota exceeded, cleared old backups");
-    } else {
-      console.warn("auto-backup error:",bkErr);
-    }
-  }
+  }catch(e){ console.warn("undo baseline error:",e); }
 
-  // 本体保存（失敗したらバックアップを削って再試行 → それでもダメならユーザー通知）
+  // 本体保存（容量オーバー時はUNDO履歴を削って再試行 → それでもダメならユーザー通知）
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    localStorage.setItem(STORAGE_KEY, json);
   } catch(e){
     if(!isQuotaError(e)){
       console.error("saveData error:",e);
       return;
     }
-    console.error("⚠️ localStorage容量オーバー: バックアップを削除して再試行", e);
+    console.error("⚠️ localStorage容量オーバー: UNDO履歴を削除して再試行", e);
     let recovered=false;
     try {
-      for(let i=BK_GENERATIONS;i>=1;i--) try{localStorage.removeItem(BK_PREFIX+i);}catch(e2){}
-      try{localStorage.removeItem(BK_PREFIX+"meta");}catch(e2){}
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      clearUndoHistory();
+      undoBaseline=null;
+      if(undoDebounceTimer){ clearTimeout(undoDebounceTimer); undoDebounceTimer=null; }
+      localStorage.setItem(STORAGE_KEY, json);
       recovered=true;
     } catch(retryErr){
       console.error("🛑 再保存も失敗:", retryErr);
@@ -795,7 +862,7 @@ function saveData(data){
       const t=document.getElementById("toast");
       if(t){
         t.textContent=recovered
-          ? "⚠️ ストレージ容量逼迫: 自動バックアップを削除して保存しました"
+          ? "⚠️ ストレージ容量逼迫: 「元に戻す」履歴を削除して保存しました"
           : "🛑 保存失敗: ストレージ容量オーバー。Driveアップロード後にデータ整理を推奨";
         t.style.opacity=1;
         setTimeout(()=>t.style.opacity=0, 8000);
@@ -812,31 +879,6 @@ function isQuotaError(e){
   if(e.code===22 || e.code===1014) return true;
   if(typeof e.message==="string" && /quota|storage.*full|exceeded/i.test(e.message)) return true;
   return false;
-}
-
-function getAutoBackups(){
-  const BK_PREFIX="clavis-note-auto-bk-";
-  const backups=[];
-  for(let i=1;i<=3;i++){
-    try{
-      const raw=localStorage.getItem(BK_PREFIX+i);
-      if(raw){
-        const parsed=JSON.parse(raw);
-        backups.push({gen:i,timestamp:parsed.timestamp,data:parsed.data});
-      }
-    }catch(e){}
-  }
-  return backups;
-}
-
-function restoreAutoBackup(gen){
-  const BK_PREFIX="clavis-note-auto-bk-";
-  try{
-    const raw=localStorage.getItem(BK_PREFIX+gen);
-    if(!raw) return null;
-    const parsed=JSON.parse(raw);
-    return JSON.parse(parsed.data);
-  }catch(e){console.error("restore error:",e);return null;}
 }
 
 function migrateData(saved){
@@ -10409,14 +10451,14 @@ const FAQ_ITEMS = [
   },
   {
     q:"データが古い状態に戻ってしまいました",
-    a:"「自動バックアップ(直近3件)」から復元できます。\n直近15分間の状態が3世代分残っているので、復元したい時刻を選んで「復元」ボタンを押してください。"
+    a:"まず、画面上部の「↩️ 元に戻す」ボタンを押してみてください。直近の操作を3回分まで取り消せます（アプリを閉じたあと・再読み込みのあとでも有効です）。\nそれより前の状態に戻したい場合は、Google Drive側のバックアップから復元できます（下の「元に戻すボタンでは戻れないところまで戻したい」をご覧ください）。"
   },
   {
     q:"同期ボタンを押しても反映されません",
     a:"安全のため自動同期が一時停止されている可能性があります。\n「アップロード」または「ダウンロード」ボタンを1回押すと、通常運用に戻ります。"
   },
   {
-    q:"自動バックアップにも目当ての時刻がありません",
+    q:"「元に戻す」ボタンでは戻れないところまで戻したい",
     a:"Google Drive側に過去30日分・最大100世代のバックアップが保存されています。\nGoogle Drive を開いて、「clavis-note-sync.json」を右クリック →「版を管理」から過去の版を選び、ダウンロードしてください。\nダウンロードしたファイルは、このバックアップ画面の「読み込み(JSONから復元)」で取り込めます。"
   },
   {
@@ -10943,6 +10985,7 @@ function App(){
   const [showBackupAdvanced,setShowBackupAdvanced]=useState(false);
   const [showFaq,setShowFaq]=useState(false);
   const [showWipeModal,setShowWipeModal]=useState(false);
+  const [undoCount,setUndoCount]=useState(getUndoCount);
   const [navigateClientId,setNavigateClientId]=useState(null);
   const [navigateCaseId,setNavigateCaseId]=useState(null);
   const [navigatePaymentId,setNavigatePaymentId]=useState(null);
@@ -10975,6 +11018,32 @@ function App(){
       if(t){ t.textContent="🔒 ライセンスが無効です。編集・新規登録には認証が必要です（閲覧と事件簿エクスポートは可能）"; t.style.opacity=1; setTimeout(()=>{t.style.opacity=0;},4000); }
     }
   },[canEdit]);
+  // UNDO: 世代数の変化を購読してボタンの活性表示を更新
+  useEffect(()=>{
+    const fn=()=>setUndoCount(getUndoCount());
+    undoListeners.push(fn);
+    return ()=>{ undoListeners=undoListeners.filter(f=>f!==fn); };
+  },[]);
+  // UNDO: 画面・タブの切り替えは「操作の区切り」→ 未確定の編集バーストを世代として確定
+  useEffect(()=>{ flushUndoSnapshot(); },[activeTab]);
+  // UNDO実行: 直近世代に復元。復元による保存は履歴に積まない(undoSuppress)
+  function handleUndo(){
+    if(!canEdit){
+      const t=document.getElementById("toast");
+      if(t){ t.textContent="🔒 ライセンスが無効です。元に戻す操作には認証が必要です"; t.style.opacity=1; setTimeout(()=>t.style.opacity=0,3000); }
+      return;
+    }
+    const restored=popUndoSnapshot();
+    if(!restored){
+      const t=document.getElementById("toast");
+      if(t){ t.textContent="戻せる操作がありません"; t.style.opacity=1; setTimeout(()=>t.style.opacity=0,2000); }
+      return;
+    }
+    undoSuppress=true;
+    setData(migrateData(restored));
+    const t=document.getElementById("toast");
+    if(t){ t.textContent="↩️ ひとつ前の状態に戻しました"; t.style.opacity=1; setTimeout(()=>t.style.opacity=0,2500); }
+  }
   const [conflictModalInfo,setConflictModalInfo]=useState(null);
   const conflictResolverRef=useRef(null);
   function showConflictModal(info){
@@ -12264,6 +12333,12 @@ function App(){
               </Tag>
             );
           })()}
+          {/* ↩️ 元に戻す（直近3操作・リロード跨ぎ対応） */}
+          <button onClick={handleUndo} disabled={undoCount===0}
+            title={undoCount===0?"戻せる操作がまだありません":`直近の操作を取り消します（あと${undoCount}回）`}
+            style={{fontSize:11,padding:"4px 10px",borderRadius:6,border:"0.5px solid var(--border)",background:"transparent",cursor:undoCount===0?"default":"pointer",color:"var(--text2)",opacity:undoCount===0?0.45:1,display:"flex",alignItems:"center",gap:4}}>
+            ↩️ {!isMobile&&!headerCompact&&<span>元に戻す</span>}
+          </button>
           {/* バックアップ */}
           <div style={{position:"relative"}}>
             <button onClick={()=>setShowBackup(p=>!p)}
@@ -12342,38 +12417,11 @@ function App(){
                         📥 JSONから復元（緊急時用）
                       </button>
                       <input ref={fileRef} type="file" accept=".json" onChange={handleImport} style={{display:"none"}}/>
-                      {/* 自動バックアップ */}
-                      {(()=>{
-                        const bks=getAutoBackups();
-                        return(<div style={{marginTop:10,paddingTop:10,borderTop:"0.5px dashed rgba(0,0,0,0.08)"}}>
-                          <div style={{fontSize:11,fontWeight:500,color:"var(--text2)",marginBottom:6}}>🔄 自動バックアップ（直近3件）</div>
-                          {bks.length===0?(<div style={{fontSize:10,color:"var(--text3)",lineHeight:1.6}}>まだ自動バックアップはありません。<br/>データ変更後、5分経過で自動作成されます。</div>):(
-                          <>{bks.map(bk=>{
-                            const d=new Date(bk.timestamp);
-                            const label=`${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,"0")}`;
-                            const ago=Math.round((Date.now()-d.getTime())/60000);
-                            const agoLabel=ago<60?`${ago}分前`:ago<1440?`${Math.round(ago/60)}時間前`:`${Math.round(ago/1440)}日前`;
-                            return(
-                              <div key={bk.gen} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:"0.5px solid rgba(0,0,0,0.05)"}}>
-                                <div>
-                                  <div style={{fontSize:12,color:"var(--text)"}}>{label}</div>
-                                  <div style={{fontSize:10,color:"var(--text3)"}}>{agoLabel}</div>
-                                </div>
-                                <button onClick={()=>{
-                                  if(confirm(`${label}のバックアップに復元しますか？\n現在のデータは上書きされます。`)){
-                                    const restored=restoreAutoBackup(bk.gen);
-                                    if(restored){setData(migrateData(restored));setShowBackup(false);
-                                      const t=document.getElementById("toast");if(t){t.textContent="✅ バックアップから復元しました";t.style.opacity=1;setTimeout(()=>t.style.opacity=0,2500);}
-                                    }else{alert("復元に失敗しました");}
-                                  }
-                                }} style={{fontSize:11,padding:"4px 10px",borderRadius:5,border:"0.5px solid #2E8B57",background:"#EBF8EF",color:"#2E8B57",cursor:"pointer",fontWeight:500}}>
-                                  復元
-                                </button>
-                              </div>
-                            );
-                          })}</>)}
-                        </div>);
-                      })()}
+                      {/* 巻き戻し手段の案内（旧・5分自動バックアップはUNDOに置き換え済み） */}
+                      <div style={{marginTop:10,paddingTop:10,borderTop:"0.5px dashed rgba(0,0,0,0.08)",fontSize:10,color:"var(--text3)",lineHeight:1.7}}>
+                        うっかり操作はヘッダーの「↩️ 元に戻す」で直近3回まで取り消せます。<br/>
+                        もっと前に戻したいときは、Google Driveの「版を管理」から過去30日・最大100世代を復元できます（詳しくは「📚 困ったときは」）。
+                      </div>
                     </div>
                   )}
                 </div>
