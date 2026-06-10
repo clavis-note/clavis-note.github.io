@@ -482,7 +482,7 @@ function googleSignOut() {
 // オンボーディング前の初期状態に戻す。
 // 全キーが "clavis-" プレフィックスで統一されているため、ホワイトリストではなく
 // プレフィックス一括方式を採る（将来キーが増えても消し漏れない）。
-function wipeDeviceData(){
+function wipeDeviceData(wasLinked){
   try{ googleSignOut(); }catch(e){}
   try{
     const keys=[];
@@ -493,6 +493,9 @@ function wipeDeviceData(){
     keys.forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} });
   }catch(e){ console.error("wipe error:",e); }
   try{ sessionStorage.removeItem("clavis-demo"); }catch(e){}
+  // 消去直後の着地画面に一度だけ復元案内バーを出すためのフラグ（同一タブ限り）。
+  // 「消えた」ではなく「消去が完了し、戻り口はここ」という着地にするための仕掛け。
+  try{ sessionStorage.setItem("clavis-wiped", wasLinked?"linked":"local"); }catch(e){}
   // クエリ・ハッシュを落としてリロード → 初期状態（オンボーディング前）で再起動
   location.replace(location.pathname);
 }
@@ -10462,7 +10465,7 @@ const FAQ_ITEMS = [
   },
   {
     q:"共有パソコン（ネットカフェ・職場の共用機など）で使ってもいいですか？",
-    a:"おすすめしません。Clavis Noteはデータをその端末の中に保存するため、共有パソコンでは次に使う人にデータやログイン状態が残ってしまいます。\n\nやむを得ず使う場合は、次の2点を徹底してください:\n\n1. ブラウザの「ゲストモード」や自分専用のプロファイルで開く\n2. 作業が終わったら、バックアップメニュー最下部の「🧹 このデバイスからデータを消去」を押して、端末からデータとログイン状態を消す\n\nDrive連携済みであれば、消去してもDrive上のデータは残るので、ご自身のパソコンで再ログインすれば復元できます。"
+    a:"おすすめしません。Clavis Noteはデータをその端末の中に保存するため、共有パソコンでは次に使う人にデータやログイン状態が残ってしまいます。\n\nやむを得ず使う場合は、使い方に合わせて次のようにしてください。\n\n■ ネットカフェなど、一回きりの利用\nブラウザの「ゲストモード」（ウィンドウを閉じると履歴やデータが端末に残らない使い方）で開いてください。念のため、作業が終わったらバックアップメニュー最下部の「🧹 このデバイスからデータを消去」も押しておくと安心です。\n\n■ 職場の共用パソコンなど、繰り返しの利用\nChromeの「プロファイル」（利用者ごとにデータを分ける、自分専用の環境。画面右上の人型アイコン→「追加」で作れます）を自分用に作り、ほかの利用者とデータを分けてください。離席するときや使い終わったときは「このデバイスからデータを消去」を押してください。\n\nDrive連携済みであれば、消去してもDrive上のデータは残るので、再ログインすれば復元できます。"
   },
 ];
 
@@ -10505,25 +10508,42 @@ function FaqModal({onClose, isMobile}){
   );
 }
 
-// 「このデバイスからデータを消去」の確認モーダル（Drive未連携時専用）。
-// 未連携＝この端末が唯一の保管場所のため、「消去」のタイプ入力で固くガードする。
-// （連携済みの場合はDriveに正が残るため、軽いconfirm一発で済ませる＝呼び出し側で分岐）
-function WipeConfirmModal({onClose,onWipe,isMobile}){
+// 「このデバイスからデータを消去」の確認モーダル。
+// linked=false（Drive未連携）: この端末が唯一の保管場所のため「消去」のタイプ入力で固くガード。
+// linked=true（Drive連携中）: Driveに正が残りリスクが低いためタイプ入力は求めないが、
+//   ネイティブconfirmは文面を読まずにOKを押させる装置だと実証されたため（2026-06-10）、
+//   「Driveに残る・再ログインで復元可」を目立たせた一拍置かせるモーダルにする。
+// 「確認の重さは失うものの重さに比例させる」分岐設計は維持。
+function WipeConfirmModal({onClose,onWipe,isMobile,linked}){
   const [text,setText]=useState("");
-  const ok=text.trim()==="消去";
+  const ok=linked||text.trim()==="消去";
   return(
     <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.45)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,padding:isMobile?12:24}}>
       <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:14,width:"100%",maxWidth:440,boxShadow:"0 8px 32px rgba(0,0,0,0.18)",padding:"22px 24px"}}>
         <div style={{fontSize:15,fontWeight:600,color:"#A32D2D",marginBottom:12}}>⚠️ このデバイスからデータを消去</div>
-        <div style={{fontSize:13,lineHeight:1.8,color:"#444",marginBottom:14}}>
-          Drive同期がないため、消去するとデータは<b>完全に失われ、復元できません</b>。<br/>
-          消去前に「📤 JSONダウンロード」で手元に控えを残すこともできます。
-        </div>
-        <div style={{fontSize:12,color:"#666",marginBottom:6}}>実行するには「<b>消去</b>」と入力してください</div>
-        <input value={text} onChange={e=>setText(e.target.value)} placeholder="消去"
-          style={{width:"100%",fontSize:14,padding:"8px 10px",borderRadius:7,border:"0.5px solid rgba(0,0,0,0.25)",background:"var(--bg2)",marginBottom:16,boxSizing:"border-box"}}/>
+        {linked?(
+          <>
+            <div style={{fontSize:13,lineHeight:1.8,color:"#444",marginBottom:10}}>
+              この端末からClavis Noteのデータとログイン状態を消します。
+            </div>
+            <div style={{background:"#E6F1FB",border:"0.5px solid #B5D4F4",borderRadius:8,padding:"10px 12px",fontSize:13,lineHeight:1.8,color:"#185FA5",marginBottom:16}}>
+              ☁️ <b>Drive上のデータはそのまま残ります。</b><br/>
+              再びGoogleでログインすれば、<b>いつでも復元できます</b>。
+            </div>
+          </>
+        ):(
+          <>
+            <div style={{fontSize:13,lineHeight:1.8,color:"#444",marginBottom:14}}>
+              Drive同期がないため、消去するとデータは<b>完全に失われ、復元できません</b>。<br/>
+              消去前に「📤 JSONダウンロード」で手元に控えを残すこともできます。
+            </div>
+            <div style={{fontSize:12,color:"#666",marginBottom:6}}>実行するには「<b>消去</b>」と入力してください</div>
+            <input value={text} onChange={e=>setText(e.target.value)} placeholder="消去"
+              style={{width:"100%",fontSize:14,padding:"8px 10px",borderRadius:7,border:"0.5px solid rgba(0,0,0,0.25)",background:"var(--bg2)",marginBottom:16,boxSizing:"border-box"}}/>
+          </>
+        )}
         <div style={{display:"flex",justifyContent:"flex-end",gap:8}}>
-          <button onClick={onClose} style={{fontSize:12,padding:"7px 16px",cursor:"pointer",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)",fontWeight:500}}>キャンセル</button>
+          <button autoFocus onClick={onClose} style={{fontSize:12,padding:"7px 16px",cursor:"pointer",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)",fontWeight:500}}>キャンセル</button>
           <button onClick={()=>{if(ok)onWipe();}} disabled={!ok}
             style={{fontSize:12,padding:"7px 16px",borderRadius:6,border:"0.5px solid #A32D2D",background:ok?"#A32D2D":"rgba(163,45,45,0.25)",color:"#fff",fontWeight:500,cursor:ok?"pointer":"not-allowed"}}>
             消去する
@@ -10984,6 +11004,11 @@ function App(){
   const [showBackupAdvanced,setShowBackupAdvanced]=useState(false);
   const [showFaq,setShowFaq]=useState(false);
   const [showWipeModal,setShowWipeModal]=useState(false);
+  // 消去直後の着地で一度だけ出す復元案内バー。フラグは起動時に読み取って即消費する
+  // （×で閉じる or 次回以降の通常起動では出ない）。値: "linked"=連携中だった / "local"=未連携だった
+  const [wipedNotice,setWipedNotice]=useState(()=>{
+    try{ const v=sessionStorage.getItem("clavis-wiped"); if(v) sessionStorage.removeItem("clavis-wiped"); return v; }catch(e){ return null; }
+  });
   const [undoCount,setUndoCount]=useState(getUndoCount);
   const [navigateClientId,setNavigateClientId]=useState(null);
   const [navigateCaseId,setNavigateCaseId]=useState(null);
@@ -11400,18 +11425,12 @@ function App(){
     const t=document.getElementById("toast");if(t){t.textContent="ログアウトしました";t.style.opacity=1;setTimeout(()=>t.style.opacity=0,2500);}
   }
 
-  // 「このデバイスからデータを消去」: Drive連携状態で確認動線を出し分ける。
-  // 連携済み＝Driveに正が残る→軽いconfirm一発／未連携＝消去で完全消失→タイプ入力モーダル。
-  // 「面倒さは消失リスクがある人にだけ課す」設計。
+  // 「このデバイスからデータを消去」: 確認はどちらもカスタムモーダル（linkedで内容を出し分け）。
+  // 連携済み＝Driveに正が残る→タイプ入力なしの軽いモーダル／未連携＝完全消失→タイプ入力で固く。
+  // 「面倒さは消失リスクがある人にだけ課す」設計（ネイティブconfirmは反射でOKされるため廃止）。
   function handleWipeDevice(){
     setShowBackup(false);
-    if(gdriveSignedIn){
-      if(confirm("この端末からデータを消去します。\nDrive上のデータは残るため、再ログインで復元できます。\n\n消去してよろしいですか？")){
-        wipeDeviceData();
-      }
-    }else{
-      setShowWipeModal(true);
-    }
+    setShowWipeModal(true);
   }
 
   // 同期ログの内部用語を人間語へ変換。
@@ -12496,7 +12515,14 @@ function App(){
       </div>
       {/* 困ったときはFAQモーダル */}
       {showFaq&&<FaqModal onClose={()=>setShowFaq(false)} isMobile={isMobile}/>}
-      {showWipeModal&&<WipeConfirmModal onClose={()=>setShowWipeModal(false)} onWipe={wipeDeviceData} isMobile={isMobile}/>}
+      {showWipeModal&&<WipeConfirmModal onClose={()=>setShowWipeModal(false)} onWipe={()=>wipeDeviceData(gdriveSignedIn)} linked={gdriveSignedIn} isMobile={isMobile}/>}
+      {/* 消去直後の復元案内バー（オンボーディングゲートzIndex:100000より前面） */}
+      {wipedNotice&&(
+        <div style={{position:"fixed",top:0,left:0,right:0,zIndex:100001,background:"#E6F1FB",borderBottom:"0.5px solid #B5D4F4",color:"#185FA5",fontSize:13,padding:"10px 16px",display:"flex",alignItems:"center",justifyContent:"center",gap:10,boxShadow:"0 2px 8px rgba(0,0,0,0.06)"}}>
+          <span style={{lineHeight:1.6}}>🧹 このデバイスのデータを消去しました。{wipedNotice==="linked"&&<b>復元する場合はGoogleでログインしてください。</b>}</span>
+          <button onClick={()=>setWipedNotice(null)} aria-label="閉じる" style={{border:"none",background:"none",cursor:"pointer",color:"#185FA5",fontSize:16,lineHeight:1,padding:"2px 6px",flexShrink:0}}>×</button>
+        </div>
+      )}
       {/* ⑨-B 機能ツアーガイド（DEMOサイトでは動作させない） */}
       {tourActive&&!DEMO_MODE&&(
         <TourGuide stepIndex={tourStep} setStepIndex={setTourStep} setActiveTab={setActiveTab} activeTab={activeTab} onClose={closeTour} isMobile={isMobile}/>
