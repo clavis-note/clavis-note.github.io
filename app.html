@@ -392,6 +392,9 @@ const DEFAULT_DOC_TYPES = [
 //  - ファイル本体(clavis-note-sync.json)のup/downは従来どおりブラウザ↔Google直送。
 const CLAVIS_API_BASE = "https://api.clavis-note.com";
 const DRIVE_FILE_NAME = "clavis-note-sync.json";
+// 新規ファイル作成時の収納先フォルダ名。ルート直下にJSONが転がるのを避けるため。
+// 既存ファイルの更新(PATCH)には影響しない（ファイルID指定のため移動済みでも壊れない）。
+const DRIVE_FOLDER_NAME = "Clavis Noteバックアップ";
 
 let googleAccessToken = null;
 let tokenRefreshPromise = null; // トークン再取得の二重実行防止
@@ -569,6 +572,44 @@ async function findDriveFile() {
   return data.files && data.files.length > 0 ? data.files[0] : null;
 }
 
+// 新規ファイル作成時の収納先フォルダIDを確保する。
+//  1) 名前で検索(drive.fileスコープでも自アプリ作成フォルダは参照可)
+//  2) 見つからなければ作成してIDを返す
+// 失敗時は null を返す（呼び出し側はparentsを付けずルート直下に作成＝同期は止めない）。
+// POST経路は初回アップロード時のみのレアイベントなのでIDキャッシュは持たない。
+// 削除済みIDを抱えたまま「不正なparentsでアップロード失敗」する状態が構造上存在せず、
+// フォルダが手動削除されても次回の新規作成時に必ず自己回復する。
+async function ensureDriveFolderId() {
+  if (!googleAccessToken) return null;
+  // 1) 名前で検索
+  try {
+    const q = `name='${DRIVE_FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+    const res = await fetchWithAuth(
+      `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&spaces=drive&fields=files(id,name)`
+    );
+    if (res.ok) {
+      const data = await res.json();
+      if (data.files && data.files.length > 0) return data.files[0].id;
+    }
+  } catch(e){ /* 検索失敗時は作成へフォールバック */ }
+  // 2) 無ければ作成
+  try {
+    const res = await fetchWithAuth(
+      "https://www.googleapis.com/drive/v3/files?fields=id",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: DRIVE_FOLDER_NAME, mimeType: "application/vnd.google-apps.folder" }),
+      }
+    );
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.id) return data.id;
+    }
+  } catch(e){ /* 作成失敗時はnullでルート直下フォールバック */ }
+  return null;
+}
+
 async function uploadToDrive(jsonData, existingFile) {
   if (!googleAccessToken) throw new Error("Not signed in");
   if (existingFile === undefined) existingFile = await findDriveFile();
@@ -605,16 +646,22 @@ async function uploadToDrive(jsonData, existingFile) {
   }
 
   const metadata = { name: DRIVE_FILE_NAME, mimeType: "application/json" };
-  const form = new FormData();
-  form.append("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }));
-  form.append("file", new Blob([JSON.stringify(jsonData)], { type: "application/json" }));
 
   let url = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,modifiedTime";
   let method = "POST";
   if (existingFile) {
     url = `https://www.googleapis.com/upload/drive/v3/files/${existingFile.id}?uploadType=multipart&fields=id,name,modifiedTime`;
     method = "PATCH";
+  } else {
+    // 新規作成時のみ：専用フォルダへ収める。フォルダ確保に失敗(null)したら
+    // parentsを付けず従来どおりルート直下に作成し、同期は止めない。
+    const folderId = await ensureDriveFolderId();
+    if (folderId) metadata.parents = [folderId];
   }
+
+  const form = new FormData();
+  form.append("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }));
+  form.append("file", new Blob([JSON.stringify(jsonData)], { type: "application/json" }));
 
   const res = await fetchWithAuth(url, { method, body: form });
   if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
