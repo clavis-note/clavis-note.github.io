@@ -1969,6 +1969,10 @@ footer.site {
 @media (max-width: 720px) {
   .back-to-top { right: 16px; bottom: 16px; }
 }
+@media (prefers-reduced-motion: reduce) {
+  .back-to-top { transition: opacity .2s, visibility .2s; transform: none; }
+  .back-to-top.visible { transform: none; }
+}
 
 /* ========================== UTIL FADE-IN ======================== */
 .reveal { opacity: 0; transform: translateY(28px); transition: opacity .9s cubic-bezier(.2,.6,.2,1), transform .9s cubic-bezier(.2,.6,.2,1); }
@@ -3255,7 +3259,7 @@ body.theme-premium .nav-cta {
 </footer>
 
 <!-- ============== BACK TO TOP ============== -->
-<button class="back-to-top" id="backToTop" aria-label="トップへ戻る">
+<button class="back-to-top" id="backToTop" type="button" aria-label="ページの先頭へ戻る">
   <span class="arrow-up">▲</span>
   <span class="top-label">TOP</span>
 </button>
@@ -3282,7 +3286,10 @@ body.theme-premium .nav-cta {
   }
   window.addEventListener('scroll', onScroll, { passive: true });
   onScroll();
-  if (backToTop) backToTop.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+  if (backToTop) backToTop.addEventListener('click', () => {
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
+  });
 
   const revealEls = document.querySelectorAll('.pain-card, .approach-card, .feat-card, .trial-card, .discount-card, .pricing-includes, .story-quote, .voice-conclusion, .flow-step');
   revealEls.forEach(el => el.classList.add('reveal'));
