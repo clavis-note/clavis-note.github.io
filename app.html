@@ -5822,7 +5822,7 @@ function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments,templates,com
         <textarea value={c.notes||""} onChange={e=>updateField("notes",e.target.value)} rows={2} placeholder="メモを入力…" style={{width:"100%",fontSize:12,padding:"6px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",resize:"vertical"}}/>
       </div>
       {/* 関係者・やり取り（共通） */}
-      <ContactsSection contacts={c.contacts||[]} onChange={v=>updateField("contacts",v)}/>
+      <ContactsSection contacts={c.contacts||[]} onChange={v=>updateField("contacts",v)} rolePresets={ROLE_PRESETS_IMMIGRATION}/>
       <CommLogSection logs={c.comm_log||[]} contacts={c.contacts||[]} onChange={v=>updateField("comm_log",v)}/>
       {showPreview&&<TemplatePreviewModal templateId={c.template_id} templates={templates} onClose={()=>setShowPreview(false)}/>}
       {showClientModal&&client&&<ClientInfoModal client={client} onClose={()=>setShowClientModal(false)} onOpenLedger={onNavigateToClient?()=>{setShowClientModal(false);onNavigateToClient(client.client_id);}:undefined}/>}
@@ -5857,7 +5857,9 @@ function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments,templates,com
 // ============================================================
 // 8b. 共通：関係者リスト
 // ============================================================
-function ContactsSection({contacts,onChange}){
+const ROLE_PRESETS_IMMIGRATION=["本人","司法書士","税理士","社労士","弁護士","担当者","審査官","その他"];
+const ROLE_PRESETS_GENERAL=["本人","司法書士","税理士","社労士","弁護士","担当者","相続人","被相続人","市区町村役場","その他"];
+function ContactsSection({contacts,onChange,rolePresets}){
   const [showForm,setShowForm]=useState(false);
   const [editId,setEditId]=useState(null);
   const [form,setForm]=useState({name:"",role:"",org:"",phone:"",email:"",note:""});
@@ -5871,7 +5873,7 @@ function ContactsSection({contacts,onChange}){
     setShowForm(false);setEditId(null);
   }
   function remove(id){onChange(contacts.filter(c=>c.id!==id));}
-  const ROLE_PRESETS=["司法書士","税理士","社労士","弁護士","担当者","審査官","その他"];
+  const ROLE_PRESETS=rolePresets||ROLE_PRESETS_IMMIGRATION;
   return(
     <div style={{background:"var(--bg)",border:"0.5px solid rgba(0,0,0,0.1)",borderRadius:10,padding:"14px 16px"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
@@ -5902,8 +5904,8 @@ function ContactsSection({contacts,onChange}){
       {showForm&&(
         <div style={{padding:10,background:"#FAFAF8",borderRadius:6,border:"0.5px solid rgba(0,0,0,0.1)",marginTop:6}}>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
-            <div><div style={{fontSize:10,color:"#999",marginBottom:2}}>氏名 *</div><input value={form.name} onChange={e=>up("name",e.target.value)} style={{width:"100%",fontSize:12,padding:"4px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)"}}/></div>
-            <div><div style={{fontSize:10,color:"#999",marginBottom:2}}>役割</div>
+            <div><div style={{fontSize:10,color:"#999",marginBottom:2}}>氏名・名称 *</div><input value={form.name} onChange={e=>up("name",e.target.value)} style={{width:"100%",fontSize:12,padding:"4px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)"}}/></div>
+            <div><div style={{fontSize:10,color:"#999",marginBottom:2}}>関係</div>
               <div style={{display:"flex",gap:4,flexWrap:"wrap",marginBottom:4}}>{ROLE_PRESETS.map(r=><button key={r} onClick={()=>up("role",r)} style={{fontSize:9,padding:"1px 5px",borderRadius:3,cursor:"pointer",border:"0.5px solid",borderColor:form.role===r?"#534AB7":"#ddd",background:form.role===r?"#EEEDFE":"transparent",color:form.role===r?"#534AB7":"#999"}}>{r}</button>)}</div>
               <input value={form.role} onChange={e=>up("role",e.target.value)} placeholder="または自由入力" style={{width:"100%",fontSize:12,padding:"4px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)"}}/></div>
           </div>
@@ -6245,7 +6247,7 @@ function GeneralCaseDetail({c,onUpdate,onDelete,clients,payments,onNavigateToCli
         </div>
       </div>
       {/* 関係者・やり取り（共通） */}
-      <ContactsSection contacts={c.contacts||[]} onChange={v=>updateField("contacts",v)}/>
+      <ContactsSection contacts={c.contacts||[]} onChange={v=>updateField("contacts",v)} rolePresets={ROLE_PRESETS_GENERAL}/>
       <CommLogSection logs={c.comm_log||[]} contacts={c.contacts||[]} onChange={v=>updateField("comm_log",v)}/>
       {/* 備考 */}
       <div style={{background:"var(--bg)",border:"0.5px solid rgba(0,0,0,0.1)",borderRadius:10,padding:"14px 16px"}}>
