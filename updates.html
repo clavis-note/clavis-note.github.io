@@ -57,6 +57,12 @@ body {
 .uh .eyebrow::before, .uh .eyebrow::after { content:''; width:26px; height:1px; background:currentColor; opacity:.5; }
 .uh h1 { font-family:var(--font-serif); font-size:clamp(28px,4.4vw,40px); font-weight:700; line-height:1.45; letter-spacing:.03em; }
 
+/* ===== TAG FILTER（ブログのカテゴリ絞り込みと同作法） ===== */
+.update-filter { max-width:760px; margin:0 auto; padding:18px 32px 0; display:flex; justify-content:center; gap:8px; flex-wrap:wrap; }
+.filter-btn { font-family:var(--font-sans); font-size:13px; font-weight:500; color:var(--text-mute); background:transparent; border:1px solid var(--line); padding:8px 20px; border-radius:100px; cursor:pointer; transition:all .2s; }
+.filter-btn:hover { border-color:var(--accent); color:var(--accent); }
+.filter-btn.active { background:var(--text); color:var(--bg-soft); border-color:var(--text); }
+
 /* ===== TIMELINE ===== */
 .tl-wrap { max-width:760px; margin:0 auto; padding:30px 32px 24px; }
 .tl-year { font-family:var(--font-mono); font-size:13px; letter-spacing:.16em; color:var(--text-soft); margin:34px 0 10px; padding-left:2px; }
@@ -104,6 +110,8 @@ footer.site { margin-top:64px; background:var(--bg-alt); border-top:1px solid va
   .nav-actions { gap:14px; }
   .nav-link { display:none; }
   .uh { padding:46px 18px 18px; }
+  .update-filter { padding:14px 18px 0; gap:6px; }
+  .filter-btn { font-size:12px; padding:6px 14px; }
   .tl-wrap { padding:24px 18px 18px; }
   .tl-list li { flex-wrap:wrap; gap:6px 14px; padding:14px 16px; }
   .tl-list .date { min-width:0; }
@@ -135,24 +143,33 @@ footer.site { margin-top:64px; background:var(--bg-alt); border-top:1px solid va
   <h1>更新履歴</h1>
 </section>
 
+<!-- ===== TAG FILTER（ブログのカテゴリ絞り込みと同作法。data-filter と各 li の data-tag を突き合わせる。JS は最下部） ===== -->
+<nav class="update-filter" aria-label="タグで絞り込み">
+  <button class="filter-btn active" data-filter="all">すべて</button>
+  <button class="filter-btn" data-filter="fix">改修</button>
+  <button class="filter-btn" data-filter="feature">新機能</button>
+  <button class="filter-btn" data-filter="improve">改善</button>
+</nav>
+
 <!-- ===== TIMELINE ===== -->
 <main class="tl-wrap" id="updatesRoot" aria-label="更新履歴">
   <!-- 静的フォールバック（JS が updates.json を読めない場合に表示） -->
   <ul class="tl-list">
-    <li>
+    <li data-tag="fix">
       <span class="date">2026.06.09</span>
       <span class="body"><span class="tag fix">改修</span>見積書・請求書の品目欄で、数量2以上のときに単価と金額が正しく表示されない問題を修正しました</span>
     </li>
-    <li>
+    <li data-tag="feature">
       <span class="date">2026.06.05</span>
       <span class="body"><span class="tag feature">新機能</span>クライアント詳細に、オンライン申請の形式へ整形してコピーできるボタンを追加しました</span>
     </li>
-    <li>
+    <li data-tag="improve">
       <span class="date">2026.05.28</span>
       <span class="body"><span class="tag improve">改善</span>Google Drive 連携のログインまわりを改善し、セキュリティ通知メールが毎回届く問題を解消しました</span>
     </li>
   </ul>
 </main>
+<p class="tl-empty" id="updatesEmpty" style="display:none;">このタグの更新はまだありません。</p>
 
 <!-- ===== CTA ===== -->
 <div class="cta-band">
@@ -215,11 +232,45 @@ footer.site { margin-top:64px; background:var(--bg-alt); border-top:1px solid va
       }
       var t = TAGS[e.tag] || { cls: '', label: e.tag || '' };
       var date = esc(String(e.date).replace(/-/g, '.'));
-      html += '<li><span class="date">' + date + '</span><span class="body"><span class="tag ' + t.cls + '">' + esc(t.label) + '</span>' + esc(e.summary || '') + '</span></li>';
+      html += '<li data-tag="' + esc(e.tag || '') + '"><span class="date">' + date + '</span><span class="body"><span class="tag ' + t.cls + '">' + esc(t.label) + '</span>' + esc(e.summary || '') + '</span></li>';
     });
     if (openUl) html += '</ul>';
     root.innerHTML = html;
+    applyCurrentFilter();
   }
+
+  // タグ絞り込み（ブログのカテゴリ絞り込みと同作法）。data-filter と各 li の data-tag を突き合わせ、
+  // 表示が0件になった年見出しごと隠す。静的フォールバックでも動くよう常時バインドする。
+  var filterBtns = document.querySelectorAll('.update-filter .filter-btn');
+  var emptyEl = document.getElementById('updatesEmpty');
+  function applyFilter(filter) {
+    var lists = root.querySelectorAll('.tl-list');
+    var shown = 0;
+    lists.forEach(function (ul) {
+      var vis = 0;
+      ul.querySelectorAll('li').forEach(function (li) {
+        var match = filter === 'all' || li.getAttribute('data-tag') === filter;
+        li.style.display = match ? '' : 'none';
+        if (match) { vis++; shown++; }
+      });
+      ul.style.display = vis ? '' : 'none';
+      var yr = ul.previousElementSibling;
+      if (yr && yr.classList.contains('tl-year')) yr.style.display = vis ? '' : 'none';
+    });
+    if (emptyEl) emptyEl.style.display = shown === 0 ? 'block' : 'none';
+  }
+  function applyCurrentFilter() {
+    var active = document.querySelector('.update-filter .filter-btn.active');
+    applyFilter(active ? active.getAttribute('data-filter') : 'all');
+  }
+  filterBtns.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      filterBtns.forEach(function (b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      applyFilter(btn.getAttribute('data-filter'));
+    });
+  });
+
   fetch('/updates.json', { cache: 'no-cache' })
     .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
     .then(render)
