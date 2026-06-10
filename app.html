@@ -11971,7 +11971,7 @@ function App(){
   // 押し下げる。これを怠ると readonly バナーがヘッダー/コンテンツ上部に被さり、
   // 事件簿エクスポートボタン等が画面外に見切れる。全バナー(readonly/auth/swUpdate)を加算。
   const BANNER_H = isMobile?40:48;
-  const bannerOffset = ((licenseState==="readonly"?1:0)+(showAuthBanner?1:0)+(swUpdateReady?1:0))*BANNER_H;
+  const bannerOffset = ((licenseState==="readonly"?1:0)+(showAuthBanner?1:0)+(swUpdateReady?1:0)+(wipedNotice?1:0))*BANNER_H;
   const baseHeaderH = showStepper?86:52;
 
   // ライセンス起動ゲート（論点3）。全hook呼び出し後・メインreturn前で分岐。
@@ -12190,6 +12190,43 @@ function App(){
             flexShrink:0
           }}>再読み込み</button>
           <button onClick={()=>setSwUpdateReady(false)} title="あとで" style={{
+            fontSize:16,
+            width:24,
+            height:24,
+            padding:0,
+            borderRadius:4,
+            border:"none",
+            background:"transparent",
+            color:"#185FA5",
+            cursor:"pointer",
+            flexShrink:0,
+            opacity:0.6
+          }}>✕</button>
+        </div>
+      )}
+      {/* 消去直後の復元案内バー（一度きり）。他の常時バナーと同じ sticky 並びに入れ、
+          bannerOffset でヘッダーを押し下げて被りを防ぐ。×で閉じる／通常起動では出ない。 */}
+      {wipedNotice&&(
+        <div style={{
+          background:"#E6F1FB",
+          borderBottom:"1px solid #B5D4F4",
+          color:"#185FA5",
+          padding:isMobile?"8px 12px":"10px 16px",
+          display:"flex",
+          alignItems:"center",
+          gap:isMobile?8:12,
+          fontSize:isMobile?12:13,
+          minHeight:isMobile?40:48,
+          position:"sticky",
+          top:(licenseState==="readonly"?BANNER_H:0)+(showAuthBanner?BANNER_H:0)+(swUpdateReady?BANNER_H:0),
+          zIndex:198,
+          boxShadow:"0 1px 3px rgba(0,0,0,0.06)"
+        }}>
+          <span style={{fontSize:isMobile?14:16,flexShrink:0}}>🧹</span>
+          <span style={{flex:1,lineHeight:1.4}}>
+            このデバイスのデータを消去しました。{wipedNotice==="linked"&&<b>復元する場合は Google でログインしてください。</b>}
+          </span>
+          <button onClick={()=>setWipedNotice(null)} title="閉じる" style={{
             fontSize:16,
             width:24,
             height:24,
@@ -12516,13 +12553,6 @@ function App(){
       {/* 困ったときはFAQモーダル */}
       {showFaq&&<FaqModal onClose={()=>setShowFaq(false)} isMobile={isMobile}/>}
       {showWipeModal&&<WipeConfirmModal onClose={()=>setShowWipeModal(false)} onWipe={()=>wipeDeviceData(gdriveSignedIn)} linked={gdriveSignedIn} isMobile={isMobile}/>}
-      {/* 消去直後の復元案内バー（オンボーディングゲートzIndex:100000より前面） */}
-      {wipedNotice&&(
-        <div style={{position:"fixed",top:0,left:0,right:0,zIndex:100001,background:"#E6F1FB",borderBottom:"0.5px solid #B5D4F4",color:"#185FA5",fontSize:13,padding:"10px 16px",display:"flex",alignItems:"center",justifyContent:"center",gap:10,boxShadow:"0 2px 8px rgba(0,0,0,0.06)"}}>
-          <span style={{lineHeight:1.6}}>🧹 このデバイスのデータを消去しました。{wipedNotice==="linked"&&<b>復元する場合はGoogleでログインしてください。</b>}</span>
-          <button onClick={()=>setWipedNotice(null)} aria-label="閉じる" style={{border:"none",background:"none",cursor:"pointer",color:"#185FA5",fontSize:16,lineHeight:1,padding:"2px 6px",flexShrink:0}}>×</button>
-        </div>
-      )}
       {/* ⑨-B 機能ツアーガイド（DEMOサイトでは動作させない） */}
       {tourActive&&!DEMO_MODE&&(
         <TourGuide stepIndex={tourStep} setStepIndex={setTourStep} setActiveTab={setActiveTab} activeTab={activeTab} onClose={closeTour} isMobile={isMobile}/>
