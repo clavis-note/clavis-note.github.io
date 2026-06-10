@@ -1011,6 +1011,17 @@ function migrateData(saved){
   // 書き込まれていた名残を削除する。現行のキーは office.license_key 側で管理。
   // Drive同期・インポート経由の旧データも migrateData を通るため、ここで一律クリーンになる。
   if(saved.office && "api_key" in saved.office) delete saved.office.api_key;
+  // v18: residence_status に焼き付いた「（COE申請中）」等のステータスサフィックスを除去。
+  // 旧サンプルデータ期に資格名へ状態を直書きしていた名残（コミット d0f87a6 参照）。
+  // 申請中か否かは coe_phase＋案件ステータスの動的算出に一本化し、本フィールドは純粋な資格名のみ持つ。
+  // 全角/半角括弧・前後の空白の揺れに対応。「特定活動（46号）」等の正規の括弧表記は温存。
+  if(saved.clients) saved.clients = saved.clients.map(c=>{
+    if(typeof c.residence_status==="string" && c.residence_status){
+      const cleaned = c.residence_status.replace(/[\s　]*[（(][^（()）]*(?:COE|申請中|準備中|予定|不許可)[^（()）]*[)）][\s　]*$/,"").trim();
+      if(cleaned!==c.residence_status) c.residence_status = cleaned;
+    }
+    return c;
+  });
   return saved;
 }
 
