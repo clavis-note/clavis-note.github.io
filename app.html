@@ -1022,6 +1022,23 @@ function migrateData(saved){
     }
     return c;
   });
+  // v19: 旧案件の申請人ID補完（COE不許可バッジ不発の修復）。
+  // client_id / applicant_id が両方とも空で、申請人名(applicant)だけ持つ古い案件を、
+  // name_roman が一意に一致するクライアントへ紐付け直す。同名複数・不一致は補完しない（安全側）。
+  // getCOEPhaseLabel 等のID照合経路に乗せるための一回限りの修復で、判定ロジック側に
+  // 文字列照合は足さない（毎描画の照合は脆いため）。findClientAddr 等の既存の名前
+  // フォールバックは温存（補完後も同じクライアントへ解決されるので住所引き当ては不変）。
+  // 全load経路（読込・Drive同期・復元・インポート）が migrateData を通るため一律に効く。冪等。
+  if(saved.cases && saved.clients){
+    saved.cases = saved.cases.map(c=>{
+      if(!c.applicant_id && !c.client_id && c.applicant){
+        const key=c.applicant.trim().toLowerCase();
+        const hits=saved.clients.filter(cl=>cl.name_roman && cl.name_roman.trim().toLowerCase()===key);
+        if(hits.length===1) c.applicant_id=hits[0].client_id;
+      }
+      return c;
+    });
+  }
   return saved;
 }
 
