@@ -10738,10 +10738,10 @@ function RestoreConfirmModal({info,onResolve}){
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={(e)=>{if(e.target===e.currentTarget) onResolve("cancel");}}>
       <div style={{background:"var(--bg)",border:"0.5px solid rgba(0,0,0,0.15)",borderRadius:12,maxWidth:460,width:"100%",boxShadow:"0 8px 24px rgba(0,0,0,0.2)",overflow:"hidden"}}>
         <div style={{padding:"14px 18px",borderBottom:"0.5px solid #185FA5",background:"#E6F1FB"}}>
-          <div style={{fontSize:13,fontWeight:600,color:"#0E4377"}}>💾 セーフポイントに戻す</div>
+          <div style={{fontSize:13,fontWeight:600,color:"#0E4377"}}>💾 保存した状態に戻す</div>
         </div>
         <div style={{padding:"14px 18px"}}>
-          <div style={{fontSize:12,color:"var(--text2)",marginBottom:12,lineHeight:1.5}}>下記の保存時点の状態に戻します。よろしいですか？</div>
+          <div style={{fontSize:12,color:"var(--text2)",marginBottom:12,lineHeight:1.5}}>下記の保存した時点の状態に戻します。よろしいですか？</div>
           <div style={{display:"grid",gridTemplateColumns:"auto 1fr",gap:"6px 12px",background:"var(--bg2)",border:"0.5px solid rgba(0,0,0,0.1)",borderRadius:8,padding:"10px 12px",marginBottom:12}}>
             <div style={{fontSize:11,color:"var(--text3)"}}>保存日時</div>
             <div style={{fontSize:12,color:"var(--text)",fontWeight:500}}>{fmt(info.time)}</div>
@@ -10752,15 +10752,15 @@ function RestoreConfirmModal({info,onResolve}){
           </div>
           {lost.length>0?(
             <div style={{fontSize:12,color:"#9A3412",background:"#FEF0E6",border:"0.5px solid rgba(154,52,18,0.3)",borderRadius:8,padding:"10px 12px",marginBottom:14,lineHeight:1.5}}>
-              ⚠️ この保存時点より後に増えた <b>{lost.join("・")}</b> は失われます。
+              ⚠️ 保存した時点より後に増えた <b>{lost.join("・")}</b> は失われます。
             </div>
           ):(
             <div style={{fontSize:11,color:"var(--text3)",marginBottom:14,lineHeight:1.5}}>
-              ※ 保存時点より後の編集内容は失われます（クライアント・案件の件数の増減はありません）。
+              ※ 保存した時点より後の編集内容は失われます（クライアント・案件の件数の増減はありません）。
             </div>
           )}
           <div style={{display:"flex",flexDirection:"column",gap:8}}>
-            <button onClick={()=>onResolve("confirm")} style={{padding:"10px 14px",borderRadius:8,border:"0.5px solid #185FA5",background:"#185FA5",color:"#fff",fontSize:12,fontWeight:600,cursor:"pointer",textAlign:"center"}}>このセーフポイントに戻す</button>
+            <button onClick={()=>onResolve("confirm")} style={{padding:"10px 14px",borderRadius:8,border:"0.5px solid #185FA5",background:"#185FA5",color:"#fff",fontSize:12,fontWeight:600,cursor:"pointer",textAlign:"center"}}>この状態に戻す</button>
             <button onClick={()=>onResolve("cancel")} style={{padding:"10px 14px",borderRadius:8,border:"0.5px solid rgba(0,0,0,0.15)",background:"transparent",color:"var(--text2)",fontSize:12,fontWeight:500,cursor:"pointer",textAlign:"center"}}>キャンセル</button>
           </div>
         </div>
@@ -11629,6 +11629,13 @@ function App(){
       if(d==="intentional-resignin-modal-shown")return "再ログイン後の確認画面を表示しました";
       return "競合を検知しました";
     }
+    if(action==="safepoint"){
+      // ユーザー向け表記は「上書き保存」系で統一（"セーフポイント"の語は出さない）
+      if(d==="manual-created"||d.startsWith("created"))return "上書き保存しました";
+      if(d.startsWith("restored"))return "保存した状態に戻しました";
+      if(d.startsWith("auto-released"))return "古い保存版を自動整理しました";
+      return null; // restore-cancelled 等はノイズ
+    }
     if(action==="error"){
       // ユーザー向けには詳細を隠して概要だけ
       if(d.includes("auth-fail"))return "⚠️ Drive 認証が切れました。再ログインが必要です";
@@ -11724,7 +11731,7 @@ function App(){
   // 💾セーフポイント作成（要件2）: 同期＋その版を Keep Forever 化。ユーザー公認の「戻れる版」を作る。
   async function createSafePoint(){
     if(!canEdit){
-      const t=document.getElementById("toast");if(t){t.textContent="🔒 ライセンスが無効です。セーフポイント作成には認証が必要です";t.style.opacity=1;setTimeout(()=>t.style.opacity=0,4000);}
+      const t=document.getElementById("toast");if(t){t.textContent="🔒 ライセンスが無効です。上書き保存には認証が必要です";t.style.opacity=1;setTimeout(()=>t.style.opacity=0,4000);}
       return;
     }
     if(!gdriveSignedIn){alert("先にGoogleにログインしてください");return;}
@@ -11733,7 +11740,7 @@ function App(){
     try {
       await doSyncCore({safePoint:true});
       logSyncEvent("safepoint","manual-created");
-      const t=document.getElementById("toast");if(t){t.textContent="💾 セーフポイントを保存しました（この版にいつでも戻せます）";t.style.opacity=1;setTimeout(()=>t.style.opacity=0,3500);}
+      const t=document.getElementById("toast");if(t){t.textContent="💾 上書き保存しました（この状態にいつでも戻せます）";t.style.opacity=1;setTimeout(()=>t.style.opacity=0,3500);}
     } catch(e) {
       handleSyncError(e,"safepoint-create");
     } finally {
@@ -11755,13 +11762,13 @@ function App(){
       const file=await findDriveFile();
       if(!file){ alert("Driveにデータがありません"); return; }
       const safe=await listSafePointRevisions(file.id);
-      if(!safe.length){ alert("セーフポイントがまだありません。\n💾「セーフポイントを保存」で作成できます。"); return; }
+      if(!safe.length){ alert("保存された状態がまだありません。\n💾「上書き保存」で作成できます。"); return; }
       const latest=safe[0];
       // 中身を取得して件数算出（メタは別途保存しない＝確定1のB案）
       const r=await fetchWithAuth(`https://www.googleapis.com/drive/v3/files/${file.id}/revisions/${latest.id}?alt=media`);
       if(!r.ok) throw new Error(`revision get failed: ${r.status}`);
       const snap=await r.json();
-      if(!snap.clients||!snap.cases){ alert("セーフポイントのデータ形式が不正です"); return; }
+      if(!snap.clients||!snap.cases){ alert("保存データの形式が不正です"); return; }
       // 確認モーダル（確定4）: 戻り先情報＋「以降の変更は失われます」を必ず見せる
       const choice=await showRestoreModal({
         time:latest.modifiedTime,
@@ -11782,7 +11789,7 @@ function App(){
       localStorage.setItem("clavis-first-sync-done","1");
       localStorage.removeItem("clavis-disable-auto-up");
       logSyncEvent("safepoint","restored-"+latest.id);
-      const t=document.getElementById("toast");if(t){t.textContent="✅ セーフポイントに戻しました";t.style.opacity=1;setTimeout(()=>t.style.opacity=0,3000);}
+      const t=document.getElementById("toast");if(t){t.textContent="✅ 保存した状態に戻しました";t.style.opacity=1;setTimeout(()=>t.style.opacity=0,3000);}
     } catch(e) {
       handleSyncError(e,"safepoint-restore");
     } finally {
@@ -12685,20 +12692,16 @@ function App(){
                     </div>
                     <button className="lic-edit-gate" onClick={createSafePoint} disabled={gdriveSyncing}
                       style={{width:"100%",fontSize:12,padding:"8px 12px",borderRadius:7,border:"0.5px solid var(--accent)",background:"var(--accent-bg)",color:"var(--accent-text)",cursor:gdriveSyncing?"wait":"pointer",fontWeight:500,marginBottom:6}}>
-                      {gdriveSyncing?"保存中...":"💾 セーフポイントを保存"}
+                      {gdriveSyncing?"保存中...":"💾 上書き保存"}
                     </button>
                     <button className="lic-edit-gate" onClick={handleRestoreSafePoint} disabled={gdriveSyncing}
                       style={{width:"100%",fontSize:12,padding:"8px 12px",borderRadius:7,border:"0.5px solid var(--accent)",background:"transparent",color:"var(--accent-text)",cursor:gdriveSyncing?"wait":"pointer",fontWeight:500,marginBottom:6}}>
-                      ⏮️ 最新セーフポイントに戻す
+                      ⏮️ 保存した状態に戻す
                     </button>
                     <div style={{fontSize:10,color:"var(--text3)",lineHeight:1.5,marginBottom:8}}>
-                      💾は「いつでも戻れる保存版」を作ります。自動同期とは別に、区切りのいいところで押してください。スマホからも戻せます。
+                      💾「上書き保存」で今の状態を保存できます。あとで不安になっても「保存した状態に戻す」でいつでもこの状態に戻せます（スマホからもOK）。Excelの上書き保存と同じ感覚です。
                     </div>
                     <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:4}}>
-                      <button onClick={handleShowSyncLog}
-                        style={{fontSize:10,padding:"4px 8px",borderRadius:5,border:"none",background:"transparent",color:"var(--text3)",cursor:"pointer",textDecoration:"underline"}}>
-                        📋 同期履歴
-                      </button>
                       <button onClick={handleGdriveSignOut}
                         style={{fontSize:10,padding:"4px 8px",borderRadius:5,border:"none",background:"transparent",color:"var(--text3)",cursor:"pointer",textDecoration:"underline"}}>
                         ログアウト
@@ -12731,6 +12734,11 @@ function App(){
                         📥 JSONから復元（緊急時用）
                       </button>
                       <input ref={fileRef} type="file" accept=".json" onChange={handleImport} style={{display:"none"}}/>
+                      {/* 同期診断ログ（サポート用）。表UIからは引退、楽屋（診断コーナー）に常駐。 */}
+                      <button onClick={handleShowSyncLog}
+                        style={{width:"100%",fontSize:12,padding:"7px 10px",borderRadius:6,border:"0.5px solid rgba(0,0,0,0.15)",background:"transparent",color:"var(--text2)",cursor:"pointer",fontWeight:500,marginBottom:6,textAlign:"left"}}>
+                        📋 同期診断ログ（サポート用）
+                      </button>
                       {/* 巻き戻し手段の案内（旧・5分自動バックアップはUNDOに置き換え済み） */}
                       <div style={{marginTop:10,paddingTop:10,borderTop:"0.5px dashed rgba(0,0,0,0.08)",fontSize:10,color:"var(--text3)",lineHeight:1.7}}>
                         うっかり操作はヘッダーの「↩️ 元に戻す」で直近3回まで取り消せます。<br/>
