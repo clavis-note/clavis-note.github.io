@@ -1,5 +1,9 @@
 User-agent: *
 Allow: /
+
+# アプリ本体・デモ環境は検索結果に出さない（LPとブログのみをインデックス対象とする）
+Disallow: /app.html
+Disallow: /demo.html
 Disallow: /index-launch-eve.html
 
 Sitemap: https://clavis-note.com/sitemap.xml
