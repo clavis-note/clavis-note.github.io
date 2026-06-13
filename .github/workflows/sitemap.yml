@@ -13,6 +13,7 @@ on:
 
 permissions:
   contents: write
+  pages: write # bot コミット後に Pages 再ビルドを明示要求するため
 
 concurrency:
   group: sitemap-${{ github.ref }}
@@ -33,7 +34,10 @@ jobs:
       - name: Generate sitemap.xml
         run: python scripts/generate_sitemap.py > /dev/null
 
-      - name: Commit if changed
+      - name: Commit and publish if changed
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
         run: |
           if git diff --quiet -- sitemap.xml; then
             echo "sitemap.xml は最新です。変更なし。"
@@ -44,3 +48,8 @@ jobs:
           git add sitemap.xml
           git commit -m "chore: sitemap.xml 自動更新 [skip ci]"
           git push
+          # GITHUB_TOKEN による push は Pages の自動再ビルドを起こさないので、明示的にビルドを要求する
+          curl -fsS -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$REPO/pages/builds"
