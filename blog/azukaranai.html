@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>なぜClavisはデータを預からないのか ─ Clavis Note Blog</title>
+<meta name="description" content="在留カードやパスポートなど、漏れたら取り返しのつかない個人情報。Clavis Note は、クライアントデータを運営者のサーバーに「そもそも預からない」設計です。その理由と、ちょっと正直な開発の経緯をお話しします。">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;600;700;800&family=Noto+Sans+JP:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+/* =================================================================
+   Clavis Note Blog — Article page (なぜClavisはデータを預からないのか)
+   jikenbo.html / release.html / azukarisho.html のデザインを継承
+   ================================================================= */
+
+:root {
+  --bg:        #f5f4ee;
+  --bg-alt:    #ebe9e0;
+  --bg-soft:   #faf8f5;
+  --bg-paper:  #fdfcf8;
+  --text:      #1f1c19;
+  --text-mute: #6b6760;
+  --text-soft: #8a8680;
+  --line:      #d4d2c8;
+  --line-soft: #e5e3dd;
+
+  --accent:      #2D7DD2;
+  --accent-soft: #E6F1FB;
+  --accent-deep: #1F5A9E;
+  --gold:        #b48a3c;
+  --gold-soft:   #f3ead4;
+
+  --font-serif: 'Shippori Mincho', 'YuMincho', 'Hiragino Mincho ProN', serif;
+  --font-sans:  'Noto Sans JP', -apple-system, BlinkMacSystemFont, 'Segoe UI', Meiryo, sans-serif;
+  --font-mono:  'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --radius-sm: 6px;
+  --radius:    12px;
+
+  --shadow-sm: 0 1px 2px rgba(20,18,16,.06), 0 1px 1px rgba(20,18,16,.04);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.8;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ========== HEADER ========== */
+.site-header {
+  background: var(--bg-soft);
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(8px);
+  background: rgba(250, 248, 245, 0.92);
+}
+
+.header-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 18px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.logo {
+  font-family: var(--font-serif);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text);
+  text-decoration: none;
+}
+.logo .accent { color: var(--accent); }
+
+.site-nav { display: flex; gap: 28px; }
+.site-nav a {
+  color: var(--text-mute);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  transition: color 0.2s;
+  position: relative;
+}
+.site-nav a:hover { color: var(--accent); }
+.site-nav a.current {
+  color: var(--text);
+}
+.site-nav a.current::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent);
+}
+
+/* ========== ARTICLE HEADER ========== */
+.article-hero {
+  background: var(--bg-soft);
+  padding: 80px 32px 60px;
+  border-bottom: 1px solid var(--line-soft);
+  position: relative;
+  overflow: hidden;
+}
+
+.article-hero::before {
+  content: '';
+  position: absolute;
+  top: -50px;
+  right: -100px;
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, var(--accent-soft) 0%, transparent 70%);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.article-hero::after {
+  content: '';
+  position: absolute;
+  bottom: -80px;
+  left: -120px;
+  width: 320px;
+  height: 320px;
+  background: radial-gradient(circle, var(--gold-soft) 0%, transparent 70%);
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.hero-inner {
+  max-width: 760px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 1;
+}
+
+.category-badge {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+  background: var(--accent-soft);
+  padding: 6px 14px;
+  border-radius: 100px;
+  margin-bottom: 28px;
+  text-transform: uppercase;
+}
+.category-badge.feature { color: var(--gold); background: var(--gold-soft); }
+.category-badge.howto   { color: #4a6b4a; background: #e8efe5; }
+
+.article-title {
+  font-family: var(--font-serif);
+  font-size: 42px;
+  font-weight: 700;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+  color: var(--text);
+  margin-bottom: 32px;
+}
+
+.article-meta {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  color: var(--text-mute);
+  font-size: 14px;
+}
+
+.article-meta .divider {
+  width: 1px;
+  height: 14px;
+  background: var(--line);
+}
+
+/* ========== ARTICLE BODY ========== */
+.article-body {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 60px 32px 80px;
+}
+
+.article-body .lead {
+  font-family: var(--font-serif);
+  font-size: 20px;
+  line-height: 1.9;
+  color: var(--text);
+  margin-bottom: 32px;
+  padding-left: 24px;
+  border-left: 3px solid var(--gold);
+  font-weight: 500;
+}
+
+.article-body h2 {
+  font-family: var(--font-serif);
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--text);
+  margin: 56px 0 24px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.article-body h3 {
+  font-family: var(--font-serif);
+  font-size: 21px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--text);
+  margin: 40px 0 16px;
+}
+
+.article-body h4 {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.6;
+  color: var(--text);
+  margin: 36px 0 14px;
+  letter-spacing: 0.01em;
+}
+
+.article-body p {
+  font-family: var(--font-serif);
+  font-size: 17px;
+  line-height: 2;
+  margin-bottom: 24px;
+  color: var(--text);
+  letter-spacing: 0.02em;
+}
+
+.article-body a {
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px solid var(--accent-soft);
+  transition: border-color 0.2s;
+}
+.article-body a:hover {
+  border-bottom-color: var(--accent);
+}
+
+.article-body strong {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.article-body ul, .article-body ol {
+  margin: 0 0 24px 24px;
+  font-family: var(--font-serif);
+  font-size: 17px;
+  line-height: 2;
+}
+
+.article-body li {
+  margin-bottom: 10px;
+  color: var(--text);
+}
+
+/* ========== CALLOUT (アイコン付き補足ボックス) ========== */
+.callout {
+  position: relative;
+  margin: 46px 0;
+  padding: 28px 32px;
+  background: linear-gradient(135deg, var(--gold-soft) 0%, var(--bg-soft) 100%);
+  border-left: 4px solid var(--gold);
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+.callout .callout-icon {
+  position: absolute;
+  top: -17px;
+  left: 22px;
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 19px;
+  background: var(--bg-paper);
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  box-shadow: var(--shadow-sm);
+}
+
+.callout p {
+  font-family: var(--font-serif);
+  font-size: 16px;
+  line-height: 1.95;
+  color: var(--text);
+  margin-bottom: 0;
+}
+
+.callout ul {
+  margin: 0;
+  padding-left: 22px;
+  font-family: var(--font-serif);
+}
+.callout li {
+  font-size: 16px;
+  line-height: 1.9;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+.callout li:last-child { margin-bottom: 0; }
+
+/* 青系（データの保存先など、仕組みの説明） */
+.callout.is-accent {
+  background: linear-gradient(135deg, var(--accent-soft) 0%, var(--bg-soft) 100%);
+  border-left-color: var(--accent);
+}
+/* 疑問（開発中に開発者自身がぶつけた素朴な疑問） */
+.callout.is-question {
+  background: var(--bg-soft);
+  border-left-color: var(--text-soft);
+}
+.callout.is-question p {
+  font-weight: 600;
+  color: var(--text);
+  font-size: 17px;
+}
+
+/* ========== ABOUT BOX (記事末尾の CTA) ========== */
+.about-box {
+  background: linear-gradient(135deg, var(--accent-soft) 0%, var(--bg-soft) 100%);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  padding: 36px 32px;
+  margin-top: 56px;
+}
+
+.about-label {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--accent);
+  margin-bottom: 14px;
+}
+
+.about-box .about-lead {
+  font-family: var(--font-serif);
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.7;
+  color: var(--text);
+  margin-bottom: 12px;
+  padding-left: 0;
+  border-left: none;
+}
+
+.about-box .about-desc {
+  font-family: var(--font-serif);
+  font-size: 15px;
+  line-height: 1.9;
+  color: var(--text-mute);
+  margin-bottom: 26px;
+}
+
+.about-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 20px;
+  align-items: center;
+}
+
+.about-actions a { border-bottom: none; }
+
+.about-box .about-btn-primary {
+  display: inline-block;
+  background: var(--accent);
+  color: #fff;
+  padding: 13px 28px;
+  border-radius: 100px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+.about-box .about-btn-primary:hover {
+  background: var(--accent-deep);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px -8px rgba(45,125,210,0.5);
+}
+
+.about-link {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--accent);
+}
+.about-link:hover { color: var(--accent-deep); }
+
+/* ========== 関連記事 ========== */
+.related-note {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line-soft);
+  font-family: var(--font-serif);
+  font-size: 15px;
+  color: var(--text-mute);
+}
+.related-note .related-label {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--text-soft);
+  margin-right: 10px;
+}
+
+/* ========== SITE FOOTER (LP本体と同一仕様) ========== */
+footer.site {
+  background: var(--bg-alt);
+  border-top: 1px solid var(--line);
+  padding: 56px 28px 32px;
+  color: var(--text-mute);
+  font-size: 13px;
+}
+.footer-grid {
+  max-width: 1080px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 40px;
+  padding-bottom: 32px;
+  border-bottom: 1px solid var(--line);
+}
+.footer-brand-block .footer-brand {
+  font-family: var(--font-serif);
+  font-size: 22px;
+  color: var(--text);
+  letter-spacing: 0.1em;
+  margin-bottom: 12px;
+  font-weight: 700;
+}
+.footer-brand-block .footer-brand .accent { color: var(--accent); }
+.footer-brand-block .footer-org {
+  color: var(--text);
+  font-size: 14px;
+  margin-bottom: 6px;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+.footer-brand-block .footer-info {
+  color: var(--text-mute);
+  font-size: 12.5px;
+  line-height: 1.85;
+}
+.footer-links-block {
+  display: flex; flex-direction: column;
+  gap: 8px;
+}
+.footer-links-block .footer-links-title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  color: var(--text-mute);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.footer-links-block a {
+  color: var(--text);
+  text-decoration: none;
+  font-size: 13.5px;
+  letter-spacing: 0.05em;
+  padding: 4px 0;
+  transition: color .2s;
+}
+.footer-links-block a:hover { color: var(--accent); }
+.footer-bottom {
+  max-width: 1080px;
+  margin: 24px auto 0;
+  display: flex; justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-mute);
+  letter-spacing: 0.05em;
+}
+.mono { font-family: var(--font-mono); }
+@media (max-width: 720px) {
+  .footer-grid { grid-template-columns: 1fr; gap: 28px; }
+  .footer-bottom { flex-direction: column; gap: 6px; align-items: flex-start; }
+}
+
+/* ========== RESPONSIVE ========== */
+@media (max-width: 768px) {
+  .header-inner { padding: 14px 20px; }
+  .site-nav { gap: 18px; }
+  .site-nav a { font-size: 13px; }
+  .logo { font-size: 18px; }
+
+  .article-hero { padding: 48px 20px 40px; }
+  .article-title { font-size: 28px; }
+  .article-meta { flex-wrap: wrap; gap: 12px; }
+
+  .article-body { padding: 40px 20px 60px; }
+  .article-body .lead { font-size: 17px; padding-left: 16px; }
+  .article-body h2 { font-size: 22px; }
+  .article-body h3 { font-size: 18px; }
+  .article-body h4 { font-size: 16px; }
+  .article-body p { font-size: 16px; line-height: 1.9; }
+
+  .callout { padding: 26px 22px; margin: 40px 0; }
+  .callout p { font-size: 15px; }
+  .callout li { font-size: 15px; }
+  .callout.is-question p { font-size: 16px; }
+
+  .about-box { padding: 28px 22px; }
+  .about-box .about-lead { font-size: 17px; }
+
+  .footer-inner { flex-direction: column; }
+}
+</style>
+</head>
+
+<body>
+
+<!-- ========== HEADER ========== -->
+<header class="site-header">
+  <div class="header-inner">
+    <a href="/" class="logo">Clavis <span class="accent">Note</span></a>
+    <nav class="site-nav">
+      <a href="/">← 公式サイトへ</a>
+      <a href="/blog/" class="current">ブログ</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ========== ARTICLE HERO ========== -->
+<section class="article-hero">
+  <div class="hero-inner">
+    <span class="category-badge howto">困りごと解決</span>
+    <h1 class="article-title">なぜClavisはデータを預からないのか</h1>
+    <div class="article-meta">
+      <span>2026年6月13日</span>
+      <span class="divider"></span>
+      <span>読了 5分</span>
+    </div>
+  </div>
+</section>
+
+<!-- ========== ARTICLE BODY ========== -->
+<article class="article-body">
+
+  <p class="lead">
+    在留カード、パスポート、家族構成、勤務先、収入。行政書士が日々扱うのは「漏れたら取り返しのつかない」情報ばかりです。Clavis Note は、ユーザーのクライアントデータを、運営者である私が<strong>預からない</strong>設計です。その理由と、ちょっと正直な経緯のお話です。
+  </p>
+
+  <h2>私たちが扱っているのは「個人情報の塊」</h2>
+
+  <p>
+    入管業務で預かる情報には、在留資格や家族関係、収入など、本人の生活や環境に関わるセンシティブな要素が含まれます。
+  </p>
+
+  <p>
+    行政書士には法律上の守秘義務があります。
+  </p>
+
+  <p>
+    便利なクラウドツールにデータを登録して自分の業務を効率化したい一方、<strong>クライアントの個人情報を、そのツールの運営会社のサーバーに預ける</strong>ということが不安で、二の足を踏む方も多いと思います。
+  </p>
+
+  <h2>2026年5月のニュースと、私の「大丈夫なの！？」</h2>
+
+  <p>
+    2026年5月、AIで手軽に作られ公開されていたアプリ約38万件のうち、約5,000件が個人情報を外部から見える状態にしていた。そんな調査結果が、<a href="https://www.wired.com/story/thousands-of-vibe-coded-apps-expose-corporate-and-personal-data-on-the-open-web/" target="_blank" rel="noopener">WIRED</a>などの海外メディアで報じられました。
+  </p>
+
+  <p>
+    これを見た私は、真っ先に開発の相棒であるAIに「え！？　Clavis Noteは大丈夫なの！？」と詰め寄りました。
+  </p>
+
+  <p>
+    Clavis Noteも、AIとともに開発したツールです。他人事ではありませんでした。
+  </p>
+
+  <p>
+    そして、データの流れや認証の仕組みを改めて確かめながら分かったのは、問題は「AIが作ったから」でも「データを預かるサービスが悪い」でもない、ということでした。
+  </p>
+
+  <p>
+    データを預かって運営している事業者は、守るための体制と思想をきちんと持っています。問題は、データを預かる責任に見合う体制がないまま、公開されてしまっていたことでした。
+  </p>
+
+  <p>
+    では、Clavis Noteはどうか。
+  </p>
+
+  <p>
+    考えて、悩んで、検証して作ってはいるけれど、私はセキュリティの専門家ではありません。個人開発のClavis Noteに、データを預かる事業者が備えるべき専任の体制や監査の仕組みは持てません。だから、皆さまの大切なデータを、私のサーバーに置くべきではない。その設計を守ろう、と考えました。
+  </p>
+
+  <h2>Clavis Note の答え：「そもそも預からない」</h2>
+
+  <p>
+    Clavis Note は、このセキュリティの問題に対して一番手前で答えを出しています。
+  </p>
+
+  <p>
+    クライアントのデータが保存される場所は、2つだけです。
+  </p>
+
+  <div class="callout is-accent">
+    <span class="callout-icon">💾</span>
+    <ul>
+      <li><strong>お使いのブラウザの保存領域</strong>（お使いの端末の中）</li>
+      <li><strong>ご自身の Google Drive</strong>（連携を有効にした場合）</li>
+    </ul>
+  </div>
+
+  <p>
+    クライアント台帳も、案件データも、報酬・入金の記録も、私のサーバーには一切保存されません。仮に Clavis Note の運営側に何かが起きても、<strong>漏れるクライアントデータがそこに存在しない</strong>のです。
+  </p>
+
+  <div class="callout">
+    <span class="callout-icon">🔑</span>
+    <p>セキュリティ対策にはいろいろな階層がありますが、一番確実なのは「守りを固めること」ではなく、<strong>「漏洩する場所を最初から作らないこと」</strong>だと私は考えました。</p>
+  </div>
+
+  <h3>では、何を預かっているのか</h3>
+
+  <p>
+    「一切預からない」とだけ言うのはフェアではないので、預かっているものも書いておきます。
+  </p>
+
+  <p>
+    ライセンスの管理に必要な情報（ご登録のメールアドレスなど）は、運営側で保管しています。ただしこれは業務データとは完全に分離されていて、クライアントに関する情報がそこに混ざることはありません。
+  </p>
+
+  <h3>この設計と引き換えになるもの</h3>
+
+  <p>
+    データがお手元にあるということは、<strong>データの管理者がご自身になる</strong>ということでもあります。端末の紛失や誤操作への備えは、ユーザー側の責任になります。
+  </p>
+
+  <p>
+    Clavis Note では、そのために Google Drive へのバックアップ保存と復元の仕組みをアプリ内に備えました。
+  </p>
+
+  <p>
+    万が一Google Driveのセキュリティが破られるなら、それはもうClavis Noteがどうのという次元ではない、と思っています。個人開発のサービスが独自にデータを預かるよりも、Googleの基盤に任せる方がずっと現実的だ、という判断です。
+  </p>
+
+  <h2>開発者自身が、いちばん疑っていました</h2>
+
+  <p>
+    ところで、「ブラウザの保存領域」と聞いて、安心するどころか不安になった方もいるかもしれません。実は、私自身がそうでした。開発の途中、相棒の AI に何度も質問をぶつけました。
+  </p>
+
+  <div class="callout is-question">
+    <span class="callout-icon">🤔</span>
+    <p>「ブラウザのデータ保存領域？　それってネットにすぐ流出しちゃう経路じゃないの？」</p>
+  </div>
+
+  <p>
+    答えはノーでした。ブラウザの保存領域は、自分のパソコンやスマホの中にある引き出しのようなもので、どこかへ送信されるものではありません。しかも、その引き出しを開けられるのは保存したサイト自身だけ。これはブラウザの仕組みとして決められているルールです。
+  </p>
+
+  <div class="callout is-question">
+    <span class="callout-icon">🤔</span>
+    <p>「閲覧履歴を消したら、データが丸ごと消える！？　そんなの困る！」</p>
+  </div>
+
+  <p>
+    これは本当です。ブラウザの設定から「閲覧履歴の削除」をすると、保存したデータも消えます。閲覧履歴の削除をするときに、「サイトデータ」も一緒に消す設定になっていることが多いためです。
+  </p>
+
+  <p>
+    だからこそ Clavis Note は、Google Drive へのバックアップ保存と復元の仕組みをセットで用意しています。「手元に置く」と「消えても戻せる」は、両方そろってはじめて安心になるからです。
+  </p>
+
+  <div class="callout is-question">
+    <span class="callout-icon">🤔</span>
+    <p>「ローカルにデータを置く？？　じゃあスマホからは使えないの？？」</p>
+  </div>
+
+  <p>
+    使えます。スマホのブラウザにも同じ保存領域があり、Clavis Note はスマホからも動きます。ただしデータは端末ごとに別々に保存されるので、複数の端末で使う場合は Google Drive 連携が橋渡しになります。
+  </p>
+
+  <p>
+    こうした素朴な疑問をひとつずつ潰していった結果が、そのまま今の Clavis Note の設計に繋がりました。
+  </p>
+
+  <h2>おわりに：正直な経緯の話</h2>
+
+  <p>
+    実は、「データを預からない」は、最初から思想として掲げたものではありません。
+  </p>
+
+  <p>
+    Clavis Note は、開発の相棒である AI が、私の「事件簿をもっと簡単につけられるようにしたい！」という要望を受けて、試しに、とブラウザの中だけで動く手軽な小さなアプリとして生まれました。データが手元に残るのは、いわば偶然の産物だったのです。
+  </p>
+
+  <p>
+    でも、開発を進めて販売の基盤を作る中で、データをサーバーで預かった瞬間に運営者が負うことになる責任の重さを知りました。同時に、個人情報を大切に扱う行政書士の方々にとって、データの置き場所がどれほど重要な意味を持つかに、真剣に向き合いました。
+  </p>
+
+  <p>
+    スマホとのデータ連携や、バックアップの復元など、実はデータを預かってしまう方が技術的には楽になる部分もあります。それでも「預からない」には、そうした課題を乗り越えてでも守るべき価値がある、と思いました。だから、「預からない」を原則にする、と決めました。
+  </p>
+
+  <p>
+    始まりは偶然でも、今ははっきりと、これが最良の形だったと考えています。
+  </p>
+
+  <p>
+    業務の効率化と、個人情報データの安全（少なくとも、ご自身の管理が及ばないサーバーにデータを預けない、という意味で）。Clavis Noteでは、どちらも同じくらい大切に考えています。
+  </p>
+
+  <!-- ========== Clavis Note について（CTA / about-box） ========== -->
+  <div class="about-box">
+    <div class="about-label">CLAVIS NOTE を試してみる</div>
+    <p class="about-lead">クライアントの大切なデータを預けずに。</p>
+    <p class="about-desc">在留資格・入管業務に特化したオールインワン管理ツール。事件簿管理をもっと手軽に。今なら30日間無料で全機能をお試しいただけます。</p>
+    <div class="about-actions">
+      <a href="https://buy.stripe.com/8x2fZicdl78hd7DfYB3Je01?prefilled_promo_code=FOUNDER" class="about-btn-primary">30日間無料で始める →</a>
+      <a href="mailto:info@clavis-note.com" class="about-link">お問い合わせ：info@clavis-note.com</a>
+    </div>
+  </div>
+
+  <!-- ========== 関連記事 ========== -->
+  <p class="related-note">
+    <span class="related-label">関連記事</span><a href="/blog/release.html">Clavis Note をリリースしました</a>
+  </p>
+
+</article>
+
+<!-- ========== SITE FOOTER ========== -->
+<footer class="site">
+  <div class="footer-grid">
+    <div class="footer-brand-block">
+      <div class="footer-brand">Clavis <span class="accent">Note</span></div>
+      <div class="footer-org">ながみ行政書士事務所</div>
+      <div class="footer-info">
+        代表　長見　恵<br>
+        東京都立川市高松町３－１４－２　２F
+      </div>
+    </div>
+    <div class="footer-links-block">
+      <div class="footer-links-title">Information</div>
+      <a href="/blog/">ブログ</a>
+      <a href="/terms.html">ご利用規約</a>
+      <a href="/privacy.html">プライバシーポリシー</a>
+      <a href="/tokushoho.html">特定商取引法表記</a>
+      <a href="mailto:info@clavis-note.com">info@clavis-note.com</a>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span>© 2026 ながみ行政書士事務所</span>
+    <span class="mono">Clavis Note — v1.0</span>
+  </div>
+</footer>
+
+</body>
+</html>
