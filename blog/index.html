@@ -360,117 +360,6 @@ body {
   border-radius: 50%;
 }
 
-/* ========== FEATURED ARTICLE (最新記事を大きく) ========== */
-.featured-article {
-  grid-column: 1 / -1;
-  background: var(--bg-paper);
-  border: 1px solid var(--line-soft);
-  border-radius: var(--radius);
-  overflow: hidden;
-  text-decoration: none;
-  color: inherit;
-  transition: all 0.3s ease;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  margin-bottom: 16px;
-  position: relative;
-}
-
-.featured-article::before {
-  content: 'PICK UP';
-  position: absolute;
-  top: 20px;
-  left: 20px;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.2em;
-  color: var(--bg-soft);
-  background: var(--text);
-  padding: 5px 12px;
-  border-radius: 4px;
-  z-index: 2;
-}
-
-.featured-article:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--shadow);
-  border-color: var(--line);
-}
-
-.featured-thumbnail {
-  height: 100%;
-  min-height: 280px;
-  background: linear-gradient(135deg, var(--accent-soft) 0%, var(--gold-soft) 100%);
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.featured-thumbnail::before {
-  content: '✦';
-  font-family: var(--font-serif);
-  font-size: 120px;
-  color: var(--accent);
-  opacity: 0.3;
-}
-
-.featured-body {
-  padding: 40px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-
-.featured-category {
-  display: inline-block;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  color: var(--accent);
-  background: var(--accent-soft);
-  padding: 5px 12px;
-  border-radius: 4px;
-  margin-bottom: 16px;
-  text-transform: uppercase;
-  align-self: flex-start;
-}
-/* カテゴリ別の色（カード／記事ページのバッジ配色と対応） */
-.featured-category.feature { color: var(--gold); background: var(--gold-soft); }
-.featured-category.howto   { color: #4a6b4a; background: #e8efe5; }
-
-.featured-title {
-  font-family: var(--font-serif);
-  font-size: 28px;
-  font-weight: 700;
-  line-height: 1.5;
-  color: var(--text);
-  margin-bottom: 16px;
-}
-
-.featured-excerpt {
-  font-family: var(--font-serif);
-  font-size: 15px;
-  line-height: 1.9;
-  color: var(--text-mute);
-  margin-bottom: 20px;
-}
-
-.featured-meta {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 13px;
-  color: var(--text-soft);
-}
-
-.featured-meta .divider {
-  width: 3px;
-  height: 3px;
-  background: var(--text-soft);
-  border-radius: 50%;
-}
-
 /* ========== EMPTY STATE (該当カテゴリに記事が無いとき) ========== */
 .empty-state {
   grid-column: 1 / -1;
@@ -557,9 +446,6 @@ footer.site {
 /* ========== RESPONSIVE ========== */
 @media (max-width: 1024px) {
   .article-grid { grid-template-columns: repeat(2, 1fr); }
-  .featured-article { grid-template-columns: 1fr; }
-  .featured-thumbnail { min-height: 200px; }
-  .featured-title { font-size: 24px; }
 }
 
 @media (max-width: 768px) {
@@ -580,9 +466,6 @@ footer.site {
     padding: 32px 20px 60px;
     gap: 20px;
   }
-
-  .featured-body { padding: 28px 24px; }
-  .featured-title { font-size: 22px; }
 
   .footer-inner { flex-direction: column; }
 }
