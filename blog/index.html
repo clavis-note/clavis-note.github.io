@@ -628,15 +628,14 @@ footer.site {
 <!-- ========== ARTICLE GRID ========== -->
 <!--
   ▼▼▼ 記事の追加方法 ▼▼▼
-  ・「.featured-article」（横長の大きいカード）は リリース告知 release.html を
-    ピン留め固定 で表示している。記事を追加してもここは差し替えない。
+  ・記事はすべて「.article-card」で並べる。ピン留め（featured）は使わない。
   ・新しい記事は下の「.article-card テンプレート」をコピーし、
-    Featured のすぐ下（カード群の先頭）に挿入する。
+    カード群の先頭（このセクションの直下）に挿入する。
     並び順は 上＝新しい / 下＝古い の降順（新しいものほど上）。
   ・data-category は news（お知らせ）／ feature（機能紹介）／ howto（困りごと解決）のいずれか。
     記事ページ側の category-badge の色クラス（feature / howto / 無印=news）と必ず合わせる。
   ・カテゴリを新設する場合は、上のフィルターボタンと、CSS の .card-category.xxx /
-    .featured-category.xxx / .card-thumbnail.theme-xxx を追加する。
+    .card-thumbnail.theme-xxx を追加する。
 
   ── .article-card テンプレート（コピーして使う）──────────────────
   <a href="/blog/ファイル名.html" class="article-card" data-category="feature">
@@ -655,22 +654,7 @@ footer.site {
 -->
 <section class="article-grid" id="articleGrid">
 
-  <!-- ピン留め固定：リリース告知（記事を追加してもここは差し替えない） -->
-  <a href="/blog/release.html" class="featured-article" data-category="news">
-    <div class="featured-thumbnail"></div>
-    <div class="featured-body">
-      <span class="featured-category">お知らせ</span>
-      <h2 class="featured-title">Clavis Note をリリースしました</h2>
-      <p class="featured-excerpt">現役行政書士が、入管業務の現場で本当に必要だと思うものを形にしました。在留資格・入管業務に特化したオールインワン業務管理ツール「Clavis Note」、リリースのごあいさつです。</p>
-      <div class="featured-meta">
-        <span>2026年5月16日</span>
-        <span class="divider"></span>
-        <span>読了 4分</span>
-      </div>
-    </div>
-  </a>
-
-  <!-- ↓ ここから下は新しい記事ほど上（降順）。新規追加はこの直下に挿入 -->
+  <!-- ↓ 新しい記事ほど上（降順）。新規追加はこの直下に挿入 -->
   <a href="/blog/azukaranai.html" class="article-card" data-category="howto">
     <div class="card-thumbnail theme-howto"></div>
     <div class="card-body">
@@ -703,6 +687,18 @@ footer.site {
       <p class="card-excerpt">在留カードを預かったその場で、スマホひとつで預り証を発行。「撮影 → 発行 → 返却記録」までをワンストップでこなせる新機能をご紹介します。</p>
       <div class="card-meta">
         <span>2026年5月24日</span>
+      </div>
+    </div>
+  </a>
+
+  <a href="/blog/release.html" class="article-card" data-category="news">
+    <div class="card-thumbnail theme-news"></div>
+    <div class="card-body">
+      <span class="card-category news">お知らせ</span>
+      <h3 class="card-title">Clavis Note をリリースしました</h3>
+      <p class="card-excerpt">現役行政書士が、入管業務の現場で本当に必要だと思うものを形にしました。在留資格・入管業務に特化したオールインワン業務管理ツール「Clavis Note」、リリースのごあいさつです。</p>
+      <div class="card-meta">
+        <span>2026年5月16日</span>
       </div>
     </div>
   </a>
