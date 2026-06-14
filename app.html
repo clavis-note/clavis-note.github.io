@@ -4687,7 +4687,7 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
     }
   },[navigateClientId]);
 
-  const statusList=["全て","🛂 入管","📄 一般",...new Set(clients.filter(c=>!c.archived&&c.client_type!=="general").map(c=>c.residence_status))];
+  const statusList=["全て","🛂 入管","📄 一般",...new Set(clients.filter(c=>!c.archived&&c.client_type!=="general").map(c=>c.residence_status).filter(s=>s&&s.trim()))];
   const filtered=clients.filter(c=>{
     if(!showArchived&&c.archived)return false;
     const q=search.toLowerCase();
