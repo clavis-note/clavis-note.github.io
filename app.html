@@ -6988,7 +6988,7 @@ function CaseJournal({data,setData,onNavCase}){
 // ============================================================
 // 10. 報酬管理（サイドバー＋詳細ビュー）
 // ============================================================
-function NewPaymentModal({onClose,onSave,cases,clients,payments,feeMaster}){
+function NewPaymentModal({onClose,onSave,cases,clients,payments,feeMaster,companies}){
   const [mode,setMode]=useState("single");
   const [caseId,setCaseId]=useState("");
   const [selectedCaseIds,setSelectedCaseIds]=useState([]);
@@ -7063,12 +7063,13 @@ function NewPaymentModal({onClose,onSave,cases,clients,payments,feeMaster}){
     const clientIds=mode==="single"&&selCase?[selCase.client_id]:[...new Set(selectedCaseIds.map(id=>cases.find(x=>x.case_id===id)?.client_id).filter(Boolean))];
     if(mode==="single"&&!caseId){alert("案件を選択してください");return;}
     if(mode==="bundle"&&selectedCaseIds.length===0){alert("案件を1件以上選択してください");return;}
+    if(mode==="bundle"&&!billToName.trim()){alert("請求先（宛名）を入力してください");return;}
     if(items.length===0){alert("報酬明細を1つ以上追加してください");return;}
     onSave({
       payment_id:"P"+Date.now(),
       case_ids:caseIds,client_ids:clientIds,
-      bill_type:mode==="bundle"?"company":billType,
-      bill_to_name:mode==="bundle"?"株式会社フォロー":(billToName||selClient?.name_roman||selClient?.name_kana||selCase?.applicant||selCase?.requester||""),
+      bill_type:billType,
+      bill_to_name:mode==="bundle"?billToName.trim():(billToName||selClient?.name_roman||selClient?.name_kana||selCase?.applicant||selCase?.requester||""),
       tax_mode:taxMode,
       invoice_number:"INV-"+new Date().getFullYear()+"-"+String(Date.now()).slice(-3),
       invoice_date:invoiceDate,due_date:dueDate,
@@ -7091,7 +7092,7 @@ function NewPaymentModal({onClose,onSave,cases,clients,payments,feeMaster}){
 
         <div style={{display:"flex",gap:0,padding:"10px 16px 0",borderBottom:"0.5px solid rgba(0,0,0,0.08)"}}>
           {[["single","個別請求"],["bundle","まとめ請求"]].map(([m,label])=>(
-            <button key={m} onClick={()=>{setMode(m);setItems([]);setExpenses([]);setCaseId("");setSelectedCaseIds([]);}}
+            <button key={m} onClick={()=>{setMode(m);setItems([]);setExpenses([]);setCaseId("");setSelectedCaseIds([]);if(m==="bundle"){setBillType("company");setBillToName("株式会社フォロー");}else{setBillType("individual");setBillToName("");}}}
               style={{fontSize:12,padding:"6px 14px",cursor:"pointer",border:"none",borderBottom:mode===m?"2px solid var(--accent)":"2px solid transparent",
                 background:"transparent",color:mode===m?"var(--accent-text)":"var(--text2)",fontWeight:mode===m?500:400}}>{label}</button>
           ))}
@@ -7190,6 +7191,23 @@ function NewPaymentModal({onClose,onSave,cases,clients,payments,feeMaster}){
                 );
               })}
             </div>
+            {selectedCaseIds.length>0&&<div style={{background:"var(--bg2)",borderRadius:8,padding:"10px 12px"}}>
+              <div style={{fontSize:10,color:"var(--text3)",marginBottom:8}}>請求先（宛名）<span style={{color:"#A32D2D"}}>*</span></div>
+              <div style={{display:"flex",gap:8,marginBottom:8}}>
+                {[["company","会社"],["individual","本人"]].map(([val,label])=>(
+                  <button key={val} onClick={()=>setBillType(val)}
+                    style={{fontSize:12,padding:"4px 12px",cursor:"pointer",borderRadius:5,border:`0.5px solid ${billType===val?"var(--accent)":"rgba(0,0,0,0.15)"}`,
+                      background:billType===val?"var(--accent-bg)":"transparent",color:billType===val?"var(--accent-text)":"var(--text2)",fontWeight:billType===val?500:400}}>{label}</button>
+                ))}
+              </div>
+              {(companies||[]).filter(co=>co.status!=="inactive").length>0&&<select value="" onChange={e=>{const co=(companies||[]).find(co=>co.company_id===e.target.value);if(co){setBillToName(co.name);setBillType("company");}}}
+                style={{width:"100%",fontSize:12,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)",color:"var(--text)",marginBottom:6}}>
+                <option value="">会社DBから選択…</option>
+                {(companies||[]).filter(co=>co.status!=="inactive").map(co=><option key={co.company_id} value={co.company_id}>{co.name}</option>)}
+              </select>}
+              <input value={billToName} onChange={e=>setBillToName(e.target.value)} placeholder={billType==="company"?"株式会社〇〇":"山田 太郎"}
+                style={{width:"100%",fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)",color:"var(--text)"}}/>
+            </div>}
           </>}
 
           {hasContent&&<>
@@ -8835,7 +8853,7 @@ function PaymentManagement({data,setData,navigatePaymentId,clearNavigate}){
           </div>
         </div>
       )}
-      {showNew&&<NewPaymentModal onClose={()=>setShowNew(false)} onSave={handleNew} cases={cases} clients={clients} payments={allPayments} feeMaster={data.fee_master}/>}
+      {showNew&&<NewPaymentModal onClose={()=>setShowNew(false)} onSave={handleNew} cases={cases} clients={clients} payments={allPayments} feeMaster={data.fee_master} companies={data.companies}/>}
       {mergeConfirm&&<MergeConfirmModal targets={mergeConfirm.targets} billCandidates={mergeConfirm.billCandidates}
         onClose={()=>setMergeConfirm(null)} onConfirm={handleMergeExecute}/>}
     </div>
