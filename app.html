@@ -8878,6 +8878,21 @@ function PaymentManagement({data,setData,navigatePaymentId,clearNavigate}){
 // ============================================================
 // 10b. 事務所設定
 // ============================================================
+// 機密入力欄のブラウザ自動入力（パスワードマネージャー/オートフィル）抑止用の共通属性。
+//   2026/6/15「デモ sk-ant 復活騒動」の真因対策。失効APIキーや他人の口座情報等の
+//   過去値が、ブラウザ機能経由で勝手に流し込まれ→onChange→localStorageに焼き付く
+//   不死ループを、入口で受け付けないことで断つ。「データを預からない」思想とも整合。
+//   ※害のない住所補完などは対象にしない（このオブジェクトを付けた欄だけに効く）。
+const NO_AUTOFILL_ATTRS = {
+  autoComplete: "off",        // 汎用欄向け（テキスト欄ではChromeも概ね尊重）
+  autoCorrect: "off",
+  autoCapitalize: "off",
+  spellCheck: false,
+  "data-1p-ignore": "true",   // 1Password
+  "data-lpignore": "true",    // LastPass
+  "data-bwignore": "true",    // Bitwarden
+  "data-form-type": "other",  // Dashlane 等の汎用ヒューリスティクス回避
+};
 function MasterOffice({office,setOffice}){
   const isMobile=useMobile();
   const o=office||{};
@@ -8957,7 +8972,7 @@ function MasterOffice({office,setOffice}){
                 <input type="checkbox" checked={bank.show!==false} onChange={e=>updateBank(i,"show",e.target.checked)} style={{width:16,height:16,cursor:"pointer"}}/>
                 <span style={{fontSize:10,color:bank.show!==false?"var(--text2)":"var(--text3)"}}>表示</span>
               </label>
-              <input value={bank.text||""} onChange={e=>updateBank(i,"text",e.target.value)} style={{...inputS,flex:1,opacity:bank.show!==false?1:0.5}} placeholder="例: 三井住友銀行　○○支店　普通　1234567　ヤマモト　タロウ"/>
+              <input {...NO_AUTOFILL_ATTRS} value={bank.text||""} onChange={e=>updateBank(i,"text",e.target.value)} style={{...inputS,flex:1,opacity:bank.show!==false?1:0.5}} placeholder="例: 三井住友銀行　○○支店　普通　1234567　ヤマモト　タロウ"/>
               <button onClick={()=>removeBank(i)} style={{fontSize:10,padding:"4px 8px",borderRadius:4,border:"0.5px solid #A32D2D",background:"transparent",color:"#A32D2D",cursor:"pointer",whiteSpace:"nowrap"}}>削除</button>
             </div>
           ))}
@@ -9061,7 +9076,7 @@ function MasterOffice({office,setOffice}){
           <div>
             <div style={labelS}>ライセンスキー</div>
             <div style={{display:"flex",gap:8,alignItems:"center"}}>
-              <input type={o._showLicenseKey?"text":"password"} value={o.license_key||""} onChange={e=>up("license_key",e.target.value)} style={{...inputS,flex:1,fontFamily:"monospace",fontSize:12}} placeholder="clv_live_..."/>
+              <input {...NO_AUTOFILL_ATTRS} autoComplete="new-password" type={o._showLicenseKey?"text":"password"} value={o.license_key||""} onChange={e=>up("license_key",e.target.value)} style={{...inputS,flex:1,fontFamily:"monospace",fontSize:12}} placeholder="clv_live_..."/>
               <button onClick={()=>up("_showLicenseKey",!o._showLicenseKey)} style={{fontSize:10,padding:"6px 10px",borderRadius:5,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text2)",cursor:"pointer",whiteSpace:"nowrap"}}>{o._showLicenseKey?"隠す":"表示"}</button>
             </div>
             <div style={{fontSize:9,color:"var(--text3)",marginTop:6}}>※ ライセンスキーはこの端末のlocalStorageにのみ保存されます。AIリクエスト時に Clavis サーバーへ認証ヘッダーとして送信されます。</div>
