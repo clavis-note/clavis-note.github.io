@@ -840,6 +840,20 @@ function clearUndoHistory(){
   notifyUndoChange();
 }
 
+// リモート取り込み時のUNDO履歴リセット（マルチデバイスで↩️が他端末の操作を巻き戻す事故の封じ込め）
+//   - UNDO履歴=デバイスローカルの時間軸 / 同期=全デバイス共有の時間軸。両者が交差すると
+//     ↩️が「自分の操作の取り消し」ではなく「他端末でやった操作の取り消し」になってしまう。
+//   - 外から来た変更（Drive自動DL/競合解消でDrive採用/手動JSONインポート）が入った時点で
+//     取り込み前のローカル履歴を破棄する。取り込みデータ自体も↩️対象にしない
+//     （直後のsetData由来saveDataでベースライン化させない＝undoSuppress、保留中バーストも破棄）。
+//   - ※ローカル起点の操作（通常編集・自動UP・セーフポイント復元）はクリア対象外。
+function resetUndoForRemoteImport(){
+  if(undoDebounceTimer){ clearTimeout(undoDebounceTimer); undoDebounceTimer=null; }
+  undoBaseline=null;
+  undoSuppress=true;
+  clearUndoHistory();
+}
+
 // ベースラインを1世代として確定（世代シフト: 3→削除, 2→3, 1→2, baseline→1）
 function pushUndoGeneration(snapshotStr){
   try{
@@ -11960,6 +11974,7 @@ function App(){
       const proceed = silent || confirm(`Driveからデータを読み込みます。\n（最終更新: ${new Date(result.modifiedTime).toLocaleString()}）\n現在のデータは上書きされます。よろしいですか？`);
       if(proceed){
         skipAutoUpRef.current=true; // 自動UPの誤発火防止
+        resetUndoForRemoteImport(); // リモート取り込み＝外部由来 → ↩️履歴をリセット（他端末操作の巻き戻し封じ込め）
         setData(migrateData(result.data));
         const now = new Date().toISOString();
         setGdriveLastSync(now);
@@ -12348,6 +12363,7 @@ function App(){
         const imported=JSON.parse(ev.target.result);
         if(!imported.cases||!imported.clients) throw new Error("不正なフォーマット");
         if(confirm(`バックアップを読み込みます。\n現在のデータは上書きされます。\nよろしいですか？`)){
+          resetUndoForRemoteImport(); // 手動インポート＝外部由来のデータ差し替え → ↩️履歴をリセット
           setData(migrateData(imported));
           setShowBackup(false);
           alert("読み込み完了！");
