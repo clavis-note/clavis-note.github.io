@@ -6100,7 +6100,7 @@ function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments,templates,com
                   {d}
                 </div>
               ))}
-              {r.submission_method&&<div style={{display:"flex",alignItems:"center",gap:8,marginTop:3}}><span style={{fontSize:11,padding:"1px 6px",borderRadius:3,background:"#EEEDFE",color:"#534AB7"}}>{r.submission_method}</span>{r.tracking_number&&<span style={{fontSize:11,color:"#666"}}>追跡: {r.tracking_number}</span>}</div>}
+              {r.submission_method&&<div style={{display:"flex",alignItems:"center",gap:8,marginTop:3}}><span style={{fontSize:11,padding:"1px 6px",borderRadius:3,...(r.submission_method==="窓口持参"?{background:"#E3F3E9",color:"#2E7D4F"}:{background:"#EEEDFE",color:"#534AB7"})}}>{r.submission_method}</span>{r.tracking_number&&<span style={{fontSize:11,color:"#666"}}>追跡: {r.tracking_number}</span>}</div>}
               {r.memo&&<div style={{fontSize:11,padding:"3px 8px",background:"rgba(0,0,0,0.04)",borderRadius:4,color:"#555",marginTop:4}}>メモ: {r.memo}</div>}
               <div style={{display:"flex",justifyContent:"flex-end",marginTop:6}}>
                 <button onClick={()=>startEditReq(r)} style={{fontSize:10,padding:"2px 8px",cursor:"pointer",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"transparent",color:"#666"}}>編集</button>
@@ -6158,7 +6158,7 @@ function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments,templates,com
           </div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:6}}>
             <div><div style={{fontSize:10,color:"#999",marginBottom:2}}>提出日</div><DateInput max="9999-12-31" min="1900-01-01" value={newReqSubmitDate} onChange={v=>setNewReqSubmitDate(v)} style={{width:"100%",fontSize:12,padding:"4px 6px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)"}}/></div>
-            <div><div style={{fontSize:10,color:"#999",marginBottom:2}}>提出方法</div><select value={newReqMethod} onChange={e=>setNewReqMethod(e.target.value)} style={{width:"100%",fontSize:12,padding:"4px 6px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)"}}><option value="">選択</option><option value="オンラインシステム">オンラインシステム</option><option value="レターパック">レターパック</option></select></div>
+            <div><div style={{fontSize:10,color:"#999",marginBottom:2}}>提出方法</div><select value={newReqMethod} onChange={e=>setNewReqMethod(e.target.value)} style={{width:"100%",fontSize:12,padding:"4px 6px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)"}}><option value="">選択</option><option value="オンラインシステム">オンラインシステム</option><option value="レターパック">レターパック</option><option value="窓口持参">窓口持参</option></select></div>
           </div>
           {newReqMethod==="レターパック"&&<div style={{marginBottom:6}}><div style={{fontSize:10,color:"#999",marginBottom:2}}>追跡番号</div><input value={newReqTracking} onChange={e=>setNewReqTracking(e.target.value)} style={{width:"100%",fontSize:12,padding:"4px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)"}}/></div>}
           <div style={{marginBottom:6}}><div style={{fontSize:10,color:"#999",marginBottom:2}}>メモ</div><input value={newReqMemo} onChange={e=>setNewReqMemo(e.target.value)} placeholder="例: 追加書類対応費 +5,000円" style={{width:"100%",fontSize:12,padding:"4px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)"}}/></div>
