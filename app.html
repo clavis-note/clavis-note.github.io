@@ -5093,6 +5093,12 @@ function buildCustodyReceiptHTML(client, office, opts){
   const fmtJ=(ymd)=>{ const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd||""); return m?`${parseInt(m[1],10)}年${parseInt(m[2],10)}月${parseInt(m[3],10)}日`:""; };
   const name=esc(c.name_roman||c.name_kana||"");
   const reasonText=esc(o.reason||"在留期間更新許可申請");
+  const hasCard=o.hasCard!==false;          // 既定ON（後方互換）
+  const hasPassport=!!o.hasPassport;        // 既定OFF
+  const subjParts=[];
+  if(hasCard) subjParts.push("在留カード");
+  if(hasPassport) subjParts.push("旅券（パスポート）");
+  const subjectText=subjParts.length?subjParts.join("および"):"在留カード";
   const received=fmtJ(o.receivedDate);
   const returnDue=fmtJ(o.returnDue);
   const info=[];
@@ -5109,32 +5115,36 @@ function buildCustodyReceiptHTML(client, office, opts){
   *{ box-sizing:border-box; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   html,body{ margin:0; padding:0; background:#f0f0f0; }
   body{ font-family:"Yu Gothic","YuGothic","Hiragino Sans","Noto Sans JP",sans-serif; color:#111; }
-  .sheet{ width:210mm; min-height:297mm; margin:0 auto; background:#fff; padding:18mm 20mm; }
+  .sheet{ width:210mm; min-height:297mm; margin:0 auto; background:#fff; padding:16mm 20mm 11mm; }
   .title{ text-align:center; font-family:"Yu Mincho","Hiragino Mincho ProN",serif; }
   .title .ja{ font-size:30pt; font-weight:700; letter-spacing:0.5em; padding-left:0.5em; }
   .title .en{ font-size:11pt; color:#666; letter-spacing:0.15em; margin-top:2mm; }
-  .name-row{ margin-top:12mm; font-size:15pt; }
+  .name-row{ margin-top:9mm; font-size:15pt; }
   .name-row .nm{ font-weight:700; border-bottom:1px solid #333; padding:0 8mm 1mm; }
-  .lead{ margin-top:7mm; font-size:11pt; line-height:1.9; }
+  .lead{ margin-top:6mm; font-size:11pt; line-height:1.6; }
   .info{ margin-top:3mm; font-size:10pt; color:#333; line-height:1.8; }
-  .notice{ margin-top:7mm; border:1.2px solid #B7894B; background:#FBF6EE; border-radius:3px; padding:5mm 6mm; }
+  .notice{ margin-top:5mm; border:1.2px solid #B7894B; background:#FBF6EE; border-radius:3px; padding:5mm 6mm; }
   .notice .ln{ font-size:11pt; font-weight:600; color:#7A4E17; }
-  .notice .en{ font-size:9pt; color:#777; margin:1mm 0 3mm 1.4em; }
+  .notice .en{ font-size:9pt; color:#777; margin:0.5mm 0 2mm 1.4em; }
   .notice .en:last-child{ margin-bottom:0; }
-  .cards{ display:flex; gap:8mm; margin-top:9mm; }
+  .cards{ display:flex; gap:8mm; margin-top:5mm; }
   .card-cell{ flex:1; text-align:center; min-width:0; }
   .card-cap{ font-size:9.5pt; color:#444; margin-bottom:2mm; }
   .card-cap span{ color:#999; margin-left:5px; font-size:8pt; }
-  .card-cell img{ width:100%; max-height:55mm; object-fit:contain; border:1px solid #ccc; border-radius:3px; background:#fafafa; }
-  .card-ph{ height:46mm; border:1.2px dashed #ccc; border-radius:3px; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#bbb; font-size:10pt; }
+  .card-cell img{ width:100%; max-height:40mm; object-fit:contain; border:1px solid #ccc; border-radius:3px; background:#fafafa; }
+  .card-ph{ height:40mm; border:1.2px dashed #ccc; border-radius:3px; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#bbb; font-size:10pt; }
   .card-ph span{ font-size:8pt; }
-  .dates{ margin-top:9mm; font-size:11pt; display:flex; gap:16mm; }
-  .issuer{ margin-top:14mm; display:flex; justify-content:flex-end; }
+  .dates{ margin-top:5mm; font-size:11pt; display:flex; gap:16mm; }
+  .issuer{ margin-top:5mm; display:flex; justify-content:flex-end; }
   .issuer-inner{ width:82mm; font-size:9.5pt; line-height:1.75; position:relative; }
   .issuer .office-name{ font-size:12pt; font-weight:700; margin-bottom:2mm; }
   .issuer .rep{ font-size:11pt; font-weight:700; }
-  .issuer .stamp{ position:absolute; right:4mm; top:2mm; width:19mm; height:19mm; object-fit:contain; opacity:0.9; }
+  .issuer .stamp-guide{ position:absolute; right:4mm; top:2mm; width:19mm; height:19mm; border:0.6px dashed #c9b48f; border-radius:3px; display:flex; align-items:center; justify-content:center; color:#cdb88f; font-size:9pt; letter-spacing:0.2em; }
   .issuer .addr{ margin-top:1.5mm; color:#222; }
+  .qa{ margin-top:5mm; border:1px solid #C8B48E; background:#FCFAF5; border-radius:3px; padding:3.5mm 5mm; }
+  .qa .qa-q{ font-size:9pt; font-weight:600; color:#5A4A2E; line-height:1.55; }
+  .qa .qa-a{ font-size:9pt; color:#333; line-height:1.55; margin-top:1.5mm; }
+  .qa .qa-src{ font-size:7.5pt; color:#999; line-height:1.5; margin-top:2mm; word-break:break-all; }
   @page{ size:A4 portrait; margin:0; }
   @media print{ html,body{ background:#fff; } .sheet{ margin:0; box-shadow:none; } }
 </style></head>
@@ -5142,18 +5152,18 @@ function buildCustodyReceiptHTML(client, office, opts){
 <div class="sheet">
   <div class="title"><div class="ja">預かり証</div><div class="en">Custody Certificate</div></div>
   <div class="name-row"><span class="nm">${name}</span> 様</div>
-  <div class="lead">${reasonText}のため、以下の在留カードをお預かりしました。</div>
+  <div class="lead">${reasonText}のため、以下の${subjectText}をお預かりしました。</div>
   ${info.length?`<div class="info">${info.join("　／　")}</div>`:""}
-  <div class="notice">
+  ${hasCard?`<div class="notice">
     <div class="ln">★ 本証は在留カードの代わりに常に携帯してください。</div>
-    <div class="en">Please always carry this card with you instead of your residence card.</div>
+    <div class="en">Please carry this certificate with you at all times in place of your residence card.</div>
     <div class="ln">★ 本証と引き換えに新しい在留カードをお渡し致します。</div>
-    <div class="en">Return a new residence card in exchange for this document.</div>
-  </div>
-  <div class="cards">
+    <div class="en">We will return your new residence card in exchange for this certificate.</div>
+  </div>`:""}
+  ${hasCard?`<div class="cards">
     ${cardCell(o.frontImg,"在留カード（表面）","Front")}
     ${cardCell(o.backImg,"在留カード（裏面）","Back")}
-  </div>
+  </div>`:""}
   <div class="dates">
     <div>預り日：${received||"　　　年　月　日"}</div>
     ${returnDue?`<div>返却予定日：${returnDue}</div>`:""}
@@ -5161,14 +5171,19 @@ function buildCustodyReceiptHTML(client, office, opts){
   <div class="issuer"><div class="issuer-inner">
     <div class="office-name">${esc(ofc.name||"")}</div>
     <div class="rep">${esc(ofc.representative||"")}</div>
-    ${ofc.stamp?`<img src="${ofc.stamp}" class="stamp" alt="職印">`:""}
+    <div class="stamp-guide">職印</div>${"" /* 職印は印刷後に実物を手押しする運用。印影画像は印字しない（押印位置ガイドの薄枠のみ） */}
     <div class="addr">
       ${(ofc.postal||ofc.address1)?`〒${esc(ofc.postal||"")} ${esc(ofc.address1||"")}<br>`:""}
       ${ofc.address2?`${esc(ofc.address2)}<br>`:""}
-      ${ofc.credential_number?`登録番号：${esc(ofc.credential_number)}<br>`:""}
+      ${ofc.credential_number?`申請取次番号：${esc(ofc.credential_number)}<br>`:""}
       ${ofc.phone?`TEL：${esc(ofc.phone)}`:""}
     </div>
   </div></div>
+  <div class="qa">
+    <div class="qa-q">Q. 在留期間更新許可申請等の際、取次行政書士に依頼して申請する場合に在留カードを行政書士に預けてしまえば、携帯義務違反となりますか。</div>
+    <div class="qa-a">A. 法令で定められた方が本人に代わって在留カードを提出、受領する場合は、法定のそれぞれの行為の範囲内において、本人の携帯義務違反にはなりません。</div>
+    <div class="qa-src">出典：出入国在留管理庁「Q&A在留管理制度よくある質問」Q38<br>https://www.moj.go.jp/isa/publications/faq/newimmiact_4_q-and-a_page2.html#q38-a</div>
+  </div>
 </div>
 </body></html>`;
 }
@@ -5182,14 +5197,16 @@ function CustodyReceiptModal({client, office, onClose, onIssue, onReturn}){
   const [receivedDate,setReceivedDate]=useState(client.custody_received_date||today);
   const [returnDue,setReturnDue]=useState(client.custody_return_due||"");
   const [reason,setReason]=useState(client.custody_reason||"在留期間更新許可申請");
+  const [hasCard,setHasCard]=useState(true);
+  const [hasPassport,setHasPassport]=useState(false);
   const [returnDate,setReturnDate]=useState(today);
   const previewRef=useRef(null);
   const previewPaneRef=useRef(null);
   const [fitScale,setFitScale]=useState(1);
 
   const html=useMemo(
-    ()=>buildCustodyReceiptHTML(client,office,{frontImg,backImg,receivedDate,returnDue,reason}),
-    [client,office,frontImg,backImg,receivedDate,returnDue,reason]
+    ()=>buildCustodyReceiptHTML(client,office,{frontImg,backImg,receivedDate,returnDue,reason,hasCard,hasPassport}),
+    [client,office,frontImg,backImg,receivedDate,returnDue,reason,hasCard,hasPassport]
   );
 
   // プレビュー自動フィット：右ペイン幅に合わせて A4(210mm) を縮小表示（transform）。
@@ -5240,6 +5257,7 @@ function CustodyReceiptModal({client, office, onClose, onIssue, onReturn}){
   }
 
   function handlePrint(){
+    if(!hasCard&&!hasPassport){ alert("預り対象（在留カード／旅券）を1つ以上選んでください"); return; }
     // 発行＝預り中として記録 + 履歴へ反映（ステータス・日付・理由のみ。画像は保存しない）
     const hist=(client.custody_history||[]).slice();
     const ai=hist.findIndex(h=>!h.returned_date); // 返却前のエントリ（=現在の預り）
@@ -5301,6 +5319,21 @@ function CustodyReceiptModal({client, office, onClose, onIssue, onReturn}){
         <div style={{flex:1,display:"flex",flexDirection:isMobile?"column":"row",minHeight:0,overflow:isMobile?"auto":"hidden"}}>
           <div style={{width:isMobile?"auto":300,flexShrink:0,padding:18,overflowY:isMobile?"visible":"auto",borderRight:isMobile?"none":"0.5px solid var(--border)",borderBottom:isMobile?"0.5px solid var(--border)":"none"}}>
             <div style={{marginBottom:12}}>
+              <div style={labelS}>預り対象</div>
+              <div style={{display:"flex",gap:16,alignItems:"center",flexWrap:"wrap"}}>
+                <label style={{display:"flex",alignItems:"center",gap:5,cursor:"pointer",whiteSpace:"nowrap"}}>
+                  <input type="checkbox" checked={hasCard} onChange={e=>setHasCard(e.target.checked)} style={{width:16,height:16,cursor:"pointer"}}/>
+                  <span style={{fontSize:12,color:hasCard?"var(--text)":"var(--text3)"}}>在留カード</span>
+                </label>
+                <label style={{display:"flex",alignItems:"center",gap:5,cursor:"pointer",whiteSpace:"nowrap"}}>
+                  <input type="checkbox" checked={hasPassport} onChange={e=>setHasPassport(e.target.checked)} style={{width:16,height:16,cursor:"pointer"}}/>
+                  <span style={{fontSize:12,color:hasPassport?"var(--text)":"var(--text3)"}}>旅券（パスポート）</span>
+                </label>
+              </div>
+              <div style={{fontSize:10,color:"var(--text3)",lineHeight:1.6,marginTop:5}}>※ 旅券は画像欄なし。チェックすると本文に「および旅券（パスポート）」が加わります。</div>
+            </div>
+            {hasCard&&<React.Fragment>
+            <div style={{marginBottom:12}}>
               <div style={labelS}>在留カード 表面</div>
               {frontImg
                 ?<div><img src={frontImg} style={{width:"100%",borderRadius:6,border:"0.5px solid var(--border)"}} alt=""/><button onClick={()=>setFrontImg(null)} style={{fontSize:10,marginTop:4,padding:"2px 8px",borderRadius:4,border:"0.5px solid var(--border)",background:"transparent",color:"var(--text3)",cursor:"pointer"}}>削除</button></div>
@@ -5312,6 +5345,7 @@ function CustodyReceiptModal({client, office, onClose, onIssue, onReturn}){
                 ?<div><img src={backImg} style={{width:"100%",borderRadius:6,border:"0.5px solid var(--border)"}} alt=""/><button onClick={()=>setBackImg(null)} style={{fontSize:10,marginTop:4,padding:"2px 8px",borderRadius:4,border:"0.5px solid var(--border)",background:"transparent",color:"var(--text3)",cursor:"pointer"}}>削除</button></div>
                 :<button onClick={()=>pickImage(setBackImg)} style={dropS}>📁 裏面画像を選択</button>}
             </div>
+            </React.Fragment>}
             <div style={{marginBottom:12}}>
               <div style={labelS}>預り理由</div>
               <input value={reason} onChange={e=>setReason(e.target.value)} style={{...dateS}}/>
