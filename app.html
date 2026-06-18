@@ -4239,7 +4239,7 @@ function TabWorkHistory({c,editMode,update,companies}){
       <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:8,marginBottom:8}}>
         <div><div style={{fontSize:10,color:"var(--text3)",marginBottom:2}}>開始日</div><DateInput max="9999-12-31" min="1900-01-01" value={wf.start_date||""} onChange={v=>setWf(p=>({...p,start_date:v}))} style={inputS}/></div>
         <div><div style={{fontSize:10,color:"var(--text3)",marginBottom:2}}>終了日（空欄=在職中）</div><DateInput max="9999-12-31" min="1900-01-01" value={wf.end_date||""} onChange={v=>setWf(p=>({...p,end_date:v}))} style={inputS}/></div>
-        <div><div style={{fontSize:10,color:"var(--text3)",marginBottom:2}}>職種・役職</div><IMEInput value={wf.job_title||""} onChange={v=>setWf(p=>({...p,job_title:v}))} placeholder="例: コック / 店長 / ホール" style={inputS}/></div>
+        <div><div style={{fontSize:10,color:"var(--text3)",marginBottom:2}}>職種・役職</div><IMEInput value={wf.job_title||""} onChange={v=>setWf(p=>({...p,job_title:v}))} placeholder="例: コック / エンジニア（シニアエンジニア） / 通訳（主任）" style={inputS}/></div>
       </div>
       <div style={{marginBottom:8}}>
         <label style={{fontSize:11,display:"flex",alignItems:"center",gap:5,cursor:"pointer",color:"var(--text2)"}}>
@@ -9190,7 +9190,7 @@ function CompanyRoster({coName,clients,onNavigateToClient}){
     if(!window.XLSX){alert("SheetJS読み込みエラー");return;}
     const wb=XLSX.utils.book_new();
     // 入管追加資料の要求6項目（国籍・性別・生年月日・役職・在留資格・在留カード番号）を連続させた列構成。
-    const header=["店舗名","従業員名","入社日","雇用形態","給与（月額）","住所","国籍","性別","生年月日","役職","在留資格","在留カード番号","有効期限","備考","退職日"];
+    const header=["店舗名","従業員名","入社日","雇用形態","給与（月額）","住所","国籍","性別","生年月日","職種（役職）","在留資格","在留カード番号","有効期限","備考","退職日"];
     const rows=sorted.map(cl=>{
       const w=getLatestWork(cl);
       const sal=getLatestSalary(cl);
