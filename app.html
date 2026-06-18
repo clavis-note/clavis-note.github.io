@@ -4239,7 +4239,7 @@ function TabWorkHistory({c,editMode,update,companies}){
       <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:8,marginBottom:8}}>
         <div><div style={{fontSize:10,color:"var(--text3)",marginBottom:2}}>開始日</div><DateInput max="9999-12-31" min="1900-01-01" value={wf.start_date||""} onChange={v=>setWf(p=>({...p,start_date:v}))} style={inputS}/></div>
         <div><div style={{fontSize:10,color:"var(--text3)",marginBottom:2}}>終了日（空欄=在職中）</div><DateInput max="9999-12-31" min="1900-01-01" value={wf.end_date||""} onChange={v=>setWf(p=>({...p,end_date:v}))} style={inputS}/></div>
-        <div><div style={{fontSize:10,color:"var(--text3)",marginBottom:2}}>職種</div><IMEInput value={wf.job_title||""} onChange={v=>setWf(p=>({...p,job_title:v}))} placeholder="例: コック / 通訳 / エンジニア" style={inputS}/></div>
+        <div><div style={{fontSize:10,color:"var(--text3)",marginBottom:2}}>職種・役職</div><IMEInput value={wf.job_title||""} onChange={v=>setWf(p=>({...p,job_title:v}))} placeholder="例: コック / 店長 / ホール" style={inputS}/></div>
       </div>
       <div style={{marginBottom:8}}>
         <label style={{fontSize:11,display:"flex",alignItems:"center",gap:5,cursor:"pointer",color:"var(--text2)"}}>
@@ -9189,7 +9189,8 @@ function CompanyRoster({coName,clients,onNavigateToClient}){
   function exportExcel(){
     if(!window.XLSX){alert("SheetJS読み込みエラー");return;}
     const wb=XLSX.utils.book_new();
-    const header=["店舗名","従業員名","入社日","給与（月額）","住所","在留カード番号","有効期限","生年月日","国籍","備考","退職日"];
+    // 入管追加資料の要求6項目（国籍・性別・生年月日・役職・在留資格・在留カード番号）を連続させた列構成。
+    const header=["店舗名","従業員名","入社日","雇用形態","給与（月額）","住所","国籍","性別","生年月日","役職","在留資格","在留カード番号","有効期限","備考","退職日"];
     const rows=sorted.map(cl=>{
       const w=getLatestWork(cl);
       const sal=getLatestSalary(cl);
@@ -9197,18 +9198,22 @@ function CompanyRoster({coName,clients,onNavigateToClient}){
         cl.store||"",
         cl.name_roman||"",
         w?.start_date||cl.work_start_date||"",
+        sal?.employment_type||"",
         sal?.monthly_salary||"",
         (cl.postal_code?`〒${cl.postal_code} `:"")+(cl.address||""),
+        cl.nationality||"",
+        cl.gender||"",
+        cl.dob||"",
+        w?.job_title||"",
+        cl.residence_status||"",
         cl.residence_card||"",
         cl.residence_expiry||"",
-        cl.dob||"",
-        cl.nationality||"",
         cl.notes||"",
         w?.end_date||""
       ];
     });
     const ws=XLSX.utils.aoa_to_sheet([header,...rows]);
-    ws["!cols"]=[14,24,12,12,40,18,12,12,10,24,12].map(w=>({wch:w}));
+    ws["!cols"]=[14,24,12,12,12,40,10,6,12,14,16,18,12,24,12].map(w=>({wch:w}));
     const today=new Date().toISOString().slice(0,10);
     XLSX.utils.book_append_sheet(wb,ws,`従業員一覧${today}`.slice(0,31));
     XLSX.writeFile(wb,`${coName||"会社"}_従業員名簿_${today}.xlsx`);
