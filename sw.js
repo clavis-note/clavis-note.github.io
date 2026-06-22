@@ -1,9 +1,11 @@
 // Clavis Note Service Worker
 // 静的資産のキャッシュ + アップデート検知用。Drive同期等の動的処理には介入しない。
 
-// CACHE_VERSION はデプロイ毎に手動で上げるか、ビルド時置換するのが理想だが、
-// 現状は本ファイルのcommit hash相当の文字列を直書き。新版時はここを書き換える。
-const CACHE_VERSION = 'v115-2026-06-22-poipoi-model-sonnet-4-6';
+// CACHE_VERSION はデプロイ毎に GitHub Actions が自動で書き換える（手動更新は不要）。
+// 置換は .github/workflows/sitemap.yml が次行（行頭が CACHE_VERSION 宣言の行）を
+// 丸ごと差し替える形で行うため、行頭から始まる宣言の体裁を変えないこと。
+// 値は auto-<YYYY-MM-DD>-<commit short sha> 形式で、毎デプロイ必ず一意になる。
+const CACHE_VERSION = 'auto-2026-06-22-initial';
 const CACHE_NAME = 'clavis-note-' + CACHE_VERSION;
 
 // 起動に必要な最小資産（pre-cache）。CDN資産は runtime cache に任せる
