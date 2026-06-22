@@ -1,7 +1,10 @@
-name: Generate sitemap.xml
+name: Deploy automation (sitemap + SW version)
 
-# HTML を追加・編集して main に push すると sitemap.xml を自動再生成してコミットする。
-# 生成物（sitemap.xml）の push は paths フィルタに該当しないため再トリガーされない（無限ループ防止）。
+# HTML を追加・編集して main に push すると、
+#   1) sitemap.xml を自動再生成
+#   2) sw.js の CACHE_VERSION をデプロイ毎に必ず変わる値へ自動置換（青バナー出し忘れ根絶）
+# を行い、変更があれば1つの bot コミットにまとめて push し、Pages 再ビルドを要求する。
+# 生成物（sitemap.xml / sw.js）は paths フィルタに該当しないため再トリガーされない（無限ループ防止）。
 on:
   push:
     branches: [main]
@@ -16,11 +19,11 @@ permissions:
   pages: write # bot コミット後に Pages 再ビルドを明示要求するため
 
 concurrency:
-  group: sitemap-${{ github.ref }}
+  group: deploy-automation-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  sitemap:
+  deploy-automation:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -34,19 +37,30 @@ jobs:
       - name: Generate sitemap.xml
         run: python scripts/generate_sitemap.py > /dev/null
 
+      - name: Bump Service Worker CACHE_VERSION
+        run: |
+          # デプロイ（=この push）の commit から毎回一意な版を生成し、sw.js の1行を丸ごと差し替える。
+          # SHA を含めるため番号は単調増加しないが、毎デプロイ必ず変わる＝ブラウザが新版を検知して青バナーが出る。
+          DATE="$(date -u +%Y-%m-%d)"
+          SHA="$(git rev-parse --short HEAD)"
+          VERSION="auto-${DATE}-${SHA}"
+          sed -i -E "s|^(const CACHE_VERSION = ')[^']*(';)|\1${VERSION}\2|" sw.js
+          echo "SW CACHE_VERSION -> ${VERSION}"
+          grep -n "const CACHE_VERSION" sw.js
+
       - name: Commit and publish if changed
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
         run: |
-          if git diff --quiet -- sitemap.xml; then
-            echo "sitemap.xml は最新です。変更なし。"
+          if git diff --quiet -- sitemap.xml sw.js; then
+            echo "sitemap.xml / sw.js は最新です。変更なし。"
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add sitemap.xml
-          git commit -m "chore: sitemap.xml 自動更新 [skip ci]"
+          git add sitemap.xml sw.js
+          git commit -m "chore: sitemap.xml + SW CACHE_VERSION 自動更新 [skip ci]"
           git push
           # GITHUB_TOKEN による push は Pages の自動再ビルドを起こさないので、明示的にビルドを要求する
           curl -fsS -X POST \
