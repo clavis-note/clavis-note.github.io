@@ -1410,7 +1410,7 @@ async function readDocument(fileBase64, mediaType, apiKey){
       method:"POST",
       headers:{"Content-Type":"application/json","X-Clavis-License":apiKey,"X-Clavis-Feature":"poipoi","anthropic-version":"2023-06-01"},
       body:JSON.stringify({
-        model:"claude-sonnet-4-20250514",
+        model:"claude-sonnet-4-6",
         max_tokens:2048,
         messages:[{role:"user",content}]
       })
@@ -1458,7 +1458,7 @@ ${text}`;
       method:"POST",
       headers:{"Content-Type":"application/json","X-Clavis-License":apiKey,"X-Clavis-Feature":"translate","anthropic-version":"2023-06-01"},
       body:JSON.stringify({
-        model:"claude-sonnet-4-20250514",
+        model:"claude-sonnet-4-6",
         max_tokens:1024,
         messages:[{role:"user",content:prompt}]
       })
@@ -2994,7 +2994,7 @@ async function readFileViaAI(file, apiKey){
       resp=await fetch("https://api.clavis-note.com/v1/messages",{
         method:"POST",
         headers:{"Content-Type":"application/json","X-Clavis-License":apiKey,"X-Clavis-Feature":"poipoi","anthropic-version":"2023-06-01"},
-        body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:2048,
+        body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:2048,
           messages:[{role:"user",content:`以下はExcelファイル「${file.name}」の内容です。在留申請書や入管関連書類から読み取れる情報をすべてJSON形式で返してください。余計なテキストは一切不要です。\n\n以下のフィールドを持つJSONを返してください。読み取れない項目はnullにしてください。\n{"document_type":"書類種別（在留カード/パスポート/雇用契約書/退職証明書/在留申請書/その他のいずれか1つ）","name_roman":"ローマ字氏名","name_kana":"カタカナ氏名","nationality":"国籍","date_of_birth":"YYYY-MM-DD","gender":"男 or 女","phone":"電話番号","email":"メールアドレス","postal_code":"郵便番号（ハイフンなし7桁。日本国内のもののみ）","address":"日本国内の現住所（海外・本国住所は入れずnull）","residence_status":"在留資格","residence_expiry":"YYYY-MM-DD","residence_card":"在留カード番号","passport_number":"パスポート番号","passport_expiry":"YYYY-MM-DD","company_name":"勤務先","store":"支店名","work_start_date":"YYYY-MM-DD","work_history":[{"company":"勤務先名","country":"国名","start":"YYYY-MM","end":"YYYY-MM"}]}\n\n【データ】\n${allText}`}]
         })
       });
