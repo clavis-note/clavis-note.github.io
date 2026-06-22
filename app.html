@@ -4136,10 +4136,14 @@ function TabWorkHistory({c,editMode,update,companies}){
     update("work_history",[...(c.work_history||[]),newW]);
   },[c.company_name,c.work_start_date,c.client_status]);
 
+  // 集計・JP/海外判定用に国フィールドを国名へ正規化する。
+  // 「日本（東京）」「日本(神奈川)」等、括弧（全角・半角）以降の勤務地併記を落として国名だけにする。
+  // 各職歴行の勤務地表示には使わない（表示は生の値のまま保持）。あくまでグルーピングキーの正規化。
+  const normCountry=(v)=>{const s=(v||"日本").trim();const m=s.match(/^[^（(]+/);return m?m[0].trim():s;};
   const total=c.work_history.reduce((s,w)=>{const m=calcMonths(w.start_date,w.end_date);return s+(isNaN(m)?0:m);},0);
-  const totalJP=c.work_history.filter(w=>(w.country||"日本")==="日本").reduce((s,w)=>{const m=calcMonths(w.start_date,w.end_date);return s+(isNaN(m)?0:m);},0);
+  const totalJP=c.work_history.filter(w=>normCountry(w.country)==="日本").reduce((s,w)=>{const m=calcMonths(w.start_date,w.end_date);return s+(isNaN(m)?0:m);},0);
   const totalOverseas=total-totalJP;
-  const overseasCountries=[...new Set(c.work_history.filter(w=>w.country&&w.country!=="日本").map(w=>w.country))];
+  const overseasCountries=[...new Set(c.work_history.filter(w=>normCountry(w.country)!=="日本").map(w=>normCountry(w.country)))];
   const sortedWork=[...c.work_history].sort((a,b)=>(b.start_date||"").localeCompare(a.start_date||""));
   const [addingWork,setAddingWork]=useState(false);
   const [editWorkId,setEditWorkId]=useState(null);
@@ -4372,7 +4376,7 @@ function TabWorkHistory({c,editMode,update,companies}){
                     </span>}
                   </div>
                   <div style={{fontSize:11,color:"var(--text2)",marginTop:2}}>
-                    {w.job_title} · {w.start_date} 〜 {w.end_date||"現在"} ({fmtMonths(calcMonths(w.start_date,w.end_date))}) <span style={{display:"inline-block",fontSize:10,padding:"1px 5px",borderRadius:3,marginLeft:4,background:(w.country||"日本")==="日本"?"#DBEAFE":"#FEF3C7",color:(w.country||"日本")==="日本"?"#1E40AF":"#92400E"}}>{(w.country||"日本")==="日本"?"🇯🇵 日本":"🌏 "+w.country}</span>
+                    {w.job_title} · {w.start_date} 〜 {w.end_date||"現在"} ({fmtMonths(calcMonths(w.start_date,w.end_date))}) <span style={{display:"inline-block",fontSize:10,padding:"1px 5px",borderRadius:3,marginLeft:4,background:normCountry(w.country)==="日本"?"#DBEAFE":"#FEF3C7",color:normCountry(w.country)==="日本"?"#1E40AF":"#92400E"}}>{(normCountry(w.country)==="日本"?"🇯🇵 ":"🌏 ")+(w.country||"日本")}</span>
                     {w.is_outside_qualification&&<span style={{display:"inline-block",fontSize:10,padding:"1px 5px",borderRadius:3,marginLeft:4,background:"#FAEEDA",color:"#854F0B",fontWeight:500}}>資格外活動</span>}
                   </div>
                 </div>
