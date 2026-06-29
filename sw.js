@@ -5,7 +5,7 @@
 // 置換は .github/workflows/sitemap.yml が次行（行頭が CACHE_VERSION 宣言の行）を
 // 丸ごと差し替える形で行うため、行頭から始まる宣言の体裁を変えないこと。
 // 値は auto-<YYYY-MM-DD>-<commit short sha> 形式で、毎デプロイ必ず一意になる。
-const CACHE_VERSION = 'auto-2026-06-26-0246331';
+const CACHE_VERSION = 'auto-2026-06-29-3d7ee6b';
 const CACHE_NAME = 'clavis-note-' + CACHE_VERSION;
 
 // 起動に必要な最小資産（pre-cache）。CDN資産は runtime cache に任せる
