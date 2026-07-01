@@ -4022,9 +4022,9 @@ function TabCaseHistory({c,cases,payments,onNavigateCase}){
         const contacts=cs.contacts||[];
         const commLog=cs.comm_log||[];
         return(
-          <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:300}} onClick={()=>setModalCase(null)}>
-            <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg)",borderRadius:12,border:"0.5px solid rgba(0,0,0,0.15)",width:560,maxHeight:"85vh",display:"flex",flexDirection:"column"}}>
-              <div style={{padding:"14px 18px",borderBottom:"0.5px solid rgba(0,0,0,0.1)",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+          <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:300,padding:12}} onClick={()=>setModalCase(null)}>
+            <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg)",borderRadius:12,border:"0.5px solid rgba(0,0,0,0.15)",width:"min(560px,100%)",maxHeight:"90vh",display:"flex",flexDirection:"column"}}>
+              <div style={{padding:"14px 18px",borderBottom:"0.5px solid rgba(0,0,0,0.1)",display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexShrink:0}}>
                 <div>
                   <div style={{fontSize:16,fontWeight:600,marginBottom:4}}>{cs.case_title}</div>
                   <div style={{display:"flex",alignItems:"center",gap:6}}>
@@ -4035,7 +4035,7 @@ function TabCaseHistory({c,cases,payments,onNavigateCase}){
                 </div>
                 <button onClick={()=>setModalCase(null)} style={{border:"none",background:"none",fontSize:18,cursor:"pointer",color:"#999"}}>×</button>
               </div>
-              <div style={{overflowY:"auto",padding:18,display:"flex",flexDirection:"column",gap:14}}>
+              <div style={{overflowY:"auto",flex:1,minHeight:0,padding:18,display:"flex",flexDirection:"column",gap:14}}>
                 {/* 基本情報 */}
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
                   {[["受任日",cs.accepted_date],["申請日",cs.applied_date],["結果日",cs.result_date]].map(([label,val])=>(
@@ -4100,7 +4100,7 @@ function TabCaseHistory({c,cases,payments,onNavigateCase}){
                 {/* 備考 */}
                 {cs.notes&&<div><div style={{fontSize:10,color:"#999"}}>備考</div><div style={{fontSize:12,whiteSpace:"pre-wrap"}}>{cs.notes}</div></div>}
               </div>
-              <div style={{padding:"10px 18px",borderTop:"0.5px solid rgba(0,0,0,0.08)",display:"flex",justifyContent:"flex-end",gap:8}}>
+              <div style={{padding:"10px 18px",borderTop:"0.5px solid rgba(0,0,0,0.08)",display:"flex",justifyContent:"flex-end",gap:8,flexShrink:0}}>
                 {onNavigateCase&&<button onClick={()=>{setModalCase(null);onNavigateCase(cs.case_id);}} style={{fontSize:12,padding:"5px 14px",cursor:"pointer",borderRadius:6,border:"0.5px solid #378ADD",background:"#E6F1FB",color:"#185FA5",fontWeight:500}}>案件管理で開く →</button>}
                 <button onClick={()=>setModalCase(null)} style={{fontSize:12,padding:"5px 14px",cursor:"pointer",borderRadius:6,border:"0.5px solid rgba(0,0,0,0.15)",background:"transparent",color:"#666"}}>閉じる</button>
               </div>
@@ -6323,19 +6323,26 @@ function ContactsSection({contacts,onChange,rolePresets}){
 // ============================================================
 function CommLogSection({logs,contacts,onChange}){
   const [showForm,setShowForm]=useState(false);
+  const [editId,setEditId]=useState(null);
   const [form,setForm]=useState({date:new Date().toISOString().slice(0,10),contact_name:"",method:"電話",content:""});
   const up=(k,v)=>setForm(p=>({...p,[k]:v}));
+  function resetForm(){setForm({date:new Date().toISOString().slice(0,10),contact_name:"",method:"電話",content:""});setEditId(null);setShowForm(false);}
   function save(){
     if(!form.content.trim())return;
-    onChange([{id:"cl"+Date.now(),...form},...logs]);
-    setForm({date:new Date().toISOString().slice(0,10),contact_name:"",method:"電話",content:""});setShowForm(false);
+    if(editId){
+      onChange(logs.map(l=>l.id===editId?{...l,...form,id:editId}:l));
+    }else{
+      onChange([{id:"cl"+Date.now(),...form},...logs]);
+    }
+    resetForm();
   }
+  function startEdit(l){setForm({date:l.date||new Date().toISOString().slice(0,10),contact_name:l.contact_name||"",method:l.method||"電話",content:l.content||""});setEditId(l.id);setShowForm(true);}
   function remove(id){onChange(logs.filter(l=>l.id!==id));}
   return(
     <div style={{background:"var(--bg)",border:"0.5px solid rgba(0,0,0,0.1)",borderRadius:10,padding:"14px 16px"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
         <span style={{fontSize:12,fontWeight:500,color:"#666"}}>💬 やり取り履歴</span>
-        <button onClick={()=>setShowForm(true)} style={{fontSize:11,padding:"3px 10px",cursor:"pointer",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",color:"#444"}}>+ 記録</button>
+        <button onClick={()=>{setEditId(null);setForm({date:new Date().toISOString().slice(0,10),contact_name:"",method:"電話",content:""});setShowForm(true);}} style={{fontSize:11,padding:"3px 10px",cursor:"pointer",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)",color:"#444"}}>+ 記録</button>
       </div>
       {showForm&&(
         <div style={{padding:10,background:"#FAFAF8",borderRadius:6,border:"0.5px solid rgba(0,0,0,0.1)",marginBottom:8}}>
@@ -6349,8 +6356,8 @@ function CommLogSection({logs,contacts,onChange}){
           </div>
           <div style={{marginBottom:8}}><div style={{fontSize:10,color:"#999",marginBottom:2}}>内容 *</div><textarea value={form.content} onChange={e=>up("content",e.target.value)} rows={2} placeholder="やり取りの内容…" style={{width:"100%",fontSize:12,padding:"6px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)",resize:"vertical"}}/></div>
           <div style={{display:"flex",gap:6,justifyContent:"flex-end"}}>
-            <button onClick={()=>setShowForm(false)} style={{fontSize:11,padding:"4px 12px",cursor:"pointer",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"transparent",color:"#666"}}>キャンセル</button>
-            <button onClick={save} disabled={!form.content.trim()} style={{fontSize:11,padding:"4px 12px",cursor:"pointer",borderRadius:5,border:"0.5px solid #185FA5",background:"#E6F1FB",color:"#185FA5",fontWeight:500,opacity:form.content.trim()?1:0.5}}>記録</button>
+            <button onClick={resetForm} style={{fontSize:11,padding:"4px 12px",cursor:"pointer",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"transparent",color:"#666"}}>キャンセル</button>
+            <button onClick={save} disabled={!form.content.trim()} style={{fontSize:11,padding:"4px 12px",cursor:"pointer",borderRadius:5,border:"0.5px solid #185FA5",background:"#E6F1FB",color:"#185FA5",fontWeight:500,opacity:form.content.trim()?1:0.5}}>{editId?"更新":"記録"}</button>
           </div>
         </div>
       )}
@@ -6367,7 +6374,10 @@ function CommLogSection({logs,contacts,onChange}){
               </div>
               <div style={{fontSize:12,color:"#444",whiteSpace:"pre-wrap"}}>{l.content}</div>
             </div>
-            <button onClick={()=>remove(l.id)} style={{fontSize:10,padding:"1px 5px",cursor:"pointer",borderRadius:3,border:"0.5px solid #ddd",background:"transparent",color:"#ccc",flexShrink:0}}>×</button>
+            <div style={{display:"flex",gap:4,flexShrink:0,alignItems:"center"}}>
+              <button onClick={()=>startEdit(l)} style={{fontSize:10,padding:"1px 6px",cursor:"pointer",borderRadius:3,border:"0.5px solid #ddd",background:"transparent",color:"#999"}}>編集</button>
+              <button onClick={()=>remove(l.id)} style={{fontSize:10,padding:"1px 5px",cursor:"pointer",borderRadius:3,border:"0.5px solid #ddd",background:"transparent",color:"#ccc"}}>×</button>
+            </div>
           </div>
         );
       })}
