@@ -1124,6 +1124,22 @@ function migrateData(saved){
       return c;
     });
   }
+  // v20: 職歴の現職に auto フラグをバックフィル（冪等・手入力を巻き込まない）。
+  //  「所属会社(company_name 正規化一致) かつ 勤務開始日(work_start_date 完全一致)」の
+  //  end_date=null 現職1件だけを auto:true にする。資格外活動・既フラグ済みは対象外。
+  //  ★フラグ付けのみ。新規生成は一切しない（手入力の現職を誤って自動管理下に置かないため）。
+  if(saved.clients){
+    saved.clients = saved.clients.map(cl=>{
+      const wh=cl.work_history;
+      if(!Array.isArray(wh)||wh.length===0) return cl;
+      if(wh.some(w=>w.auto)) return cl; // 既に auto 現職が確立済み
+      const co=cl.company_name, sd=cl.work_start_date;
+      if(!co||!sd||sd==="未定") return cl;
+      const idx=wh.findIndex(w=>!w.end_date && !w.is_outside_qualification && normName(w.company_name)===normName(co) && (w.start_date||"")===sd);
+      if(idx<0) return cl;
+      return {...cl, work_history: wh.map((w,i)=>i===idx?{...w,auto:true,store:(w.store||cl.store||"")}:w)};
+    });
+  }
   return saved;
 }
 
@@ -2827,6 +2843,41 @@ function PromoteProspectModal({prospect,clients,cases,onPromote,onClose}){
 // 氏名正規化（スペース全除去 + 大文字統一）
 function normName(s){ return (s||"").replace(/\s+/g,"").toUpperCase(); }
 
+// 現職の投影を一本化する共通ロジック。
+// 「所属会社(company_name)＋店舗(store)＋勤務開始日(work_start_date)」を現勤務先の“正本”とし、
+// work_history 上の auto:true な現職エントリ1件だけをそこに同期する。
+//  - 所属会社を変えても同じ1件を書き換える＝孤児（現職の二重生成）を作らない。
+//  - auto フラグの無い手入力エントリは一切触らない（保護）。
+//  - 会社名と店舗は分けて保持（表示時のみ連結。CompanyRoster の company_name 絞り込みを壊さない）。
+// 純粋関数：client を受け取り、新しい work_history 配列を返す。
+function reconcileCurrentJob(client){
+  const wh=[...(client.work_history||[])];
+  const co=client.company_name, st=client.store||"", sd=client.work_start_date;
+  const hasEmployer=!!co && !!sd && sd!=="未定";
+  const active=client.client_status!=="resigned" && client.client_status!=="returned";
+  let idx=wh.findIndex(w=>w.auto && !w.end_date);
+  if(!hasEmployer){
+    // 所属会社(正本)が空 → 投影(auto現職)は撤去。手入力は残す。
+    return idx>=0?wh.filter((_,i)=>i!==idx):wh;
+  }
+  if(!active){
+    // 退職・帰国: 現職の新規投影はしないが、既存の職歴は履歴として残す（勝手に消さない）。
+    return wh;
+  }
+  if(idx<0){
+    // auto現職が未確立の場合のみ、慎重に採用：会社名(正規化)＋勤務開始日が完全一致し、
+    // 資格外活動でない現職だけを対象にする（手入力の別現職を巻き込まない）。
+    idx=wh.findIndex(w=>!w.end_date && !w.is_outside_qualification && normName(w.company_name)===normName(co) && (w.start_date||"")===(sd||""));
+  }
+  if(idx>=0){
+    const w=wh[idx];
+    wh[idx]={...w,auto:true,company_name:co,store:st,start_date:sd,end_date:null,country:w.country||"日本",job_title:w.job_title||""};
+  }else{
+    wh.push({id:"W"+Date.now(),auto:true,company_name:co,store:st,country:"日本",start_date:sd,end_date:null,job_title:""});
+  }
+  return wh;
+}
+
 // 抽出データから既存クライアントを検索（マッチング優先順位）
 function findMatchingClients(extracted, clients){
   if(!extracted) return [];
@@ -2924,16 +2975,10 @@ function mergeExtractedToClient(existing, extracted){
       .filter(ne=> ne.company_name && !wh0.some(ex=>sameWork(ex,ne)));
     merged.work_history = [...wh0, ...newEntries];
   }
-  // 現勤務先が確定していて、その会社の職歴が1件も無ければ在職中エントリを補う（ClientLedger.update と同等）。
-  //  merged.company_name は上のソース規則により退職証明書からは入らない＝退職した会社が在職中になることはない。
-  //  同名会社が既にあれば（end_dateの有無を問わず）追加しない＝同一会社の二重登録を防ぐ。
-  if(merged.company_name && merged.work_start_date && merged.work_start_date!=="未定"){
-    const wh = merged.work_history||[];
-    const exists = wh.some(w=>normName(w.company_name)===normName(merged.company_name));
-    if(!exists){
-      merged.work_history = [...wh, {id:"W"+Date.now()+"-poi", company_name:merged.company_name, country:"日本", start_date:merged.work_start_date, end_date:null, job_title:""}];
-    }
-  }
+  // 現勤務先(所属会社＝正本)から現職(auto)を投影・整理する。store も反映。
+  //  merged.company_name は上のソース規則により退職証明書からは入らない＝退職した会社が現職化しない。
+  //  auto フラグの無い手入力エントリは reconcileCurrentJob が触らない（保護）。
+  merged.work_history = reconcileCurrentJob(merged);
   // 在留資格・在留期限が両方揃ったら COE フェーズを自動OFF
   if(merged.coe_phase && merged.residence_status && merged.residence_expiry){
     merged.coe_phase = false;
@@ -4197,22 +4242,8 @@ function TabWorkHistory({c,editMode,update,companies}){
   const clientCo=companyList.find(co=>co.name===c.company_name);
   const clientPref=clientCo?.pref||"";
 
-  // 基本情報の勤務先を「現職」として職歴に自動同期
-  useEffect(()=>{
-    if(!c.company_name||!c.work_start_date||c.work_start_date==="未定")return;
-    if(c.client_status==="resigned"||c.client_status==="returned")return;
-    const has=(c.work_history||[]).some(w=>w.company_name===c.company_name&&!w.end_date);
-    if(has)return;
-    const newW={
-      id:"W"+Date.now(),
-      company_name:c.company_name,
-      country:"日本",
-      start_date:c.work_start_date,
-      end_date:null,
-      job_title:""
-    };
-    update("work_history",[...(c.work_history||[]),newW]);
-  },[c.company_name,c.work_start_date,c.client_status]);
+  // 現職の自動投影は基本情報側の update / ポイポイ / migrateData(バックフィル) で
+  // reconcileCurrentJob に一本化。ここでの useEffect 生成は撤去（二重生成・意図しない再生成を防ぐ）。
 
   // 集計・JP/海外判定用に国フィールドを国名へ正規化する。
   // 「日本（東京）」「日本(神奈川)」等、括弧（全角・半角）以降の勤務地併記を落として国名だけにする。
@@ -4234,7 +4265,7 @@ function TabWorkHistory({c,editMode,update,companies}){
   const btnS={fontSize:11,padding:"4px 10px",borderRadius:5,cursor:"pointer",border:"0.5px solid var(--border)",background:"transparent",color:"var(--text2)"};
 
   function resetWork(){setWf({});setAddingWork(false);setEditWorkId(null);}
-  function startAddWork(){setWf({company_name:"",country:"日本",start_date:"",end_date:"",job_title:"",is_outside_qualification:false,init_monthly_salary:"",init_hourly_wage:"",init_weekly_hours:40,init_employment_type:"正社員",init_pref:clientPref||"東京都"});setAddingWork(true);setEditWorkId(null);}
+  function startAddWork(){setWf({company_name:"",store:"",country:"日本",start_date:"",end_date:"",job_title:"",is_outside_qualification:false,init_monthly_salary:"",init_hourly_wage:"",init_weekly_hours:40,init_employment_type:"正社員",init_pref:clientPref||"東京都"});setAddingWork(true);setEditWorkId(null);}
   function startEditWork(w){setWf({...w});setEditWorkId(w.id);setAddingWork(false);}
   function saveWork(){
     if(!wf.company_name||!wf.start_date)return;
@@ -4279,12 +4310,7 @@ function TabWorkHistory({c,editMode,update,companies}){
   }
   function deleteWork(id){
     if(!confirm("この職歴を削除しますか？\n紐づく給与履歴も削除されます。"))return;
-    const targetWork=c.work_history.find(w=>w.id===id);
-    // 現在勤務を削除する場合、基本情報の勤務先もクリア
-    if(targetWork && !targetWork.end_date && targetWork.company_name===c.company_name){
-      update("company_name","");
-      update("work_start_date","");
-    }
+    // 道連れ撤去：現職を削除しても基本情報(所属会社・勤務開始日)はクリアしない。
     update("work_history",c.work_history.filter(w=>w.id!==id));
     update("salary_history",c.salary_history.filter(s=>s.work_id!==id));
   }
@@ -4314,8 +4340,9 @@ function TabWorkHistory({c,editMode,update,companies}){
   const workFormJSX=(
     <div style={{background:"var(--bg)",border:"0.5px solid var(--accent)",borderRadius:8,padding:12,marginBottom:10}}>
       <div style={{fontSize:11,fontWeight:500,color:"var(--accent-text)",marginBottom:8}}>{editWorkId?"職歴編集":"職歴追加"}</div>
-      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 80px",gap:8,marginBottom:8}}>
-        <div><div style={{fontSize:10,color:"var(--text3)",marginBottom:2}}>会社名・店名</div><IMEInput value={wf.company_name||""} onChange={v=>setWf(p=>({...p,company_name:v}))} style={inputS}/></div>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 80px",gap:8,marginBottom:8}}>
+        <div><div style={{fontSize:10,color:"var(--text3)",marginBottom:2}}>会社名</div><IMEInput value={wf.company_name||""} onChange={v=>setWf(p=>({...p,company_name:v}))} style={inputS}/></div>
+        <div><div style={{fontSize:10,color:"var(--text3)",marginBottom:2}}>店名</div><IMEInput value={wf.store||""} onChange={v=>setWf(p=>({...p,store:v}))} style={inputS}/></div>
         <div><div style={{fontSize:10,color:"var(--text3)",marginBottom:2}}>国</div><select value={wf.country||"日本"} onChange={e=>setWf(p=>({...p,country:e.target.value}))} style={inputS}><option value="日本">🇯🇵 日本</option><option value="ネパール">🇳🇵 ネパール</option><option value="インド">🇮🇳 インド</option><option value="中国">🇨🇳 中国</option><option value="ベトナム">🇻🇳 ベトナム</option><option value="フィリピン">🇵🇭 フィリピン</option><option value="ミャンマー">🇲🇲 ミャンマー</option><option value="バングラデシュ">🇧🇩 バングラデシュ</option><option value="スリランカ">🇱🇰 スリランカ</option></select></div>
       </div>
       <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:8,marginBottom:8}}>
@@ -4446,7 +4473,7 @@ function TabWorkHistory({c,editMode,update,companies}){
                 <div style={{width:8,height:8,borderRadius:"50%",background:w.end_date?"#ccc":"#1D9E75",marginTop:5,flexShrink:0}}/>
                 <div style={{flex:1}}>
                   <div style={{fontSize:13,fontWeight:500,color:"var(--text)",display:"flex",alignItems:"center",gap:8}}>
-                    {w.company_name}
+                    {w.store?`${w.company_name} ${w.store}`:w.company_name}
                     {!w.end_date&&<span style={{fontSize:10,padding:"2px 6px",background:"#E1F5EE",color:"#0F6E56",borderRadius:3}}>現職</span>}
                     {editMode&&<span style={{display:"flex",gap:3,marginLeft:"auto"}}>
                       <button onClick={()=>startEditWork(w)} style={{fontSize:10,padding:"2px 6px",borderRadius:3,border:"0.5px solid var(--border)",background:"transparent",cursor:"pointer",color:"var(--text3)"}}>編集</button>
@@ -4925,15 +4952,10 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
     setClients(prev=>prev.map(c=>{
       if(c.client_id!==sid) return c;
       let updated={...c,[f]:val};
-      // company_name / work_start_date 変更時、work_history を自動同期
-      if((f==="company_name"||f==="work_start_date") && updated.company_name && updated.work_start_date && updated.work_start_date!=="未定"){
-        const wh=updated.work_history||[];
-        const currentWork=wh.find(w=>w.company_name===updated.company_name && !w.end_date);
-        if(currentWork){
-          updated.work_history=wh.map(w=>w.id===currentWork.id?{...w,start_date:updated.work_start_date,company_name:updated.company_name,country:w.country||"日本",job_title:w.job_title||""}:w);
-        }else{
-          updated.work_history=[...wh,{id:"W"+Date.now(),company_name:updated.company_name,country:"日本",start_date:updated.work_start_date,end_date:null,job_title:""}];
-        }
+      // 所属会社/店舗/勤務開始日/在籍状態の変更時、現職(auto)を正本に同期。
+      // reconcileCurrentJob が同じ1件を書き換える＝所属会社変更でも孤児を作らない。手入力は保護。
+      if(f==="company_name"||f==="store"||f==="work_start_date"||f==="client_status"){
+        updated.work_history=reconcileCurrentJob(updated);
       }
       // COE自動OFF: 在留資格と在留期限が両方埋まったら、COEチェックを自動的に外す（確認なし）
       if(updated.coe_phase && updated.residence_status && updated.residence_expiry){
