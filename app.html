@@ -4270,7 +4270,7 @@ function TabWorkHistory({c,editMode,update,companies}){
   function startAddWork(){setWf({company_name:"",store:"",country:"日本",start_date:"",end_date:"",job_title:c.occupation||"",is_outside_qualification:false,init_monthly_salary:"",init_hourly_wage:"",init_weekly_hours:40,init_employment_type:"正社員",init_pref:clientPref||"東京都"});setAddingWork(true);setEditWorkId(null);}
   function startEditWork(w){setWf({...w});setEditWorkId(w.id);setAddingWork(false);}
   function saveWork(){
-    if(!wf.company_name)return;  // 会社名のみ必須。開始日は任意（旧データ・店名分割の編集を妨げない）
+    if(!wf.company_name&&!wf.store)return;  // 会社名か店名のどちらか一方でも入っていれば保存可（旧データの店名移し替えを妨げない）。開始日は任意。
     const w2={...wf};
     delete w2.init_monthly_salary;
     delete w2.init_hourly_wage;
@@ -4397,7 +4397,7 @@ function TabWorkHistory({c,editMode,update,companies}){
       })()}
       <div style={{display:"flex",gap:6,justifyContent:"flex-end"}}>
         <button onClick={resetWork} style={btnS}>キャンセル</button>
-        <button onClick={saveWork} disabled={!wf.company_name} style={{...btnS,background:"var(--accent-bg)",color:"var(--accent-text)",borderColor:"var(--accent)",opacity:(!wf.company_name)?0.4:1}}>保存</button>
+        <button onClick={saveWork} disabled={!wf.company_name&&!wf.store} style={{...btnS,background:"var(--accent-bg)",color:"var(--accent-text)",borderColor:"var(--accent)",opacity:(!wf.company_name&&!wf.store)?0.4:1}}>保存</button>
       </div>
     </div>
   );
@@ -4476,7 +4476,7 @@ function TabWorkHistory({c,editMode,update,companies}){
                 <div style={{width:8,height:8,borderRadius:"50%",background:w.end_date?"#ccc":"#1D9E75",marginTop:5,flexShrink:0}}/>
                 <div style={{flex:1}}>
                   <div style={{fontSize:13,fontWeight:500,color:"var(--text)",display:"flex",alignItems:"center",gap:8}}>
-                    {w.store?`${w.company_name} ${w.store}`:w.company_name}
+                    {[w.company_name,w.store].filter(Boolean).join(" ")}
                     {!w.end_date&&<span style={{fontSize:10,padding:"2px 6px",background:"#E1F5EE",color:"#0F6E56",borderRadius:3}}>現職</span>}
                     {editMode&&<span style={{display:"flex",gap:3,marginLeft:"auto"}}>
                       <button onClick={()=>startEditWork(w)} style={{fontSize:10,padding:"2px 6px",borderRadius:3,border:"0.5px solid var(--border)",background:"transparent",cursor:"pointer",color:"var(--text3)"}}>編集</button>
