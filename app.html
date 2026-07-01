@@ -4345,7 +4345,15 @@ function TabWorkHistory({c,editMode,update,companies}){
       <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 80px",gap:8,marginBottom:8}}>
         <div><div style={{fontSize:10,color:"var(--text3)",marginBottom:2}}>会社名</div><IMEInput value={wf.company_name||""} onChange={v=>setWf(p=>({...p,company_name:v}))} style={inputS}/></div>
         <div><div style={{fontSize:10,color:"var(--text3)",marginBottom:2}}>店名</div><IMEInput value={wf.store||""} onChange={v=>setWf(p=>({...p,store:v}))} style={inputS}/></div>
-        <div><div style={{fontSize:10,color:"var(--text3)",marginBottom:2}}>国</div><select value={wf.country||"日本"} onChange={e=>setWf(p=>({...p,country:e.target.value}))} style={inputS}><option value="日本">🇯🇵 日本</option><option value="ネパール">🇳🇵 ネパール</option><option value="インド">🇮🇳 インド</option><option value="中国">🇨🇳 中国</option><option value="ベトナム">🇻🇳 ベトナム</option><option value="フィリピン">🇵🇭 フィリピン</option><option value="ミャンマー">🇲🇲 ミャンマー</option><option value="バングラデシュ">🇧🇩 バングラデシュ</option><option value="スリランカ">🇱🇰 スリランカ</option></select></div>
+        <div><div style={{fontSize:10,color:"var(--text3)",marginBottom:2}}>国</div>{(()=>{
+          // 固定ショートリスト。保存済みの国がリストに無ければ（例: ポイポイ取込のカタール等）
+          // 先頭に足して選択状態を保持する（リスト外の国データを守る）。
+          const COUNTRY_OPTS=[["日本","🇯🇵"],["ネパール","🇳🇵"],["インド","🇮🇳"],["中国","🇨🇳"],["ベトナム","🇻🇳"],["フィリピン","🇵🇭"],["ミャンマー","🇲🇲"],["バングラデシュ","🇧🇩"],["スリランカ","🇱🇰"]];
+          const cur=wf.country||"日本";
+          const opts=[...COUNTRY_OPTS];
+          if(cur&&!opts.some(([n])=>n===cur))opts.unshift([cur,"🌏"]);
+          return <select value={cur} onChange={e=>setWf(p=>({...p,country:e.target.value}))} style={inputS}>{opts.map(([n,f])=><option key={n} value={n}>{f} {n}</option>)}</select>;
+        })()}</div>
       </div>
       <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:8,marginBottom:8}}>
         <div><div style={{fontSize:10,color:"var(--text3)",marginBottom:2}}>開始日</div><DateInput max="9999-12-31" min="1900-01-01" value={wf.start_date||""} onChange={v=>setWf(p=>({...p,start_date:v}))} style={inputS}/></div>
