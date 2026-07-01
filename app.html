@@ -3693,6 +3693,83 @@ function CopyTextField({label,value,field,update,fmt,toast,placeholder,mono,ime,
   );
 }
 
+// 在留カード番号・在留期限の履歴。カード切替（在留期間更新等）のたびに旧カードを積み上げ、
+// 台帳上で券面情報の変遷を時系列で追えるようにする。データは client.residence_history に保持。
+function ResidenceHistorySection({c,update}){
+  const [open,setOpen]=useState(false);
+  const [adding,setAdding]=useState(false);
+  const [editId,setEditId]=useState(null);
+  const [f,setF]=useState({});
+  const hist=c.residence_history||[];
+  const sorted=[...hist].sort((a,b)=>(b.residence_expiry||"").localeCompare(a.residence_expiry||""));
+  const lbl={fontSize:10,color:"var(--text3)",fontWeight:500,marginBottom:3,letterSpacing:"0.05em"};
+  const inputS={fontSize:12,padding:"5px 8px",borderRadius:5,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)",width:"100%"};
+  const btnS={fontSize:11,padding:"4px 10px",borderRadius:5,cursor:"pointer",border:"0.5px solid var(--border)",background:"transparent",color:"var(--text2)"};
+  const isMobile=useMobile();
+  function reset(){setF({});setAdding(false);setEditId(null);}
+  function archiveCurrent(){
+    if(!c.residence_card&&!c.residence_expiry){alert("現在の在留カード番号・在留期限が未入力です。");return;}
+    if(hist.some(h=>(h.residence_card||"")===(c.residence_card||"")&&(h.residence_expiry||"")===(c.residence_expiry||""))){alert("同じ内容がすでに履歴にあります。");return;}
+    const entry={id:"rh"+Date.now(),residence_card:c.residence_card||"",residence_expiry:c.residence_expiry||"",residence_status:c.residence_status||"",residence_period:c.residence_period||"",archived_date:new Date().toISOString().slice(0,10)};
+    update("residence_history",[entry,...hist]);setOpen(true);
+  }
+  function startAdd(){setF({residence_card:"",residence_expiry:"",residence_status:c.residence_status||"",residence_period:"",archived_date:new Date().toISOString().slice(0,10)});setAdding(true);setEditId(null);setOpen(true);}
+  function startEdit(h){setF({...h});setEditId(h.id);setAdding(false);setOpen(true);}
+  function save(){
+    if(!(f.residence_card||"").trim()&&!(f.residence_expiry||"").trim())return;
+    if(editId){update("residence_history",hist.map(h=>h.id===editId?{...h,...f,id:editId}:h));}
+    else{update("residence_history",[{...f,id:"rh"+Date.now()},...hist]);}
+    reset();
+  }
+  function remove(id){if(!confirm("この履歴を削除しますか？"))return;update("residence_history",hist.filter(h=>h.id!==id));}
+  const formJSX=(
+    <div style={{background:"var(--bg)",border:"0.5px solid var(--accent)",borderRadius:8,padding:12,marginBottom:8}}>
+      <div style={{fontSize:11,fontWeight:500,color:"var(--accent-text)",marginBottom:8}}>{editId?"履歴を編集":"過去のカードを追加"}</div>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:8,marginBottom:8}}>
+        <div><div style={lbl}>在留カード番号</div><input value={f.residence_card||""} onChange={e=>setF(p=>({...p,residence_card:e.target.value}))} style={{...inputS,fontFamily:"monospace"}}/></div>
+        <div><div style={lbl}>在留期限</div><DateInput max="9999-12-31" min="1900-01-01" value={f.residence_expiry||""} onChange={v=>setF(p=>({...p,residence_expiry:v}))} style={inputS}/></div>
+        <div><div style={lbl}>在留資格</div><input value={f.residence_status||""} onChange={e=>setF(p=>({...p,residence_status:e.target.value}))} list="residence-statuses" style={inputS}/></div>
+        <div><div style={lbl}>在留期間</div><input value={f.residence_period||""} onChange={e=>setF(p=>({...p,residence_period:e.target.value}))} placeholder="例: 1年" style={inputS}/></div>
+      </div>
+      <div style={{display:"flex",gap:6,justifyContent:"flex-end"}}>
+        <button onClick={reset} style={btnS}>キャンセル</button>
+        <button onClick={save} disabled={!(f.residence_card||"").trim()&&!(f.residence_expiry||"").trim()} style={{...btnS,background:"var(--accent-bg)",color:"var(--accent-text)",borderColor:"var(--accent)",opacity:(!(f.residence_card||"").trim()&&!(f.residence_expiry||"").trim())?0.4:1}}>保存</button>
+      </div>
+    </div>
+  );
+  return(
+    <div style={{background:"var(--bg)",border:"0.5px solid rgba(0,0,0,0.1)",borderRadius:10,padding:"12px 14px"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+        <span onClick={()=>setOpen(o=>!o)} style={{fontSize:12,fontWeight:500,color:"var(--text2)",cursor:"pointer"}}>{open?"▾":"▸"} 🪪 在留カードの履歴{hist.length>0?`（${hist.length}件）`:""}</span>
+        <div style={{display:"flex",gap:6}}>
+          <button onClick={archiveCurrent} style={{...btnS,fontSize:10}} title="現在の在留カード番号・在留期限を履歴に記録">現在のカードを履歴へ</button>
+          <button onClick={startAdd} style={{...btnS,fontSize:10}}>+ 追加</button>
+        </div>
+      </div>
+      {open&&<div style={{marginTop:10}}>
+        {(adding||editId)&&formJSX}
+        {sorted.length===0&&!adding&&<div style={{fontSize:11,color:"var(--text3)",textAlign:"center",padding:8}}>過去のカード履歴はありません。カードが切り替わったら「現在のカードを履歴へ」で記録できます。</div>}
+        {sorted.map(h=>(
+          <div key={h.id} style={{padding:"7px 10px",borderLeft:"2px solid #D3D1C7",marginBottom:4,marginLeft:2,display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:12,fontFamily:"monospace",color:"var(--text)"}}>{h.residence_card||"（番号なし）"}</div>
+              <div style={{fontSize:11,color:"var(--text2)",display:"flex",gap:8,flexWrap:"wrap",marginTop:2}}>
+                {h.residence_status&&<span>{h.residence_status}</span>}
+                {h.residence_period&&<span>{h.residence_period}</span>}
+                <span>期限 {h.residence_expiry||"—"}</span>
+              </div>
+            </div>
+            <div style={{display:"flex",gap:4,flexShrink:0}}>
+              <button onClick={()=>startEdit(h)} style={{fontSize:10,padding:"1px 6px",cursor:"pointer",borderRadius:3,border:"0.5px solid #ddd",background:"transparent",color:"#999"}}>編集</button>
+              <button onClick={()=>remove(h.id)} style={{fontSize:10,padding:"1px 5px",cursor:"pointer",borderRadius:3,border:"0.5px solid #ddd",background:"transparent",color:"#ccc"}}>×</button>
+            </div>
+          </div>
+        ))}
+      </div>}
+    </div>
+  );
+}
+
 function TabBasic({c,editMode,update,allClients}){
   const isMobile=useMobile();
   const isGenClient=c.client_type==="general";
@@ -3817,6 +3894,7 @@ function TabBasic({c,editMode,update,allClients}){
             </div>
           </div>}
           {!isGenClient&&<CopyTextField label="在留カード番号" value={c.residence_card} field="residence_card" update={update} mono fmt={fmtUpper} toast="📋 在留カード番号（半角大文字）をコピー"/>}
+          {!isGenClient&&<div style={{gridColumn:"1/-1"}}><ResidenceHistorySection c={c} update={update}/></div>}
           <div style={{gridColumn:"1/-1"}}>
             <div style={lbl}>備考</div>
             <textarea value={c.notes||""} onChange={e=>update("notes",e.target.value)} rows={2} placeholder="入国日・連絡事項など自由記入" style={{width:"100%",fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)",resize:"vertical",fontFamily:"inherit",lineHeight:1.5}}/>
@@ -4422,6 +4500,109 @@ function TabWorkHistory({c,editMode,update,companies}){
   );
 }
 
+// 過去案件のクライアント台帳リンク補完（申請人名/在留カードで突合→承認方式）。
+// 初期JSON一括投入等で client_id が空のままの案件を、台帳クライアントと突き合わせて候補提示。
+// めっちが承認したぶんだけ client_id（＋applicant_id）を反映する。他フィールドは触らない。
+function ClientLinkFixModal({data,setData,onClose}){
+  const isMobile=useMobile();
+  const clients=data.clients||[];
+  const cases=data.cases||[];
+  const normName=(s)=>String(s||"").toLowerCase().replace(/[　\s]+/g," ").trim();
+  const sortKey=(s)=>normName(s).split(" ").filter(Boolean).sort().join(" ");
+  const normCard=(s)=>String(s||"").replace(/[\s-]+/g,"").toUpperCase();
+  const [rows,setRows]=useState(()=>{
+    // 台帳クライアント（個人）だけを突合対象にする
+    const pool=clients.filter(cl=>!cl.archived);
+    const unlinked=cases.filter(cs=>!cs.client_id||!clients.find(cl=>cl.client_id===cs.client_id));
+    return unlinked.map(cs=>{
+      const caseCard=normCard(cs.new_card||cs.residence_card);
+      const caseNameN=normName(cs.applicant);
+      const caseNameK=sortKey(cs.applicant);
+      const cands=[];
+      pool.forEach(cl=>{
+        const clCard=normCard(cl.residence_card);
+        const clNameN=normName(cl.name_roman);
+        const clNameK=sortKey(cl.name_roman);
+        let conf=null,label="",score=0;
+        if(caseCard&&clCard&&caseCard===clCard){conf="card";label="在留カード一致";score=100;}
+        else if(caseNameN&&clNameN&&caseNameN===clNameN){conf="name";label="氏名完全一致";score=80;}
+        else if(caseNameK&&clNameK&&caseNameK===clNameK){conf="name2";label="氏名一致（語順違い）";score=70;}
+        else if(caseNameN&&clNameN&&caseNameN.length>=3&&clNameN.length>=3&&(caseNameN.includes(clNameN)||clNameN.includes(caseNameN))){conf="partial";label="部分一致";score=40;}
+        if(score>0)cands.push({client_id:cl.client_id,name:cl.name_roman||cl.name_kana||cl.client_id,card:cl.residence_card||"",conf,label,score});
+      });
+      cands.sort((a,b)=>b.score-a.score);
+      const best=cands[0]||null;
+      // 曖昧さ判定: 氏名完全一致の相手が複数いる場合は自動チェックしない
+      const exactNameCount=cands.filter(x=>x.conf==="name").length;
+      const autoCheck=!!best&&(best.conf==="card"||(best.conf==="name"&&exactNameCount===1));
+      return {case_id:cs.case_id,title:cs.case_title||"（無題）",applicant:cs.applicant||"",cands,selected:best?best.client_id:"",checked:autoCheck,bestConf:best?best.conf:null,bestLabel:best?best.label:""};
+    });
+  });
+  const withCand=rows.filter(r=>r.cands.length>0);
+  const noCand=rows.filter(r=>r.cands.length===0);
+  const checkedCount=rows.filter(r=>r.checked&&r.selected).length;
+  const setRow=(cid,patch)=>setRows(rs=>rs.map(r=>r.case_id===cid?{...r,...patch}:r));
+  const confColor=(conf)=>conf==="card"?{bg:"#EAF3DE",color:"#3B6D11"}:conf==="name"?{bg:"#E6F1FB",color:"#185FA5"}:conf==="name2"?{bg:"#FEF6E6",color:"#854F0B"}:{bg:"#F5F5F3",color:"#777"};
+  function apply(){
+    const targets=rows.filter(r=>r.checked&&r.selected);
+    if(targets.length===0){onClose();return;}
+    if(!confirm(`${targets.length}件の案件を台帳クライアントにリンクします。\n（client_id のみを補完し、他の項目は変更しません）\nよろしいですか？`))return;
+    const map={};targets.forEach(t=>{map[t.case_id]=t.selected;});
+    setData(prev=>({...prev,cases:prev.cases.map(cs=>map[cs.case_id]?{...cs,client_id:map[cs.case_id],applicant_id:map[cs.case_id]}:cs)}));
+    onClose();
+  }
+  const rowJSX=(r)=>{
+    const cc=confColor(r.bestConf);
+    return(
+      <div key={r.case_id} style={{display:"flex",alignItems:"flex-start",gap:8,padding:"8px 10px",borderBottom:"0.5px solid var(--border)",flexWrap:isMobile?"wrap":"nowrap"}}>
+        <input type="checkbox" checked={r.checked} disabled={!r.selected} onChange={e=>setRow(r.case_id,{checked:e.target.checked})} style={{marginTop:3,flexShrink:0}}/>
+        <div style={{flex:1,minWidth:isMobile?"100%":140}}>
+          <div style={{fontSize:12,color:"var(--text)",fontWeight:500,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{r.title}</div>
+          <div style={{fontSize:11,color:"var(--text2)"}}>申請人: {r.applicant||"（なし）"} <span style={{color:"var(--text3)"}}>· {r.case_id}</span></div>
+        </div>
+        {r.bestLabel&&<span style={{fontSize:10,padding:"1px 7px",borderRadius:10,background:cc.bg,color:cc.color,fontWeight:500,flexShrink:0,alignSelf:"center"}}>{r.bestLabel}</span>}
+        <select value={r.selected} onChange={e=>setRow(r.case_id,{selected:e.target.value,checked:!!e.target.value})} style={{fontSize:11,padding:"4px 6px",borderRadius:5,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)",width:isMobile?"100%":190,flexShrink:0}}>
+          <option value="">（リンクしない）</option>
+          {r.cands.map(cd=><option key={cd.client_id} value={cd.client_id}>{cd.name}{cd.card?` · ${cd.card}`:""}（{cd.label}）</option>)}
+          {r.cands.length>0&&<option disabled>──────</option>}
+          {clients.filter(cl=>!r.cands.find(cd=>cd.client_id===cl.client_id)).map(cl=><option key={cl.client_id} value={cl.client_id}>{cl.name_roman||cl.name_kana||cl.client_id}</option>)}
+        </select>
+      </div>
+    );
+  };
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:400,padding:12}} onClick={onClose}>
+      <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg)",borderRadius:12,border:"0.5px solid rgba(0,0,0,0.15)",width:"min(680px,100%)",maxHeight:"90vh",display:"flex",flexDirection:"column"}}>
+        <div style={{padding:"14px 18px",borderBottom:"0.5px solid rgba(0,0,0,0.1)",flexShrink:0}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <span style={{fontSize:14,fontWeight:600}}>🔗 台帳リンク補完</span>
+            <button onClick={onClose} style={{border:"none",background:"none",fontSize:18,cursor:"pointer",color:"#999"}}>×</button>
+          </div>
+          <div style={{fontSize:11,color:"var(--text2)",marginTop:6,lineHeight:1.6}}>
+            台帳クライアントと未リンクの案件を、申請人名・在留カード番号で突き合わせた候補です。内容を確認し、チェックしたぶんだけ反映されます（<b>client_id のみ補完</b>し、他の項目は変更しません）。
+          </div>
+          <div style={{fontSize:11,color:"var(--text3)",marginTop:6}}>未リンク {rows.length}件 ／ 候補あり {withCand.length}件 ／ チェック中 {checkedCount}件</div>
+        </div>
+        <div style={{flex:1,minHeight:0,overflowY:"auto"}}>
+          {rows.length===0&&<div style={{padding:30,textAlign:"center",color:"var(--text3)",fontSize:12}}>未リンクの案件はありません。すべて台帳と紐づいています 🎉</div>}
+          {withCand.length>0&&<>
+            <div style={{padding:"8px 12px 4px",fontSize:11,fontWeight:500,color:"var(--text2)",background:"var(--bg2)"}}>候補あり（{withCand.length}件）</div>
+            {withCand.map(rowJSX)}
+          </>}
+          {noCand.length>0&&<>
+            <div style={{padding:"8px 12px 4px",fontSize:11,fontWeight:500,color:"var(--text3)",background:"var(--bg2)"}}>該当なし・要手動（{noCand.length}件）</div>
+            {noCand.map(rowJSX)}
+          </>}
+        </div>
+        <div style={{padding:"10px 18px",borderTop:"0.5px solid rgba(0,0,0,0.1)",display:"flex",justifyContent:"flex-end",alignItems:"center",gap:8,flexShrink:0}}>
+          <button onClick={onClose} style={{fontSize:12,padding:"6px 14px",cursor:"pointer",borderRadius:6,border:"0.5px solid rgba(0,0,0,0.15)",background:"transparent",color:"#666"}}>キャンセル</button>
+          <button onClick={apply} disabled={checkedCount===0} style={{fontSize:12,padding:"6px 14px",cursor:"pointer",borderRadius:6,border:"0.5px solid #378ADD",background:"#E6F1FB",color:"#185FA5",fontWeight:500,opacity:checkedCount===0?0.4:1}}>チェックした{checkedCount}件をリンク</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToCase}){
   const isMobile=useMobile();
   const clients=data.clients;
@@ -4448,6 +4629,7 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
   const [poiOverlayDragOver,setPoiOverlayDragOver]=useState(false);
   const [showClientMenu,setShowClientMenu]=useState(false);
   const [showCustody,setShowCustody]=useState(false);
+  const [showLinkFix,setShowLinkFix]=useState(false);
 
   // ブラウザバック対応: 詳細画面が開いた瞬間にpushState、戻るで閉じる
   const prevShowDetailRef=useRef(null);
@@ -4855,7 +5037,9 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
             <div style={{flex:1,position:"relative"}}>
               <input type="text" placeholder="検索…" value={search} onChange={e=>setSearch(e.target.value)} style={{width:"100%",fontSize:12,padding:"5px 8px",paddingRight:search?22:8,borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)"}}/>
               {search&&<span onClick={()=>{setSearch("");setFilterStatus("全て");}} style={{position:"absolute",right:6,top:"50%",transform:"translateY(-50%)",fontSize:13,color:"var(--text3)",cursor:"pointer",lineHeight:1}}>×</span>}
-            </div>            <button data-tour="client-add" className="lic-edit-gate" onClick={handleAddClient} style={{width:26,height:26,cursor:"pointer",borderRadius:6,background:"var(--bg2)",border:"0.5px solid var(--border2)",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}} title="クライアント新規追加">+</button>
+            </div>
+            <button onClick={()=>setShowLinkFix(true)} style={{width:26,height:26,cursor:"pointer",borderRadius:6,background:"var(--bg2)",border:"0.5px solid var(--border2)",fontSize:13,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}} title="台帳リンク補完（未リンク案件をクライアントに紐づけ）">🔗</button>
+            <button data-tour="client-add" className="lic-edit-gate" onClick={handleAddClient} style={{width:26,height:26,cursor:"pointer",borderRadius:6,background:"var(--bg2)",border:"0.5px solid var(--border2)",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}} title="クライアント新規追加">+</button>
           </div>
         </div>
         {alertClients.length>0&&(
@@ -5082,6 +5266,7 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
         );
       })()}
       {showCustody&&cur&&<CustodyReceiptModal client={cur} office={data.office} onClose={()=>setShowCustody(false)} onIssue={applyCustody} onReturn={applyCustody}/>}
+      {showLinkFix&&<ClientLinkFixModal data={data} setData={setData} onClose={()=>setShowLinkFix(false)}/>}
     </div>
   );
 }
