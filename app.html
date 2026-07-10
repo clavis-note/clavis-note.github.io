@@ -7719,7 +7719,9 @@ function buildDocChecklistText(p, cases) {
       blocks.push(lines);
     }
   });
-  return blocks.join("\n\n");
+  if (blocks.length === 0) return "";
+  // 転記の冒頭に案内見出しを自動で付ける（クライアントに「必要書類のご案内」として見せる想定）。
+  return `＜必要書類のご案内＞\n${blocks.join("\n\n")}`;
 }
 
 function generateEstimate(p, cases, clients, office) {
