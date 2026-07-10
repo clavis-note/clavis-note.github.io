@@ -7365,6 +7365,27 @@ function NewPaymentModal({onClose,onSave,cases,clients,payments,feeMaster,compan
   const total=calcItemsTotal(items);
   const expBillable=calcExpBillable(expenses);
 
+  // まとめ請求「本人」宛ての宛先候補：選択中の案件に紐づくクライアント（申請人）名の一覧。
+  // 会社DBではなく、まとめ対象の案件から宛先候補を導出する（無関係な人を宛先にしないため）。
+  const bundleClientCandidates=(()=>{
+    const seen=[];
+    selectedCaseIds.forEach(id=>{
+      const c=cases.find(x=>x.case_id===id);
+      if(!c) return;
+      const cl=clients.find(x=>x.client_id===c.client_id);
+      const nm=(cl&&(cl.name_roman||cl.name_kana))||c.applicant||c.requester||"";
+      if(nm&&!seen.includes(nm)) seen.push(nm);
+    });
+    return seen;
+  })();
+  // 「本人」宛てで候補が1名だけのときは自動セット（家族まとめでない単独ケース等）。
+  // 既に入力済みの宛名は functional update で温存し、手入力と競合しない。
+  useEffect(()=>{
+    if(mode==="bundle"&&billType==="individual"&&bundleClientCandidates.length===1){
+      setBillToName(prev=>prev?prev:bundleClientCandidates[0]);
+    }
+  },[mode,billType,bundleClientCandidates.length]);
+
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",display:"flex",alignItems:"flex-start",justifyContent:"center",zIndex:200,padding:"20px 16px",overflowY:"auto"}}>
       <div style={{background:"var(--bg)",borderRadius:12,border:"0.5px solid rgba(0,0,0,0.15)",width:540,maxWidth:"100%",maxHeight:"calc(100vh - 40px)",display:"flex",flexDirection:"column"}}>
@@ -7478,16 +7499,23 @@ function NewPaymentModal({onClose,onSave,cases,clients,payments,feeMaster,compan
               <div style={{fontSize:10,color:"var(--text3)",marginBottom:8}}>請求先（宛名）<span style={{color:"#A32D2D"}}>*</span></div>
               <div style={{display:"flex",gap:8,marginBottom:8}}>
                 {[["company","会社"],["individual","本人"]].map(([val,label])=>(
-                  <button key={val} onClick={()=>setBillType(val)}
+                  <button key={val} onClick={()=>{setBillType(val);setBillToName("");}}
                     style={{fontSize:12,padding:"4px 12px",cursor:"pointer",borderRadius:5,border:`0.5px solid ${billType===val?"var(--accent)":"rgba(0,0,0,0.15)"}`,
                       background:billType===val?"var(--accent-bg)":"transparent",color:billType===val?"var(--accent-text)":"var(--text2)",fontWeight:billType===val?500:400}}>{label}</button>
                 ))}
               </div>
-              {(companies||[]).filter(co=>co.status!=="inactive").length>0&&<select value="" onChange={e=>{const co=(companies||[]).find(co=>co.company_id===e.target.value);if(co){setBillToName(co.name);setBillType("company");}}}
-                style={{width:"100%",fontSize:12,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)",color:"var(--text)",marginBottom:6}}>
-                <option value="">会社DBから選択…</option>
-                {(companies||[]).filter(co=>co.status!=="inactive").map(co=><option key={co.company_id} value={co.company_id}>{co.name}</option>)}
-              </select>}
+              {/* 宛先候補ドロップダウン：会社宛ては会社DB、本人宛てはまとめ対象案件の申請人から選ぶ */}
+              {billType==="company"
+                ? ((companies||[]).filter(co=>co.status!=="inactive").length>0&&<select value="" onChange={e=>{const co=(companies||[]).find(co=>co.company_id===e.target.value);if(co){setBillToName(co.name);setBillType("company");}}}
+                    style={{width:"100%",fontSize:12,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)",color:"var(--text)",marginBottom:6}}>
+                    <option value="">会社DBから選択…</option>
+                    {(companies||[]).filter(co=>co.status!=="inactive").map(co=><option key={co.company_id} value={co.company_id}>{co.name}</option>)}
+                  </select>)
+                : (bundleClientCandidates.length>0&&<select value="" onChange={e=>{if(e.target.value){setBillToName(e.target.value);setBillType("individual");}}}
+                    style={{width:"100%",fontSize:12,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)",color:"var(--text)",marginBottom:6}}>
+                    <option value="">申請人から選択…</option>
+                    {bundleClientCandidates.map(nm=><option key={nm} value={nm}>{nm}</option>)}
+                  </select>)}
               <input value={billToName} onChange={e=>setBillToName(e.target.value)} placeholder={billType==="company"?"株式会社〇〇":"山田 太郎"}
                 style={{width:"100%",fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg)",color:"var(--text)"}}/>
             </div>}
@@ -7647,6 +7675,20 @@ function resolveBillName(p) {
 function escapeHtml(s) {
   return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
+// 帳票PDFの保存ファイル名を電子帳簿保存法の検索要件（取引年月日・取引先・取引金額）に沿う形式で組み立てる。
+// 形式: YYYYMMDD_宛先_金額_書類種別_事務所名  例: 20260710_SAPKOTA SUMAN_21000_請求書_ながみ行政書士事務所
+// ・生成HTMLの <title> に設定し、ブラウザの印刷/PDF保存の既定ファイル名を電帳法形式に制御する（預り証の buildFileName と同方式）。
+// ・金額は数字のみ（¥はWindowsでパス区切りと衝突、カンマも環境により化けるため除去）。
+// ・禁止文字は預り証と同じサニタイズ（/\?%*:|"<> 等）を適用。宛先は末尾の敬称（様/御中）を除いたクリーンな名前。
+// ・日付・事務所名などが欠けても空要素を落として壊れないようにする（filter(Boolean)）。
+function buildDocFileName({ dateRaw, billName, amount, docType, officeName }) {
+  const sanitize = s => String(s || "").replace(/[\\/:*?"<>|%]/g, "").trim();
+  const ymd = String(dateRaw || "").slice(0, 10).replace(/-/g, "");
+  const name = sanitize(String(billName || "").replace(/\s*(様|御中)\s*$/, ""));
+  const amt = String(amount == null ? "" : amount).replace(/[^0-9]/g, "");
+  const office = sanitize(officeName);
+  return [ymd, name, amt, docType, office].filter(Boolean).join("_");
+}
 
 // 帳票の件名フォールバックに使う案件名を返す。
 // 一般案件(case_type==="general")は applicant にクライアント名がコピーされているため、
@@ -7656,6 +7698,28 @@ function caseSubjectName(c) {
   return c.case_type === "general"
     ? (c.case_title || c.applicant)
     : (c.applicant || c.case_title);
+}
+
+// 請求に紐づく案件の書類チェックリストから、備考欄に転記する箇条書きテキストを生成する。
+// 記号：未取得→□、取得済・提出済→✅。「不要」は依頼にも状況一覧にも意味がないため除外。
+// まとめ請求（複数案件）は申請人ごとに「■ 名前」見出しで区切り、家族まとめでも誰の書類か迷子にならない。
+// 生成物はただの文字列（双方向同期はしない）。翻訳併記でも✅□が崩れない前提。
+function buildDocChecklistText(p, cases) {
+  const cs = (p.case_ids || []).map(id => cases.find(x => x.case_id === id)).filter(Boolean);
+  const sym = st => (st === "取得済" || st === "提出済") ? "✅" : "□";
+  const blocks = [];
+  cs.forEach(c => {
+    const docs = (c.docs || []).filter(d => d.status !== "不要");
+    if (docs.length === 0) return;
+    const lines = docs.map(d => `${sym(d.status)} ${d.name}`).join("\n");
+    if (cs.length > 1) {
+      const heading = c.applicant || caseSubjectName(c) || c.case_title || "";
+      blocks.push(`■ ${heading}\n${lines}`);
+    } else {
+      blocks.push(lines);
+    }
+  });
+  return blocks.join("\n\n");
 }
 
 function generateEstimate(p, cases, clients, office) {
@@ -7706,11 +7770,19 @@ function generateEstimate(p, cases, clients, office) {
 
   const fmtYen = n => "¥ " + n.toLocaleString();
 
+  const fileName = buildDocFileName({
+    dateRaw: p.estimate_date || new Date().toISOString().slice(0, 10),
+    billName: p.bill_to_name,
+    amount: grandTotal,
+    docType: "見積書",
+    officeName: ofc.name,
+  });
+
   const fullHtml = `<!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>見積書 - ${ofc.name||"事務所"}</title>
+<title>${fileName}</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: "Yu Mincho", "游明朝", "Hiragino Mincho ProN", "MS Mincho", serif; background: #eee; }
@@ -7909,11 +7981,19 @@ function generateInvoice(p, cases, clients, office) {
 
   const fmtYen = n => "¥ " + n.toLocaleString();
 
+  const fileName = buildDocFileName({
+    dateRaw: p.invoice_date || new Date().toISOString().slice(0, 10),
+    billName: p.bill_to_name,
+    amount: grandTotal,
+    docType: "請求書",
+    officeName: ofc.name,
+  });
+
   const fullHtml = `<!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>請求書 - ${ofc.name||"事務所"}</title>
+<title>${fileName}</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: "Yu Mincho", "游明朝", "Hiragino Mincho ProN", "MS Mincho", serif; background: #eee; }
@@ -8105,11 +8185,19 @@ function generateReceipt(p, cases, clients, office, paymentLogId) {
 
   const fmtYen = n => "¥ " + n.toLocaleString();
 
+  const fileName = buildDocFileName({
+    dateRaw: receiptDateRaw,
+    billName: p.bill_to_name,
+    amount: paid,
+    docType: "領収書",
+    officeName: ofc.name,
+  });
+
   const fullHtml = `<!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>領収書 - ${ofc.name||"事務所"}</title>
+<title>${fileName}</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: "Yu Mincho", "游明朝", "Hiragino Mincho ProN", "MS Mincho", serif; background: #eee; }
@@ -8227,6 +8315,15 @@ function PaymentDetail({p,cases,clients,office,onUpdate,onDelete,onSplit,onItemS
   const [translating,setTranslating]=useState(null); // null | "estimate_note" | "invoice_note"
 
   function update(field,val){onUpdate({...p,[field]:val});}
+  // 転記対象の書類が1件でもあるか（「不要」を除く）。無ければ転記ボタンを出さない。
+  const hasTranscribableDocs=cs.some(c=>(c.docs||[]).some(d=>d.status!=="不要"));
+  // 書類チェックリストを備考欄に転記（末尾に追記。既存テキストは上書きしない）。
+  function transcribeDocs(field){
+    const text=buildDocChecklistText(p,cases);
+    if(!text){alert("転記できる書類チェックリストがありません。\n（案件に書類が登録されていないか、すべて『不要』です）");return;}
+    const existing=(p[field]||"").replace(/\s+$/,"");
+    update(field,existing?`${existing}\n\n${text}`:text);
+  }
   async function handleTranslateMemo(field,targetLang){
     const apiKey=(office||{}).license_key;
     if(!apiKey){
@@ -8355,6 +8452,10 @@ function PaymentDetail({p,cases,clients,office,onUpdate,onDelete,onSplit,onItemS
                 <option value="vi">ベトナム語</option>
                 <option value="th">タイ語</option>
               </select>
+              {hasTranscribableDocs&&<button onClick={()=>transcribeDocs("estimate_note")}
+                style={{fontSize:10,padding:"3px 9px",cursor:"pointer",borderRadius:4,border:"0.5px solid #854F0B",background:"#fff",color:"#854F0B",fontWeight:500,whiteSpace:"nowrap"}}>
+                📋 書類リストを転記
+              </button>}
               <button onClick={()=>handleTranslateMemo("estimate_note",estimateLang)} disabled={translating==="estimate_note"}
                 style={{fontSize:10,padding:"3px 9px",cursor:translating==="estimate_note"?"wait":"pointer",borderRadius:4,border:"0.5px solid #854F0B",background:"#FEF8EE",color:"#854F0B",fontWeight:500,whiteSpace:"nowrap",opacity:translating==="estimate_note"?0.6:1}}>
                 {translating==="estimate_note"?"翻訳中…":"🌐 翻訳して併記"}
@@ -8387,6 +8488,10 @@ function PaymentDetail({p,cases,clients,office,onUpdate,onDelete,onSplit,onItemS
                 <option value="vi">ベトナム語</option>
                 <option value="th">タイ語</option>
               </select>
+              {hasTranscribableDocs&&<button onClick={()=>transcribeDocs("invoice_note")}
+                style={{fontSize:10,padding:"3px 9px",cursor:"pointer",borderRadius:4,border:"0.5px solid #378ADD",background:"#fff",color:"#378ADD",fontWeight:500,whiteSpace:"nowrap"}}>
+                📋 書類リストを転記
+              </button>}
               <button onClick={()=>handleTranslateMemo("invoice_note",invoiceLang)} disabled={translating==="invoice_note"}
                 style={{fontSize:10,padding:"3px 9px",cursor:translating==="invoice_note"?"wait":"pointer",borderRadius:4,border:"0.5px solid #378ADD",background:"#EBF4FF",color:"#378ADD",fontWeight:500,whiteSpace:"nowrap",opacity:translating==="invoice_note"?0.6:1}}>
                 {translating==="invoice_note"?"翻訳中…":"🌐 翻訳して併記"}
