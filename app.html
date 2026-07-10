@@ -67,14 +67,14 @@ const AVATAR_COLORS = ["#185FA5","#0F6E56","#534AB7","#854F0B","#993C1D","#3B6D1
 
 // 案件管理用定数
 const DEFAULT_TEMPLATES = {
-  T01:{label:"技能（調理）COE",hearing:[{id:"h1",type:"text",label:"最終学歴の学校名"},{id:"h2",type:"date",label:"卒業年月日"},{id:"h3",type:"text",label:"過去の日本への出入国の有無"},{id:"h4",type:"text",label:"過去のCOE申請履歴"}],docs:[{id:"d1",name:"写真（縦4cm×横3cm）",group:null},{id:"d2",name:"パスポート",group:null},{id:"d3",name:"結核非発病証明書",group:null},{id:"d4",name:"職務経歴書",group:null},{id:"d5",name:"退職証明書（以前の会社）",group:null},{id:"d6",name:"雇用理由書",group:null},{id:"d7",name:"雇用契約書",group:"招へい企業資料"},{id:"d8",name:"登記事項証明書",group:"招へい企業資料"},{id:"d9",name:"法定調書合計表",group:"招へい企業資料"},{id:"d10",name:"直近の決算資料",group:"招へい企業資料"},{id:"d11",name:"勤務先営業許可証",group:"招へい企業資料"},{id:"d12",name:"勤務先写真（外観・内観）",group:"招へい企業資料"},{id:"d13",name:"勤務先メニュー表",group:"招へい企業資料"}]},
-  T02:{label:"技能（調理）転職後初更新・初回担当",hearing:[{id:"h1",type:"text",label:"最終学歴の学校名"},{id:"h2",type:"date",label:"卒業年月日"}],docs:[{id:"d1",name:"在留カード（表裏コピー）",group:null},{id:"d2",name:"パスポート（身分事項・査証ページコピー）",group:null},{id:"d3",name:"写真（縦4cm×横3cm）",group:null},{id:"d4",name:"課税証明書（市区町村発行）※1/1住民登録地",group:null},{id:"d5",name:"雇用契約書",group:null},{id:"d6",name:"勤務先写真（外観・内観）",group:null},{id:"d7",name:"職務経歴書",group:null},{id:"d8",name:"退職証明書（以前の会社）",group:null},{id:"d9",name:"法定調書合計表",group:"転職先書類"},{id:"d10",name:"登記事項証明書",group:"転職先書類"},{id:"d11",name:"直近の決算資料",group:"転職先書類"}]},
-  T03:{label:"技能（調理）継続更新",hearing:[{id:"h1",type:"text",label:"最終学歴の学校名"},{id:"h2",type:"date",label:"卒業年月日"}],docs:[{id:"d1",name:"在留カード（表裏コピー）",group:null},{id:"d2",name:"パスポート（身分事項・査証ページコピー）",group:null},{id:"d3",name:"写真（縦4cm×横3cm）",group:null},{id:"d4",name:"課税証明書（市区町村発行）",group:null},{id:"d5",name:"法定調書合計表",group:null}]},
-  T07:{label:"技能（調理）新店舗初更新",note:"継続案件だが新店舗のため店舗固有書類が必要",hearing:[{id:"h1",type:"text",label:"最終学歴の学校名"},{id:"h2",type:"date",label:"卒業年月日"}],docs:[{id:"d1",name:"在留カード（表裏コピー）",group:null},{id:"d2",name:"パスポート（身分事項・査証ページコピー）",group:null},{id:"d3",name:"写真（縦4cm×横3cm）",group:null},{id:"d4",name:"課税証明書（市区町村発行）",group:null},{id:"d5",name:"法定調書合計表",group:null},{id:"d6",name:"雇用契約書",group:"新店舗書類"},{id:"d7",name:"勤務先営業許可証",group:"新店舗書類"},{id:"d8",name:"勤務先写真（外観・内観）",group:"新店舗書類"},{id:"d9",name:"勤務先メニュー表",group:"新店舗書類"}]},
+  T01:{label:"技能（調理）COE",hearing:[{id:"h1",type:"text",label:"最終学歴の学校名",link:"education_school"},{id:"h2",type:"date",label:"卒業年月日",link:"education_date"},{id:"h3",type:"text",label:"過去の日本への出入国の有無"},{id:"h4",type:"text",label:"過去のCOE申請履歴"}],docs:[{id:"d1",name:"写真（縦4cm×横3cm）",group:null},{id:"d2",name:"パスポート",group:null},{id:"d3",name:"結核非発病証明書",group:null},{id:"d4",name:"職務経歴書",group:null},{id:"d5",name:"退職証明書（以前の会社）",group:null},{id:"d6",name:"雇用理由書",group:null},{id:"d7",name:"雇用契約書",group:"招へい企業資料"},{id:"d8",name:"登記事項証明書",group:"招へい企業資料"},{id:"d9",name:"法定調書合計表",group:"招へい企業資料"},{id:"d10",name:"直近の決算資料",group:"招へい企業資料"},{id:"d11",name:"勤務先営業許可証",group:"招へい企業資料"},{id:"d12",name:"勤務先写真（外観・内観）",group:"招へい企業資料"},{id:"d13",name:"勤務先メニュー表",group:"招へい企業資料"}]},
+  T02:{label:"技能（調理）転職後初更新・初回担当",hearing:[{id:"h1",type:"text",label:"最終学歴の学校名",link:"education_school"},{id:"h2",type:"date",label:"卒業年月日",link:"education_date"}],docs:[{id:"d1",name:"在留カード（表裏コピー）",group:null},{id:"d2",name:"パスポート（身分事項・査証ページコピー）",group:null},{id:"d3",name:"写真（縦4cm×横3cm）",group:null},{id:"d4",name:"課税証明書（市区町村発行）※1/1住民登録地",group:null},{id:"d5",name:"雇用契約書",group:null},{id:"d6",name:"勤務先写真（外観・内観）",group:null},{id:"d7",name:"職務経歴書",group:null},{id:"d8",name:"退職証明書（以前の会社）",group:null},{id:"d9",name:"法定調書合計表",group:"転職先書類"},{id:"d10",name:"登記事項証明書",group:"転職先書類"},{id:"d11",name:"直近の決算資料",group:"転職先書類"}]},
+  T03:{label:"技能（調理）継続更新",hearing:[{id:"h1",type:"text",label:"最終学歴の学校名",link:"education_school"},{id:"h2",type:"date",label:"卒業年月日",link:"education_date"}],docs:[{id:"d1",name:"在留カード（表裏コピー）",group:null},{id:"d2",name:"パスポート（身分事項・査証ページコピー）",group:null},{id:"d3",name:"写真（縦4cm×横3cm）",group:null},{id:"d4",name:"課税証明書（市区町村発行）",group:null},{id:"d5",name:"法定調書合計表",group:null}]},
+  T07:{label:"技能（調理）新店舗初更新",note:"継続案件だが新店舗のため店舗固有書類が必要",hearing:[{id:"h1",type:"text",label:"最終学歴の学校名",link:"education_school"},{id:"h2",type:"date",label:"卒業年月日",link:"education_date"}],docs:[{id:"d1",name:"在留カード（表裏コピー）",group:null},{id:"d2",name:"パスポート（身分事項・査証ページコピー）",group:null},{id:"d3",name:"写真（縦4cm×横3cm）",group:null},{id:"d4",name:"課税証明書（市区町村発行）",group:null},{id:"d5",name:"法定調書合計表",group:null},{id:"d6",name:"雇用契約書",group:"新店舗書類"},{id:"d7",name:"勤務先営業許可証",group:"新店舗書類"},{id:"d8",name:"勤務先写真（外観・内観）",group:"新店舗書類"},{id:"d9",name:"勤務先メニュー表",group:"新店舗書類"}]},
   T04:{label:"家族滞在 COE",hearing:[],docs:[{id:"d1",name:"写真（縦4cm×横3cm）※16歳以上",group:null},{id:"d2",name:"パスポート（本人）",group:null},{id:"d3",name:"婚姻証明書",group:"続柄証明"},{id:"d4",name:"出生証明書",group:"続柄証明"},{id:"d5",name:"結核非発病証明書",group:null},{id:"d6",name:"在留カード（扶養者）",group:null},{id:"d7",name:"パスポート（扶養者）",group:null},{id:"d8",name:"扶養者の在職証明書",group:null},{id:"d9",name:"扶養者の源泉徴収票／課税証明書",group:null}]},
   T05:{label:"家族滞在 初回担当更新",hearing:[],docs:[{id:"d1",name:"写真（縦4cm×横3cm）※16歳以上",group:null},{id:"d2",name:"在留カード（本人）",group:null},{id:"d3",name:"パスポート（本人）",group:null},{id:"d4",name:"在留カード（扶養者）",group:null},{id:"d5",name:"パスポート（扶養者）",group:null},{id:"d6",name:"婚姻証明書",group:"続柄証明"},{id:"d7",name:"出生証明書",group:"続柄証明"},{id:"d8",name:"扶養者の在職証明書",group:null},{id:"d9",name:"扶養者の課税証明書",group:null}]},
   T06:{label:"家族滞在 継続更新",hearing:[],docs:[{id:"d1",name:"写真（縦4cm×横3cm）※16歳以上",group:null},{id:"d2",name:"在留カード（本人）",group:null},{id:"d3",name:"パスポート（本人）",group:null},{id:"d4",name:"在留カード（扶養者）",group:null},{id:"d5",name:"パスポート（扶養者）",group:null},{id:"d6",name:"扶養者の在職証明書",group:null},{id:"d7",name:"扶養者の課税証明書",group:null}]},
-  T20:{label:"技術・人文知識・国際業務 COE",hearing:[{id:"h1",type:"text",label:"最終学歴の学校名"},{id:"h2",type:"date",label:"卒業年月日"},{id:"h3",type:"text",label:"過去の日本への出入国の有無"},{id:"h4",type:"text",label:"過去のCOE申請履歴"}],docs:[{id:"d1",name:"写真（縦4cm×横3cm）",group:null},{id:"d2",name:"パスポート",group:null},{id:"d3",name:"結核非発病証明書（該当国のみ）",group:null},{id:"d4",name:"履歴書",group:null},{id:"d5",name:"職務経歴書",group:null},{id:"d6",name:"卒業証明書",group:null},{id:"d7",name:"雇用理由書",group:null},{id:"d8",name:"雇用契約書",group:"招へい企業資料"},{id:"d9",name:"登記事項証明書",group:"招へい企業資料"},{id:"d10",name:"決算文書（直近）",group:"招へい企業資料"},{id:"d11",name:"法定調書合計表",group:"招へい企業資料"},{id:"d12",name:"会社案内・パンフレット",group:"招へい企業資料"}]},
+  T20:{label:"技術・人文知識・国際業務 COE",hearing:[{id:"h1",type:"text",label:"最終学歴の学校名",link:"education_school"},{id:"h2",type:"date",label:"卒業年月日",link:"education_date"},{id:"h3",type:"text",label:"過去の日本への出入国の有無"},{id:"h4",type:"text",label:"過去のCOE申請履歴"}],docs:[{id:"d1",name:"写真（縦4cm×横3cm）",group:null},{id:"d2",name:"パスポート",group:null},{id:"d3",name:"結核非発病証明書（該当国のみ）",group:null},{id:"d4",name:"履歴書",group:null},{id:"d5",name:"職務経歴書",group:null},{id:"d6",name:"卒業証明書",group:null},{id:"d7",name:"雇用理由書",group:null},{id:"d8",name:"雇用契約書",group:"招へい企業資料"},{id:"d9",name:"登記事項証明書",group:"招へい企業資料"},{id:"d10",name:"決算文書（直近）",group:"招へい企業資料"},{id:"d11",name:"法定調書合計表",group:"招へい企業資料"},{id:"d12",name:"会社案内・パンフレット",group:"招へい企業資料"}]},
   T21:{label:"技術・人文知識・国際業務 継続更新",hearing:[],docs:[{id:"d1",name:"在留カード（表裏コピー）",group:null},{id:"d2",name:"パスポート",group:null},{id:"d3",name:"写真（縦4cm×横3cm）",group:null},{id:"d4",name:"住民票（世帯全員）",group:null},{id:"d5",name:"課税証明書",group:null},{id:"d6",name:"納税証明書",group:null},{id:"d7",name:"源泉徴収票",group:null},{id:"d8",name:"在職証明書",group:null}]},
   T22:{label:"技術・人文知識・国際業務 転職後初更新",hearing:[],docs:[{id:"d1",name:"在留カード(表裏コピー)",group:null},{id:"d2",name:"パスポート",group:null},{id:"d3",name:"写真(縦4cm×横3cm)",group:null},{id:"d4",name:"住民票(世帯全員)",group:null},{id:"d5",name:"課税証明書",group:null},{id:"d6",name:"納税証明書",group:null},{id:"d7",name:"職務経歴書",group:null},{id:"d8",name:"退職証明書(前職)",group:null},{id:"d9",name:"雇用契約書",group:"転職先書類"},{id:"d10",name:"登記事項証明書",group:"転職先書類"},{id:"d11",name:"決算文書(直近)",group:"転職先書類"},{id:"d12",name:"法定調書合計表",group:"転職先書類"}]},
   T30:{label:"永住許可申請",hearing:[{id:"h1",type:"date",label:"来日年月日"},{id:"h2",type:"text",label:"過去5年の海外渡航履歴"},{id:"h3",type:"text",label:"納税状況・年金加入状況"}],docs:[{id:"d1",name:"在留カード(表裏コピー)",group:null},{id:"d2",name:"パスポート",group:null},{id:"d3",name:"写真(縦4cm×横3cm)",group:null},{id:"d4",name:"申請理由書",group:null},{id:"d5",name:"住民票(世帯全員)",group:"住民・身分関係"},{id:"d6",name:"住民票記載事項証明書",group:"住民・身分関係"},{id:"d7",name:"戸籍謄本(日本人配偶者の場合)",group:"住民・身分関係"},{id:"d8",name:"課税証明書(直近5年分)",group:"納税・収入関係"},{id:"d9",name:"納税証明書(直近5年分)",group:"納税・収入関係"},{id:"d10",name:"源泉徴収票(直近)",group:"納税・収入関係"},{id:"d11",name:"年金記録(ねんきん定期便等)",group:"年金・社会保険"},{id:"d12",name:"健康保険証コピー",group:"年金・社会保険"},{id:"d13",name:"雇用契約書",group:"勤務先関係"},{id:"d14",name:"在職証明書",group:"勤務先関係"},{id:"d15",name:"身元保証書",group:"その他"},{id:"d16",name:"預貯金通帳コピー",group:"その他"}]},
@@ -1139,6 +1139,24 @@ function migrateData(saved){
       if(idx<0) return cl;
       return {...cl, work_history: wh.map((w,i)=>i===idx?{...w,auto:true,store:(w.store||cl.store||"")}:w)};
     });
+  }
+  // v21: ヒアリング項目の台帳連携をラベル文字列一致から link プロパティ（データ）基準へ移行。
+  //  既存案件の hearing_items とユーザーカスタマイズ済みテンプレートに対し、
+  //  「ラベルが標準文言と完全一致する項目のみ」link を付与する一回きりのバックフィル。
+  //  文言を変更済みの項目には付けない（誤連携防止）。冪等（付与済みはスキップ）。
+  {
+    const HEARING_LINK_BY_LABEL={"最終学歴の学校名":"education_school","卒業年月日":"education_date"};
+    const addHearingLink=h=>(h&&!h.link&&HEARING_LINK_BY_LABEL[h.label])?{...h,link:HEARING_LINK_BY_LABEL[h.label]}:h;
+    if(saved.cases) saved.cases=saved.cases.map(c=>Array.isArray(c.hearing_items)?{...c,hearing_items:c.hearing_items.map(addHearingLink)}:c);
+    if(saved.templates){
+      const tpls={...saved.templates};
+      Object.keys(tpls).forEach(k=>{
+        if(k==="_order") return;
+        const t=tpls[k];
+        if(t&&Array.isArray(t.hearing)) tpls[k]={...t,hearing:t.hearing.map(addHearingLink)};
+      });
+      saved.templates=tpls;
+    }
   }
   return saved;
 }
@@ -4092,7 +4110,7 @@ function TabSponsor({c,allClients,onSelectClient}){
   );
 }
 
-function TabCaseHistory({c,cases,payments,onNavigateCase}){
+function TabCaseHistory({c,cases,payments,onNavigateCase,onNewCase}){
   const myCases=(cases||[]).filter(cs=>cs.applicant_id===c.client_id||cs.client_id===c.client_id||(c.name_roman&&c.name_roman.length>1&&(cs.applicant||"").includes(c.name_roman)));
   const sorted=[...myCases].sort((a,b)=>(b.accepted_date||"").localeCompare(a.accepted_date||""));
   const stColors=CASE_STATUS_COLORS;
@@ -4102,6 +4120,10 @@ function TabCaseHistory({c,cases,payments,onNavigateCase}){
       <div style={{display:"flex",alignItems:"center",gap:8}}>
         <span style={{fontSize:13,fontWeight:500}}>案件履歴</span>
         <span style={{fontSize:11,color:"var(--text3)"}}>{sorted.length}件</span>
+        {onNewCase&&<>
+          <div style={{flex:1}}/>
+          <button className="lic-edit-gate" onClick={onNewCase} style={{fontSize:11,padding:"4px 12px",cursor:"pointer",borderRadius:5,border:"0.5px solid #378ADD",background:"#E6F1FB",color:"#185FA5",fontWeight:500,whiteSpace:"nowrap"}}>＋ 新規案件</button>
+        </>}
       </div>
       {sorted.length===0?(
         <div style={{padding:20,textAlign:"center",color:"var(--text3)",fontSize:12}}>この方に紐づく案件はありません</div>
@@ -4671,6 +4693,8 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
   const [showClientMenu,setShowClientMenu]=useState(false);
   const [showCustody,setShowCustody]=useState(false);
   const [showLinkFix,setShowLinkFix]=useState(false);
+  // 案件履歴タブの「＋ 新規案件」から、client_id 確定済みで新規案件作成モーダルを開く
+  const [showNewCase,setShowNewCase]=useState(false);
 
   // ブラウザバック対応: 詳細画面が開いた瞬間にpushState、戻るで閉じる
   const prevShowDetailRef=useRef(null);
@@ -5256,7 +5280,7 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
               {tab==="基本情報"&&<TabBasic c={cur} editMode={true} update={update} allClients={clients}/>}
               {tab==="扶養者"&&<TabSponsor c={cur} allClients={clients} onSelectClient={handleSelectClient}/>}
               {tab==="扶養家族"&&<TabDependents c={cur} allClients={clients} onSelectClient={handleSelectClient}/>}
-              {tab==="案件履歴"&&<TabCaseHistory c={cur} cases={data.cases} payments={data.payments} onNavigateCase={onNavigateToCase}/>}
+              {tab==="案件履歴"&&<TabCaseHistory c={cur} cases={data.cases} payments={data.payments} onNavigateCase={onNavigateToCase} onNewCase={()=>setShowNewCase(true)}/>}
               {tab==="職歴・給与"&&<TabWorkHistory c={cur} editMode={true} update={update} companies={data.companies}/>}
             </div>
           </>
@@ -5303,6 +5327,16 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
       })()}
       {showCustody&&cur&&<CustodyReceiptModal client={cur} office={data.office} onClose={()=>setShowCustody(false)} onIssue={applyCustody} onReturn={applyCustody}/>}
       {showLinkFix&&<ClientLinkFixModal data={data} setData={setData} onClose={()=>setShowLinkFix(false)}/>}
+      {/* 台帳から開く新規案件作成：案件管理の NewCaseModal を lockedClientId 付きで再利用（二重実装しない）。
+          作成後は台帳に留まり、案件履歴タブの一覧に即時反映される（myCases は data.cases から導出）。 */}
+      {showNewCase&&cur&&<NewCaseModal
+        lockedClientId={cur.client_id}
+        onClose={()=>setShowNewCase(false)}
+        clients={clients}
+        nextNo={(data.cases||[]).length>0?Math.max(...(data.cases||[]).map(d=>Number(d.no)||0))+1:1}
+        templates={data.templates||DEFAULT_TEMPLATES}
+        companies={data.companies}
+        onSave={nc=>{setData(prev=>({...prev,cases:[nc,...(prev.cases||[])]}));setShowNewCase(false);}}/>}
     </div>
   );
 }
@@ -5694,10 +5728,22 @@ function ApplyTemplateModal({templates,residenceStatus,onApply,onClose}){
   );
 }
 
-function NewCaseModal({onClose,onSave,clients,nextNo,templates,companies}){
+// テンプレートのヒアリング項目から案件用の hearing_items 1件を生成する。
+// link 付きの項目は、紐づくクライアントの台帳に値があれば answer（dateタイプは date）へ自動転記（プリフィル）。
+// 台帳が空なら空欄のまま。プリフィルは案件作成の瞬間のみで、作成後に台帳を変えても追従しない。
+function prefillHearingItem(h,cl){
+  const item={...h,answer:"",date:""};
+  const v=h.link&&cl?(cl[h.link]||""):"";
+  if(v){ if(h.type==="date") item.date=v; else item.answer=v; }
+  return item;
+}
+
+function NewCaseModal({onClose,onSave,clients,nextNo,templates,companies,lockedClientId}){
   // 同一モーダル内の段階表示：クライアント → 案件種別 → 在留資格 → 書類リスト（テンプレから選ぶ / あとで作成）。
   // 上流の選択を変更したら下流はリセットする。
-  const [clientId,setClientId]=useState("");
+  // lockedClientId：クライアント台帳の案件履歴タブから開いた場合に渡される。
+  // クライアント欄は固定表示（変更不可）になり、選択ドロップダウンは出さない。
+  const [clientId,setClientId]=useState(lockedClientId||"");
   const [caseCategory,setCaseCategory]=useState("");
   const [residenceStatus,setResidenceStatus]=useState("");
   const [docMode,setDocMode]=useState(""); // "" | "template" | "later"
@@ -5735,7 +5781,7 @@ function NewCaseModal({onClose,onSave,clients,nextNo,templates,companies}){
       receipt_number:"",result:"",new_card:"",period:"",next_renewal:"",fee:0,paid:0,
       applicant:cl?.name_roman||"",applicant_id:clientId,requester:requester,requester_id:requesterId,notes:"",official_req_no:"",
       docs:useTpl?tmpl.docs.map(d=>({...d,status:"未取得"})):[],
-      hearing_items:useTpl?tmpl.hearing.map(h=>({...h,answer:"",date:""})):[],
+      hearing_items:useTpl?tmpl.hearing.map(h=>prefillHearingItem(h,cl)):[],
       additional_requests:[]});
   }
   const labelStyle={fontSize:10,color:"#999",marginBottom:4};
@@ -5749,9 +5795,14 @@ function NewCaseModal({onClose,onSave,clients,nextNo,templates,companies}){
         </div>
         <div style={{padding:16,display:"flex",flexDirection:"column",gap:12,overflowY:"auto"}}>
           <div><div style={labelStyle}>クライアント</div>
-            <select value={clientId} onChange={e=>onClientChange(e.target.value)} style={selStyle}>
-              <option value="">選択してください</option>{clients.map(c=><option key={c.client_id} value={c.client_id}>{c.name_roman}</option>)}
-            </select></div>
+            {lockedClientId
+              ?<div style={{fontSize:13,padding:"6px 8px",borderRadius:6,border:"0.5px solid rgba(0,0,0,0.1)",background:"var(--bg2)",color:"var(--text)",display:"flex",alignItems:"center",gap:6}}>
+                <span style={{fontWeight:500}}>{selClient?.name_roman||selClient?.name_kana||selClient?.company_name||lockedClientId}</span>
+                <span style={{fontSize:10,color:"var(--text3)"}}>（台帳から作成・変更不可）</span>
+              </div>
+              :<select value={clientId} onChange={e=>onClientChange(e.target.value)} style={selStyle}>
+                <option value="">選択してください</option>{clients.map(c=><option key={c.client_id} value={c.client_id}>{c.name_roman}</option>)}
+              </select>}</div>
           {clientId&&<div><div style={labelStyle}>案件種別</div>
             <select value={caseCategory} onChange={e=>onCategoryChange(e.target.value)} style={selStyle}>
               <option value="">選択してください</option>{CASE_CATEGORIES.map(cat=><option key={cat} value={cat}>{cat}</option>)}
@@ -5834,11 +5885,12 @@ function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments,templates,com
   function setDocStatus(docId,status){onUpdate({...c,docs:c.docs.map(d=>d.id===docId?{...d,status}:d)});}
   function addDoc(){if(!newDocName.trim())return;onUpdate({...c,docs:[...(c.docs||[]),{id:"x"+Date.now(),name:newDocName.trim(),group:null,status:"未取得"}]});setNewDocName("");}
   // 既存の空案件にテンプレートを適用（書類リスト・ヒアリング項目を流し込み、template_id を紐付け）。
+  // ヒアリング項目が生成される瞬間なので、新規案件作成と同じく link 項目は台帳からプリフィルする。
   function applyTemplate(tid){
     const t=templates[tid];if(!t)return;
     onUpdate({...c,template_id:tid,
       docs:t.docs.map(d=>({...d,status:"未取得"})),
-      hearing_items:t.hearing.map(h=>({...h,answer:"",date:""}))});
+      hearing_items:t.hearing.map(h=>prefillHearingItem(h,client))});
     setShowApplyTpl(false);
   }
   // 現在の書類リスト・ヒアリング項目をマスターの新規テンプレートとして保存（日常業務がそのまま資産になる）。
@@ -5849,7 +5901,7 @@ function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments,templates,com
     onSaveAsTemplate({
       label:name,note:"",
       docs:(c.docs||[]).map(d=>({id:d.id,name:d.name,group:d.group||null})),
-      hearing:(c.hearing_items||[]).map(h=>({id:h.id,type:h.type||"text",label:h.label}))
+      hearing:(c.hearing_items||[]).map(h=>({id:h.id,type:h.type||"text",label:h.label,...(h.link?{link:h.link}:{})}))
     });
     alert(`「${name}」をマスターのテンプレートとして保存しました。`);
   }
@@ -5857,15 +5909,17 @@ function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments,templates,com
     const items=[...c.hearing_items];
     items[i]={...items[i],[field]:val};
     onUpdate({...c,hearing_items:items});
-    // クライアント台帳への自動反映（先勝ち方式）
+    // クライアント台帳への自動反映（先勝ち方式）。
+    // 紐づけ判定はラベル文字列一致ではなく link プロパティ（データ）で行う。
+    // 表示文言を変えても連携は壊れず、逆に link の無いカスタム項目は反映されない。
     if(!client||!onUpdateClient) return;
-    const label=items[i].label||"";
-    // 学校名はここでは反映しない（input の onBlur で確定後に判定する）
-    // 卒業年月日：DateInput が onBlur で値を確定してから onChange を呼ぶため、
+    const link=items[i].link;
+    // テキスト項目はここでは反映しない（input の onBlur で確定後に判定する）
+    // dateタイプ：DateInput が onBlur で値を確定してから onChange を呼ぶため、
     // ここでは中間値の心配なし。台帳が空なら反映するシンプルな先勝ち判定。
-    if(label==="卒業年月日" && field==="date"){
-      if(!client.education_date && val){
-        onUpdateClient(client.client_id,{education_date:val});
+    if(link && items[i].type==="date" && field==="date"){
+      if(!client[link] && val){
+        onUpdateClient(client.client_id,{[link]:val});
       }
     }
   }
@@ -6330,7 +6384,7 @@ function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments,templates,com
               <div style={{fontSize:12,color:"#444",marginBottom:5}}>{item.label}</div>
               {item.type==="date"?(
                 <DateInput value={item.date||""} onChange={v=>updateHearing(i,"date",v)} max="9999-12-31" min="1900-01-01" style={{width:"100%",fontSize:12,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/>
-              ):<input value={item.answer||""} onChange={e=>updateHearing(i,"answer",e.target.value)} onBlur={e=>{if(item.label==="最終学歴の学校名"&&client&&onUpdateClient){if(!client.education_school&&e.target.value){onUpdateClient(client.client_id,{education_school:e.target.value});}}}} placeholder="回答を入力…" style={{width:"100%",fontSize:12,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/>}
+              ):<input value={item.answer||""} onChange={e=>updateHearing(i,"answer",e.target.value)} onBlur={e=>{if(item.link&&item.type!=="date"&&client&&onUpdateClient){if(!client[item.link]&&e.target.value){onUpdateClient(client.client_id,{[item.link]:e.target.value});}}}} placeholder="回答を入力…" style={{width:"100%",fontSize:12,padding:"5px 8px",borderRadius:5,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/>}
             </div>
           ))}
         </div>
