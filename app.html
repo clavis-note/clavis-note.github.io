@@ -5867,6 +5867,8 @@ function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments,templates,com
   const [showClientModal,setShowClientModal]=useState(false);
   const [openPaymentModal,setOpenPaymentModal]=useState(null);
   const [newDocName,setNewDocName]=useState("");
+  const [editingDocId,setEditingDocId]=useState(null);
+  const [editDocName,setEditDocName]=useState("");
   const [newReqDate,setNewReqDate]=useState(new Date().toISOString().slice(0,10));
   const [newReqDeadline,setNewReqDeadline]=useState("");
   const [newReqDocs,setNewReqDocs]=useState([""]);
@@ -5884,6 +5886,11 @@ function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments,templates,com
   function cycleDoc(docId){onUpdate({...c,docs:c.docs.map(d=>d.id!==docId?d:{...d,status:DOC_STATUS_CYCLE[d.status]||"未取得"})});}
   function setDocStatus(docId,status){onUpdate({...c,docs:c.docs.map(d=>d.id===docId?{...d,status}:d)});}
   function addDoc(){if(!newDocName.trim())return;onUpdate({...c,docs:[...(c.docs||[]),{id:"x"+Date.now(),name:newDocName.trim(),group:null,status:"未取得"}]});setNewDocName("");}
+  // 書類名のインライン編集（案件ローカルのみ。docs はテンプレからスナップショット済みなのでマスターには影響しない）。
+  function startEditDoc(doc){setEditingDocId(doc.id);setEditDocName(doc.name);}
+  function saveEditDoc(docId){const nm=editDocName.trim();if(nm)onUpdate({...c,docs:c.docs.map(d=>d.id===docId?{...d,name:nm}:d)});setEditingDocId(null);}
+  // テンプレ由来の行は id が "d1" 等（手動追加は "x"+timestamp）。テンプレ由来の編集時のみ「マスター非影響」注記を出す。
+  const isTemplateDoc=doc=>!String(doc.id).startsWith("x");
   // 既存の空案件にテンプレートを適用（書類リスト・ヒアリング項目を流し込み、template_id を紐付け）。
   // ヒアリング項目が生成される瞬間なので、新規案件作成と同じく link 項目は台帳からプリフィルする。
   function applyTemplate(tid){
@@ -6360,10 +6367,17 @@ function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments,templates,com
                   <div onClick={()=>!isIrr&&cycleDoc(doc.id)} style={{width:18,height:18,borderRadius:4,border:`1.5px solid ${s.chkBorder}`,background:s.chkBg,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,cursor:isIrr?"default":"pointer",opacity:isIrr?0.3:1}}>
                     {(doc.status==="取得済"||doc.status==="提出済")&&<span style={{color:"#fff",fontSize:10}}>✓</span>}
                   </div>
-                  <span style={{flex:1,fontSize:12,color:s.textColor,textDecoration:isIrr?"line-through":""}}>{doc.name}</span>
-                  {doc.status==="提出済"&&<span style={{fontSize:10,color:"#3B6D11",fontWeight:500}}>提出済</span>}
-                  {doc.status==="取得済"&&<span style={{fontSize:10,color:"#854F0B",fontWeight:500}}>取得済</span>}
-                  <button onClick={()=>setDocStatus(doc.id,isIrr?"未取得":"不要")} style={{fontSize:10,padding:"1px 5px",borderRadius:3,border:"0.5px solid #ddd",background:"transparent",cursor:"pointer",color:isIrr?"#999":"#ddd"}}>{isIrr?"戻す":"不要"}</button>
+                  {editingDocId===doc.id?(
+                    <div style={{flex:1,display:"flex",flexDirection:"column",gap:2}}>
+                      <input autoFocus value={editDocName} onChange={e=>setEditDocName(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")saveEditDoc(doc.id);if(e.key==="Escape")setEditingDocId(null);}} onBlur={()=>saveEditDoc(doc.id)} style={{width:"100%",fontSize:12,padding:"3px 6px",borderRadius:4,border:"0.5px solid #378ADD",background:"var(--bg2)"}}/>
+                      {isTemplateDoc(doc)&&<span style={{fontSize:10,color:"#999",lineHeight:1.3}}>※この案件のみに反映されます（テンプレートは変わりません）</span>}
+                    </div>
+                  ):(
+                    <span onClick={()=>startEditDoc(doc)} title="クリックで書類名を編集" style={{flex:1,fontSize:12,color:s.textColor,textDecoration:isIrr?"line-through":"",cursor:"text"}}>{doc.name}</span>
+                  )}
+                  {editingDocId!==doc.id&&doc.status==="提出済"&&<span style={{fontSize:10,color:"#3B6D11",fontWeight:500}}>提出済</span>}
+                  {editingDocId!==doc.id&&doc.status==="取得済"&&<span style={{fontSize:10,color:"#854F0B",fontWeight:500}}>取得済</span>}
+                  {editingDocId!==doc.id&&<button onClick={()=>setDocStatus(doc.id,isIrr?"未取得":"不要")} style={{fontSize:10,padding:"1px 5px",borderRadius:3,border:"0.5px solid #ddd",background:"transparent",cursor:"pointer",color:isIrr?"#999":"#ddd"}}>{isIrr?"戻す":"不要"}</button>}
                 </div>
               );
             })}
@@ -6800,12 +6814,17 @@ function ClientInfoModal({client,onClose,onOpenLedger}){
 function GeneralCaseDetail({c,onUpdate,onDelete,clients,payments,onNavigateToClient}){
   const isMobile=useMobile();
   const [newDocName,setNewDocName]=useState("");
+  const [editingDocId,setEditingDocId]=useState(null);
+  const [editDocName,setEditDocName]=useState("");
   const [showClientModal,setShowClientModal]=useState(false);
   const [openPaymentModal,setOpenPaymentModal]=useState(null);
   function updateField(f,v){onUpdate({...c,[f]:v});}
   function cycleDoc(docId){onUpdate({...c,docs:(c.docs||[]).map(d=>d.id!==docId?d:{...d,status:DOC_STATUS_CYCLE[d.status]||"未取得"})});}
   function addDoc(){if(!newDocName.trim())return;onUpdate({...c,docs:[...(c.docs||[]),{id:"x"+Date.now(),name:newDocName.trim(),group:null,status:"未取得"}]});setNewDocName("");}
   function removeDoc(docId){onUpdate({...c,docs:(c.docs||[]).filter(d=>d.id!==docId)});}
+  // 書類名のインライン編集。一般案件の docs は全て手動追加（id="x"+timestamp）なのでテンプレ非影響の注記は不要。
+  function startEditDoc(doc){setEditingDocId(doc.id);setEditDocName(doc.name);}
+  function saveEditDoc(docId){const nm=editDocName.trim();if(nm)onUpdate({...c,docs:(c.docs||[]).map(d=>d.id===docId?{...d,name:nm}:d)});setEditingDocId(null);}
   const catColor=JOURNAL_CAT_COLOR[c.category]||{bg:"#F1EFE8",color:"#5F5E5A"};
   const docs=c.docs||[];
   const submitted=docs.filter(d=>d.status==="提出済").length;
@@ -6911,10 +6930,14 @@ function GeneralCaseDetail({c,onUpdate,onDelete,clients,payments,onNavigateToCli
               <div onClick={()=>!isIrr&&cycleDoc(doc.id)} style={{width:18,height:18,borderRadius:4,border:`1.5px solid ${s.chkBorder}`,background:s.chkBg,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,cursor:isIrr?"default":"pointer"}}>
                 {(doc.status==="取得済"||doc.status==="提出済")&&<span style={{color:"#fff",fontSize:10}}>✓</span>}
               </div>
-              <span style={{flex:1,fontSize:12,color:s.textColor,textDecoration:isIrr?"line-through":""}}>{doc.name}</span>
-              {doc.status==="提出済"&&<span style={{fontSize:10,color:"#3B6D11",fontWeight:500}}>提出済</span>}
-              {doc.status==="取得済"&&<span style={{fontSize:10,color:"#854F0B",fontWeight:500}}>取得済</span>}
-              <button onClick={()=>removeDoc(doc.id)} style={{fontSize:10,padding:"1px 5px",borderRadius:3,border:"0.5px solid #ddd",background:"transparent",cursor:"pointer",color:"#ccc"}}>×</button>
+              {editingDocId===doc.id?(
+                <input autoFocus value={editDocName} onChange={e=>setEditDocName(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")saveEditDoc(doc.id);if(e.key==="Escape")setEditingDocId(null);}} onBlur={()=>saveEditDoc(doc.id)} style={{flex:1,fontSize:12,padding:"3px 6px",borderRadius:4,border:"0.5px solid #378ADD",background:"var(--bg2)"}}/>
+              ):(
+                <span onClick={()=>startEditDoc(doc)} title="クリックで書類名を編集" style={{flex:1,fontSize:12,color:s.textColor,textDecoration:isIrr?"line-through":"",cursor:"text"}}>{doc.name}</span>
+              )}
+              {editingDocId!==doc.id&&doc.status==="提出済"&&<span style={{fontSize:10,color:"#3B6D11",fontWeight:500}}>提出済</span>}
+              {editingDocId!==doc.id&&doc.status==="取得済"&&<span style={{fontSize:10,color:"#854F0B",fontWeight:500}}>取得済</span>}
+              {editingDocId!==doc.id&&<button onClick={()=>removeDoc(doc.id)} style={{fontSize:10,padding:"1px 5px",borderRadius:3,border:"0.5px solid #ddd",background:"transparent",cursor:"pointer",color:"#ccc"}}>×</button>}
             </div>
           );
         })}
