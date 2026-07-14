@@ -1158,6 +1158,44 @@ function migrateData(saved){
       saved.templates=tpls;
     }
   }
+  // v22: まとめ請求（case_ids 複数）に紐づく案件の fee を明細から再同期し、事件簿の報酬額空欄を解消する。
+  //  実請求額基準：applicant が一致する明細のみ税処理後で合算、立替金・実費(expenses)は除外、帰属不明明細は計上しない
+  //  （= calcCaseBilledFee。ランタイムの syncCaseFromPayment と同一ロジック）。
+  //  ★上書きルール：請求由来の実請求額(billed>0)で fee を上書きする（「実請求額との一致」が目的のため。
+  //    手入力feeもまとめ請求に紐づく案件は請求由来値へ揃える）。ただし billed===0（紐づく明細なし等）の案件は
+  //    既存feeを保持し壊さない。何度実行しても同じ結果＝冪等。全load経路（読込/Drive同期/復元/インポート）に一律に効く。
+  //  ★退避：feeは法定帳簿の記載事項のため、書き換えが実際に発生する初回のみ、書き換え前のfeeを専用キーへ退避する
+  //    （復旧用・冪等：既存退避があれば温存。UNDO履歴/Drive版管理に加えた安全弁）。
+  if(saved.cases && saved.payments){
+    const bundlePayments=(saved.payments||[]).filter(p=>!p.is_prospect&&(p.case_ids||[]).length>1);
+    if(bundlePayments.length>0){
+      const bundledCaseIds=new Set(bundlePayments.flatMap(p=>p.case_ids||[]));
+      // 実際に fee が変わる案件（退避対象＝変更対象）を先に特定
+      const changes=saved.cases.filter(c=>{
+        if(!bundledCaseIds.has(c.case_id)) return false;
+        const billed=calcCaseBilledFee(c, saved.payments);
+        return billed>0 && billed!==(c.fee||0);
+      });
+      if(changes.length>0){
+        try{
+          const bkKey=DEMO_MODE?"clavis-note-fee-resync-bk-demo":"clavis-note-fee-resync-bk";
+          if(!localStorage.getItem(bkKey)){
+            localStorage.setItem(bkKey, JSON.stringify({
+              savedAt:new Date().toISOString(),
+              reason:"まとめ請求fee再同期(v22)前の退避",
+              cases:changes.map(c=>({case_id:c.case_id, fee:c.fee||0}))
+            }));
+          }
+        }catch(e){ /* 退避失敗（容量等）は本処理を止めない */ }
+        saved.cases=saved.cases.map(c=>{
+          if(!bundledCaseIds.has(c.case_id)) return c;
+          const billed=calcCaseBilledFee(c, saved.payments);
+          if(billed>0 && billed!==(c.fee||0)) return {...c, fee:billed};
+          return c;
+        });
+      }
+    }
+  }
   return saved;
 }
 
@@ -1565,6 +1603,30 @@ function caseAmountsFromPayments(cs, payments){
   const billed=linked.reduce((s,p)=>s+calcGrandTotal(p.items,p.expenses,p.tax_mode||"tax_incl"),0);
   const paid=linked.reduce((s,p)=>s+(p.payments_history||[]).reduce((a,h)=>a+(h.amount||0),0),0);
   return {billed, paid, unpaid:billed-paid, hasPayment:true};
+}
+// 案件1件が、ある請求から受け取る「報酬額(fee)」の寄与を算出する。案件管理「報酬・入金」の
+// 案件別表示（isBundle分岐）と同一ロジックで、事件簿fee同期にも同じ実請求額を使う。
+//  - 個別請求(case_ids 1件以下): 請求全体 = items(税処理後) + billable expenses（= calcGrandTotal。現行の個別請求分岐と同一）。
+//  - まとめ請求(case_ids 複数): applicant が一致する明細(item)のみを税処理後で合算。
+//      立替金・実費(expenses)は報酬でないため除外。applicantで案件に紐づかない明細（手入力行・値引き行等の
+//      帰属不明分）はどの案件にも計上しない（法定帳簿のため推定按分しない＝確実に紐づく分だけ正確に計上）。
+//  税の扱い(税込/税抜)は個別請求分岐と同じ calcTaxedTotal に揃える。
+function caseFeeContribution(payment, caseObj){
+  if(!payment||payment.is_prospect) return 0;
+  const taxMode=payment.tax_mode||"tax_incl";
+  if((payment.case_ids||[]).length<=1){
+    return calcGrandTotal(payment.items||[],payment.expenses||[],taxMode);
+  }
+  const myItems=(payment.items||[]).filter(it=>it.applicant&&caseObj.applicant&&it.applicant===caseObj.applicant);
+  if(myItems.length===0) return 0;
+  return calcTaxedTotal(calcItemsTotal(myItems),taxMode);
+}
+// 案件の実請求額(fee)＝紐づく全請求(非見込)からの寄与合計。
+// 「事件簿の報酬額計＝実際の請求額合計」を保つため、複数請求に跨る案件は各請求の寄与を合算する。冪等。
+function calcCaseBilledFee(caseObj, payments){
+  return (payments||[])
+    .filter(p=>!p.is_prospect&&(p.case_ids||[]).includes(caseObj.case_id))
+    .reduce((s,p)=>s+caseFeeContribution(p,caseObj),0);
 }
 function isFollowClient(clientId, clients){
   const cl=(clients||[]).find(x=>x.client_id===clientId);
@@ -3426,7 +3488,7 @@ function Dashboard({data,setData,onNavClient,onNavCase,onNavPayment,onNavMaster}
         return promotedPayment;
       });
       // 案件化と同時に紐付け先案件のfee/invoice情報も同期
-      const syncedCases=promotedPayment?syncCaseFromPayment(newCases,promotedPayment):newCases;
+      const syncedCases=promotedPayment?syncCaseFromPayment(newCases,promotedPayment,newPayments):newCases;
       return {...prev,clients:newClients,cases:syncedCases,payments:newPayments};
     });
     setPromotingProspect(null);
@@ -8876,16 +8938,19 @@ function MergeConfirmModal({targets,billCandidates,onClose,onConfirm}){
   );
 }
 
-// 請求書 → 紐付け案件への書き込み（個別請求はfee含め全項目、まとめ請求はinvoice情報のみ）
-function syncCaseFromPayment(prevCases,payment){
+// 請求書 → 紐付け案件への書き込み（個別請求はfee含め全項目、まとめ請求はinvoice情報＋明細から算出した案件別feeを書き込み）
+// allPayments を渡すと fee は紐づく全請求から合算して算出する（「事件簿の報酬額計＝実請求額合計」を保つ）。
+// 未指定時はこの請求のみで算出（後方互換）。
+function syncCaseFromPayment(prevCases,payment,allPayments){
   if(!payment||payment.is_prospect) return prevCases;
   const caseIds=payment.case_ids||[];
   if(caseIds.length===0) return prevCases;
+  const payments=allPayments||[payment];
   const totalFee=calcGrandTotal(payment.items||[],payment.expenses||[],payment.tax_mode||"tax_incl");
   return prevCases.map(c=>{
     if(!caseIds.includes(c.case_id)) return c;
     if(caseIds.length===1){
-      // 個別請求: fee + invoice情報を全部書き込み
+      // 個別請求: fee + invoice情報を全部書き込み（従来どおり calcGrandTotal＝billable expenses込みのfee。挙動不変）
       return{...c,
         fee:totalFee,
         invoice_no:payment.invoice_number||c.invoice_no||"",
@@ -8894,12 +8959,16 @@ function syncCaseFromPayment(prevCases,payment){
         expenses:payment.expenses||c.expenses||[]
       };
     } else {
-      // まとめ請求: 各案件には invoice情報のみ書き込み (feeは触らない、按分が複雑なため)
-      return{...c,
+      // まとめ請求: invoice情報を書き込み、feeは明細から算出した案件ごとの実請求額を反映（事件簿の空欄を解消）。
+      // 紐づく明細が無く実請求額が0の案件は既存feeを保持（推定按分せず、手入力feeも壊さない）。
+      const billed=calcCaseBilledFee(c,payments);
+      const next={...c,
         invoice_no:payment.invoice_number||c.invoice_no||"",
         invoice_date:payment.invoice_date||c.invoice_date||"",
         bill_to_name:payment.bill_to_name||c.bill_to_name||""
       };
+      if(billed>0) next.fee=billed;
+      return next;
     }
   });
 }
@@ -9012,22 +9081,20 @@ function PaymentManagement({data,setData,navigatePaymentId,clearNavigate}){
   const selected=(payments||[]).find(p=>p.payment_id===selectedId&&!p.is_prospect)||null;
 
   function handleUpdate(updated){
-    setData(prev=>({
-      ...prev,
-      payments:(prev.payments||[]).map(p=>p.payment_id===updated.payment_id?updated:p),
-      cases:syncCaseFromPayment(prev.cases||[],updated)
-    }));
+    setData(prev=>{
+      const newPayments=(prev.payments||[]).map(p=>p.payment_id===updated.payment_id?updated:p);
+      return {...prev,payments:newPayments,cases:syncCaseFromPayment(prev.cases||[],updated,newPayments)};
+    });
   }
   function handleDelete(paymentId){
     setData(prev=>({...prev,payments:(prev.payments||[]).filter(p=>p.payment_id!==paymentId)}));
     setSelectedId(null);
   }
   function handleNew(np){
-    setData(prev=>({
-      ...prev,
-      payments:[np,...(prev.payments||[])],
-      cases:syncCaseFromPayment(prev.cases||[],np)
-    }));
+    setData(prev=>{
+      const newPayments=[np,...(prev.payments||[])];
+      return {...prev,payments:newPayments,cases:syncCaseFromPayment(prev.cases||[],np,newPayments)};
+    });
     setSelectedId(np.payment_id);
     setShowNew(false);
   }
@@ -9172,7 +9239,11 @@ function PaymentManagement({data,setData,navigatePaymentId,clearNavigate}){
       payments_history:targets.flatMap((t,ti)=>(t.payments_history||[]).map((h,hi)=>({...h,id:"h"+ti+"_"+hi}))),
       notes:targets.map(t=>t.notes).filter(Boolean).join(" / ")
     };
-    setData(prev=>({...prev,payments:[merged,...(prev.payments||[]).filter(p=>!mergeIds.includes(p.payment_id))]}));
+    setData(prev=>{
+      const newPayments=[merged,...(prev.payments||[]).filter(p=>!mergeIds.includes(p.payment_id))];
+      // まとめ請求の生成時に、紐付け先案件へ invoice情報＋明細から算出した案件別feeを同期
+      return {...prev,payments:newPayments,cases:syncCaseFromPayment(prev.cases||[],merged,newPayments)};
+    });
     setSelectedId(merged.payment_id);
     setMergeMode(false);setMergeIds([]);setMergeConfirm(null);
   }
