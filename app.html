@@ -6373,11 +6373,12 @@ function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments,templates,com
                       {isTemplateDoc(doc)&&<span style={{fontSize:10,color:"#999",lineHeight:1.3}}>※この案件のみに反映されます（テンプレートは変わりません）</span>}
                     </div>
                   ):(
-                    <span onClick={()=>startEditDoc(doc)} title="クリックで書類名を編集" style={{flex:1,fontSize:12,color:s.textColor,textDecoration:isIrr?"line-through":"",cursor:"text"}}>{doc.name}</span>
+                    <span style={{flex:1,fontSize:12,color:s.textColor,textDecoration:isIrr?"line-through":""}}>{doc.name}</span>
                   )}
                   {editingDocId!==doc.id&&doc.status==="提出済"&&<span style={{fontSize:10,color:"#3B6D11",fontWeight:500}}>提出済</span>}
                   {editingDocId!==doc.id&&doc.status==="取得済"&&<span style={{fontSize:10,color:"#854F0B",fontWeight:500}}>取得済</span>}
-                  {editingDocId!==doc.id&&<button onClick={()=>setDocStatus(doc.id,isIrr?"未取得":"不要")} style={{fontSize:10,padding:"1px 5px",borderRadius:3,border:"0.5px solid #ddd",background:"transparent",cursor:"pointer",color:isIrr?"#999":"#ddd"}}>{isIrr?"戻す":"不要"}</button>}
+                  {editingDocId!==doc.id&&<button onClick={()=>startEditDoc(doc)} title="書類名を編集" style={{fontSize:11,lineHeight:1,padding:"2px 6px",borderRadius:3,border:"0.5px solid #ddd",background:"transparent",cursor:"pointer",color:"#999",flexShrink:0}}>✎</button>}
+                  {editingDocId!==doc.id&&<button onClick={()=>setDocStatus(doc.id,isIrr?"未取得":"不要")} style={{fontSize:10,padding:"1px 5px",borderRadius:3,border:"0.5px solid #ddd",background:"transparent",cursor:"pointer",color:isIrr?"#999":"#ddd",flexShrink:0}}>{isIrr?"戻す":"不要"}</button>}
                 </div>
               );
             })}
@@ -6933,11 +6934,12 @@ function GeneralCaseDetail({c,onUpdate,onDelete,clients,payments,onNavigateToCli
               {editingDocId===doc.id?(
                 <input autoFocus value={editDocName} onChange={e=>setEditDocName(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")saveEditDoc(doc.id);if(e.key==="Escape")setEditingDocId(null);}} onBlur={()=>saveEditDoc(doc.id)} style={{flex:1,fontSize:12,padding:"3px 6px",borderRadius:4,border:"0.5px solid #378ADD",background:"var(--bg2)"}}/>
               ):(
-                <span onClick={()=>startEditDoc(doc)} title="クリックで書類名を編集" style={{flex:1,fontSize:12,color:s.textColor,textDecoration:isIrr?"line-through":"",cursor:"text"}}>{doc.name}</span>
+                <span style={{flex:1,fontSize:12,color:s.textColor,textDecoration:isIrr?"line-through":""}}>{doc.name}</span>
               )}
               {editingDocId!==doc.id&&doc.status==="提出済"&&<span style={{fontSize:10,color:"#3B6D11",fontWeight:500}}>提出済</span>}
               {editingDocId!==doc.id&&doc.status==="取得済"&&<span style={{fontSize:10,color:"#854F0B",fontWeight:500}}>取得済</span>}
-              {editingDocId!==doc.id&&<button onClick={()=>removeDoc(doc.id)} style={{fontSize:10,padding:"1px 5px",borderRadius:3,border:"0.5px solid #ddd",background:"transparent",cursor:"pointer",color:"#ccc"}}>×</button>}
+              {editingDocId!==doc.id&&<button onClick={()=>startEditDoc(doc)} title="書類名を編集" style={{fontSize:11,lineHeight:1,padding:"2px 6px",borderRadius:3,border:"0.5px solid #ddd",background:"transparent",cursor:"pointer",color:"#999",flexShrink:0}}>✎</button>}
+              {editingDocId!==doc.id&&<button onClick={()=>removeDoc(doc.id)} style={{fontSize:10,padding:"1px 5px",borderRadius:3,border:"0.5px solid #ddd",background:"transparent",cursor:"pointer",color:"#ccc",flexShrink:0}}>×</button>}
             </div>
           );
         })}
