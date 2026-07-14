@@ -1610,13 +1610,20 @@ function IMEInput({value,onChange,style,...props}){
 }
 
 // 自動伸長する件名入力（長い件名を折り返して全文表示）。改行は混入させない。
-function AutoGrowTitleInput({value,onChange,style,onFocus,onBlur,placeholder,...props}){
+// 共通の編集アイコンボタン。アプリ全体で「編集＝✎ボタン」に文法統一するための単一実装。
+// 見た目を一箇所に集約し、将来もズレないようにする。tooltipは既定「編集」。
+function EditBtn({onClick,title="編集",style}){
+  return <button onClick={onClick} title={title} style={{fontSize:12,lineHeight:1,padding:"2px 7px",borderRadius:4,border:"0.5px solid var(--border2)",background:"transparent",cursor:"pointer",color:"var(--text3)",flexShrink:0,...style}}>✎</button>;
+}
+function AutoGrowTitleInput({value,onChange,style,onFocus,onBlur,placeholder,inputRef,...props}){
   const ref=React.useRef(null);
+  // 内部refと外部から渡されたinputRef（✎ボタンからのフォーカス用）の両方に接続する
+  const setRef=el=>{ref.current=el;if(inputRef){if(typeof inputRef==="function")inputRef(el);else inputRef.current=el;}};
   const resize=()=>{const el=ref.current;if(!el)return;el.style.height="auto";el.style.height=el.scrollHeight+"px";};
   // 値が外部から変わった場合（案件切り替え等）にも高さを追従させる
   React.useLayoutEffect(()=>{resize();},[value]);
   const strip=v=>v.replace(/[\r\n]+/g,"");
-  return <textarea ref={ref} rows={1} value={value||""}
+  return <textarea ref={setRef} rows={1} value={value||""}
     placeholder={placeholder}
     onInput={resize}
     onChange={e=>{const v=strip(e.target.value);onChange(v);}}
@@ -3823,7 +3830,7 @@ function ResidenceHistorySection({c,update}){
               </div>
             </div>
             <div style={{display:"flex",gap:4,flexShrink:0}}>
-              <button onClick={()=>startEdit(h)} style={{fontSize:10,padding:"1px 6px",cursor:"pointer",borderRadius:3,border:"0.5px solid #ddd",background:"transparent",color:"#999"}}>編集</button>
+              <EditBtn onClick={()=>startEdit(h)}/>
               <button onClick={()=>remove(h.id)} style={{fontSize:10,padding:"1px 5px",cursor:"pointer",borderRadius:3,border:"0.5px solid #ddd",background:"transparent",color:"#ccc"}}>×</button>
             </div>
           </div>
@@ -4509,7 +4516,7 @@ function TabWorkHistory({c,editMode,update,companies}){
                     {[w.company_name,w.store].filter(Boolean).join(" ")}
                     {!w.end_date&&<span style={{fontSize:10,padding:"2px 6px",background:"#E1F5EE",color:"#0F6E56",borderRadius:3}}>現職</span>}
                     {editMode&&<span style={{display:"flex",gap:3,marginLeft:"auto"}}>
-                      <button onClick={()=>startEditWork(w)} style={{fontSize:10,padding:"2px 6px",borderRadius:3,border:"0.5px solid var(--border)",background:"transparent",cursor:"pointer",color:"var(--text3)"}}>編集</button>
+                      <EditBtn onClick={()=>startEditWork(w)}/>
                       <button onClick={()=>deleteWork(w.id)} style={{fontSize:10,padding:"2px 6px",borderRadius:3,border:"0.5px solid #A32D2D",background:"transparent",cursor:"pointer",color:"#A32D2D"}}>削除</button>
                     </span>}
                   </div>
@@ -4537,7 +4544,7 @@ function TabWorkHistory({c,editMode,update,companies}){
                       {calc&&<span style={{fontSize:10,padding:"1px 5px",borderRadius:3,background:"#E6F1FB",color:"#185FA5"}}>換算 ¥{calc.toLocaleString()}/h</span>}
                       <span style={{fontSize:10,padding:"1px 5px",borderRadius:3,background:s.min_wage_check===true?"#EAF3DE":s.min_wage_check===false?"#FCEBEB":"#FAEEDA",color:s.min_wage_check===true?"#3B6D11":s.min_wage_check===false?"#A32D2D":"#854F0B"}}>{s.min_wage_check===true?"最賃OK":s.min_wage_check===false?"要確認":"照合不能"}</span>
                       {editMode&&<>
-                        <button onClick={()=>startEditSalary(s)} style={{fontSize:9,padding:"1px 5px",borderRadius:3,border:"0.5px solid var(--border)",background:"transparent",cursor:"pointer",color:"var(--text3)"}}>編集</button>
+                        <EditBtn onClick={()=>startEditSalary(s)}/>
                         <button onClick={()=>deleteSalary(s.id)} style={{fontSize:9,padding:"1px 5px",borderRadius:3,border:"0.5px solid #A32D2D",background:"transparent",cursor:"pointer",color:"#A32D2D"}}>✕</button>
                       </>}
                     </div>
@@ -5869,6 +5876,7 @@ function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments,templates,com
   const [newDocName,setNewDocName]=useState("");
   const [editingDocId,setEditingDocId]=useState(null);
   const [editDocName,setEditDocName]=useState("");
+  const titleRef=React.useRef(null);
   const [newReqDate,setNewReqDate]=useState(new Date().toISOString().slice(0,10));
   const [newReqDeadline,setNewReqDeadline]=useState("");
   const [newReqDocs,setNewReqDocs]=useState([""]);
@@ -6238,12 +6246,15 @@ function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments,templates,com
             {c.applicant&&<div style={{fontSize:16,fontWeight:600,marginBottom:2,display:"flex",alignItems:"center",gap:6}}>
               {client?<span onClick={()=>setShowClientModal(true)} style={{cursor:"pointer",borderBottom:"1px dashed #999"}} title="クライアント情報を表示">{c.applicant}</span>:<span>{c.applicant}</span>}
             </div>}
-            <AutoGrowTitleInput value={c.case_title||""}
-              onChange={v=>updateField("case_title",v)}
-              placeholder="件名（例: 技能（調理）COE）"
-              style={{fontSize:13,color:c.applicant?"var(--text3)":"#1a1a1a",fontWeight:c.applicant?400:500,marginBottom:3,padding:"3px 6px",borderRadius:4,border:"0.5px solid transparent",background:"transparent",width:"100%"}}
-              onFocus={e=>{e.target.style.border="0.5px solid rgba(0,0,0,0.15)";e.target.style.background="var(--bg2)";}}
-              onBlur={e=>{e.target.style.border="0.5px solid transparent";e.target.style.background="transparent";}}/>
+            <div style={{display:"flex",alignItems:"flex-start",gap:4,marginBottom:3}}>
+              <AutoGrowTitleInput inputRef={titleRef} value={c.case_title||""}
+                onChange={v=>updateField("case_title",v)}
+                placeholder="件名（例: 技能（調理）COE）"
+                style={{fontSize:13,color:c.applicant?"var(--text3)":"#1a1a1a",fontWeight:c.applicant?400:500,padding:"3px 6px",borderRadius:4,border:"0.5px solid transparent",background:"transparent",flex:1,minWidth:0}}
+                onFocus={e=>{e.target.style.border="0.5px solid rgba(0,0,0,0.15)";e.target.style.background="var(--bg2)";}}
+                onBlur={e=>{e.target.style.border="0.5px solid transparent";e.target.style.background="transparent";}}/>
+              <EditBtn onClick={()=>titleRef.current&&titleRef.current.focus()} title="件名を編集"/>
+            </div>
             <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
               <span style={{fontSize:12,color:"#666"}}>{client?.name_roman}</span>
               {metaLabel&&<><span style={{fontSize:11,color:"#999"}}>·</span><span style={{fontSize:11,color:"#666"}}>{metaLabel}</span></>}
@@ -6377,7 +6388,7 @@ function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments,templates,com
                   )}
                   {editingDocId!==doc.id&&doc.status==="提出済"&&<span style={{fontSize:10,color:"#3B6D11",fontWeight:500}}>提出済</span>}
                   {editingDocId!==doc.id&&doc.status==="取得済"&&<span style={{fontSize:10,color:"#854F0B",fontWeight:500}}>取得済</span>}
-                  {editingDocId!==doc.id&&<button onClick={()=>startEditDoc(doc)} title="書類名を編集" style={{fontSize:11,lineHeight:1,padding:"2px 6px",borderRadius:3,border:"0.5px solid #ddd",background:"transparent",cursor:"pointer",color:"#999",flexShrink:0}}>✎</button>}
+                  {editingDocId!==doc.id&&<EditBtn onClick={()=>startEditDoc(doc)} title="書類名を編集"/>}
                   {editingDocId!==doc.id&&<button onClick={()=>setDocStatus(doc.id,isIrr?"未取得":"不要")} style={{fontSize:10,padding:"1px 5px",borderRadius:3,border:"0.5px solid #ddd",background:"transparent",cursor:"pointer",color:isIrr?"#999":"#ddd",flexShrink:0}}>{isIrr?"戻す":"不要"}</button>}
                 </div>
               );
@@ -6431,7 +6442,7 @@ function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments,templates,com
               {r.submission_method&&<div style={{display:"flex",alignItems:"center",gap:8,marginTop:3}}><span style={{fontSize:11,padding:"1px 6px",borderRadius:3,...(r.submission_method==="窓口持参"?{background:"#E3F3E9",color:"#2E7D4F"}:{background:"#EEEDFE",color:"#534AB7"})}}>{r.submission_method}</span>{r.tracking_number&&<span style={{fontSize:11,color:"#666"}}>追跡: {r.tracking_number}</span>}</div>}
               {r.memo&&<div style={{fontSize:11,padding:"3px 8px",background:"rgba(0,0,0,0.04)",borderRadius:4,color:"#555",marginTop:4}}>メモ: {r.memo}</div>}
               <div style={{display:"flex",justifyContent:"flex-end",marginTop:6}}>
-                <button onClick={()=>startEditReq(r)} style={{fontSize:10,padding:"2px 8px",cursor:"pointer",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"transparent",color:"#666"}}>編集</button>
+                <EditBtn onClick={()=>startEditReq(r)}/>
               </div>
             </div>
           );
@@ -6579,7 +6590,7 @@ function ContactsSection({contacts,onChange,rolePresets}){
             {ct.note&&<div style={{fontSize:11,color:"#999",marginTop:2}}>{ct.note}</div>}
           </div>
           <div style={{display:"flex",gap:4,flexShrink:0}}>
-            <button onClick={()=>startEdit(ct)} style={{fontSize:10,padding:"2px 6px",cursor:"pointer",borderRadius:3,border:"0.5px solid #ddd",background:"transparent",color:"#999"}}>編集</button>
+            <EditBtn onClick={()=>startEdit(ct)}/>
             <button onClick={()=>remove(ct.id)} style={{fontSize:10,padding:"2px 6px",cursor:"pointer",borderRadius:3,border:"0.5px solid #ddd",background:"transparent",color:"#ccc"}}>×</button>
           </div>
         </div>
@@ -6665,7 +6676,7 @@ function CommLogSection({logs,contacts,onChange}){
               <div style={{fontSize:12,color:"#444",whiteSpace:"pre-wrap"}}>{l.content}</div>
             </div>
             <div style={{display:"flex",gap:4,flexShrink:0,alignItems:"center"}}>
-              <button onClick={()=>startEdit(l)} style={{fontSize:10,padding:"1px 6px",cursor:"pointer",borderRadius:3,border:"0.5px solid #ddd",background:"transparent",color:"#999"}}>編集</button>
+              <EditBtn onClick={()=>startEdit(l)}/>
               <button onClick={()=>remove(l.id)} style={{fontSize:10,padding:"1px 5px",cursor:"pointer",borderRadius:3,border:"0.5px solid #ddd",background:"transparent",color:"#ccc"}}>×</button>
             </div>
           </div>
@@ -6817,6 +6828,7 @@ function GeneralCaseDetail({c,onUpdate,onDelete,clients,payments,onNavigateToCli
   const [newDocName,setNewDocName]=useState("");
   const [editingDocId,setEditingDocId]=useState(null);
   const [editDocName,setEditDocName]=useState("");
+  const titleRef=React.useRef(null);
   const [showClientModal,setShowClientModal]=useState(false);
   const [openPaymentModal,setOpenPaymentModal]=useState(null);
   function updateField(f,v){onUpdate({...c,[f]:v});}
@@ -6840,7 +6852,13 @@ function GeneralCaseDetail({c,onUpdate,onDelete,clients,payments,onNavigateToCli
             {displayName&&<div style={{fontSize:16,fontWeight:600,marginBottom:2,display:"flex",alignItems:"center",gap:6}}>
               {linkedClient?<span onClick={()=>setShowClientModal(true)} style={{cursor:"pointer",borderBottom:"1px dashed #999"}} title="クライアント情報を表示">{displayName}</span>:<span>{displayName}</span>}
             </div>}
-            <div style={{fontSize:13,color:displayName?"var(--text3)":"#1a1a1a",fontWeight:displayName?400:500,marginBottom:3}}><AutoGrowTitleInput value={c.case_title||""} onChange={v=>updateField("case_title",v)} style={{fontSize:13,fontWeight:displayName?400:500,border:"none",background:"transparent",width:"100%",padding:0,color:displayName?"var(--text3)":"#1a1a1a"}}/></div>
+            <div style={{display:"flex",alignItems:"flex-start",gap:4,marginBottom:3}}>
+              <AutoGrowTitleInput inputRef={titleRef} value={c.case_title||""} onChange={v=>updateField("case_title",v)} placeholder="件名を入力…"
+                style={{fontSize:13,fontWeight:displayName?400:500,padding:"3px 6px",borderRadius:4,border:"0.5px solid transparent",background:"transparent",flex:1,minWidth:0,color:displayName?"var(--text3)":"#1a1a1a"}}
+                onFocus={e=>{e.target.style.border="0.5px solid rgba(0,0,0,0.15)";e.target.style.background="var(--bg2)";}}
+                onBlur={e=>{e.target.style.border="0.5px solid transparent";e.target.style.background="transparent";}}/>
+              <EditBtn onClick={()=>titleRef.current&&titleRef.current.focus()} title="件名を編集"/>
+            </div>
             <div style={{display:"flex",alignItems:"center",gap:6}}>
               <select value={c.category} onChange={e=>updateField("category",e.target.value)} style={{fontSize:11,padding:"2px 6px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:catColor.bg,color:catColor.color,fontWeight:500,cursor:"pointer"}}>{GENERAL_CASE_CATEGORIES.map(cat=><option key={cat}>{cat}</option>)}</select>
               {c.requester&&displayName!==c.requester&&<span style={{fontSize:12,color:"#666"}}>{c.requester}</span>}
@@ -6938,7 +6956,7 @@ function GeneralCaseDetail({c,onUpdate,onDelete,clients,payments,onNavigateToCli
               )}
               {editingDocId!==doc.id&&doc.status==="提出済"&&<span style={{fontSize:10,color:"#3B6D11",fontWeight:500}}>提出済</span>}
               {editingDocId!==doc.id&&doc.status==="取得済"&&<span style={{fontSize:10,color:"#854F0B",fontWeight:500}}>取得済</span>}
-              {editingDocId!==doc.id&&<button onClick={()=>startEditDoc(doc)} title="書類名を編集" style={{fontSize:11,lineHeight:1,padding:"2px 6px",borderRadius:3,border:"0.5px solid #ddd",background:"transparent",cursor:"pointer",color:"#999",flexShrink:0}}>✎</button>}
+              {editingDocId!==doc.id&&<EditBtn onClick={()=>startEditDoc(doc)} title="書類名を編集"/>}
               {editingDocId!==doc.id&&<button onClick={()=>removeDoc(doc.id)} style={{fontSize:10,padding:"1px 5px",borderRadius:3,border:"0.5px solid #ddd",background:"transparent",cursor:"pointer",color:"#ccc",flexShrink:0}}>×</button>}
             </div>
           );
@@ -9855,7 +9873,7 @@ function MasterCompany({companies,setCompanies,clients,onNavigateToClient}){
               <div style={{display:"flex",gap:6}}>
                 {!editMode?(<>
                   <button onClick={handleDelete} style={{fontSize:11,padding:"4px 10px",cursor:"pointer",borderRadius:5,border:"0.5px solid #A32D2D",background:"transparent",color:"#A32D2D"}}>削除</button>
-                  <button onClick={startEdit} style={{fontSize:11,padding:"4px 10px",cursor:"pointer",borderRadius:5,border:"0.5px solid var(--border2)",background:"transparent",color:"var(--text)"}}>編集</button>
+                  <EditBtn onClick={startEdit}/>
                 </>):(<>
                   <button onClick={cancelEdit} style={{fontSize:11,padding:"4px 10px",cursor:"pointer",borderRadius:5,border:"0.5px solid var(--border)",background:"transparent",color:"var(--text2)"}}>キャンセル</button>
                   <button onClick={saveEdit} style={{fontSize:11,padding:"4px 10px",cursor:"pointer",borderRadius:5,border:"0.5px solid var(--accent)",background:"var(--accent-bg)",color:"var(--accent-text)",fontWeight:500}}>保存</button>
@@ -9993,7 +10011,7 @@ function MasterDocTypes({docTypes,setDocTypes}){
               <div style={{display:"flex",gap:6}}>
                 {!editMode?(<>
                   <button onClick={handleDelete} style={{fontSize:11,padding:"4px 10px",cursor:"pointer",borderRadius:5,border:"0.5px solid #A32D2D",background:"transparent",color:"#A32D2D"}}>削除</button>
-                  <button onClick={startEdit} style={{fontSize:11,padding:"4px 10px",cursor:"pointer",borderRadius:5,border:"0.5px solid var(--border2)",background:"transparent",color:"var(--text)"}}>編集</button>
+                  <EditBtn onClick={startEdit}/>
                 </>):(<>
                   <button onClick={cancelEdit} style={{fontSize:11,padding:"4px 10px",cursor:"pointer",borderRadius:5,border:"0.5px solid var(--border)",background:"transparent",color:"var(--text2)"}}>キャンセル</button>
                   <button onClick={saveEdit} style={{fontSize:11,padding:"4px 10px",cursor:"pointer",borderRadius:5,border:"0.5px solid var(--accent)",background:"var(--accent-bg)",color:"var(--accent-text)",fontWeight:500}}>保存</button>
@@ -10241,7 +10259,7 @@ function MasterFee({feeMaster,setFeeMaster}){
                   <button onClick={(e)=>{e.stopPropagation();duplicateCategory(id);}} title="複製"
                     style={{fontSize:10,width:20,height:20,borderRadius:"50%",border:"0.5px solid var(--accent)",background:"var(--accent-bg)",color:"var(--accent-text)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>⧉</button>
                   {isMobile&&<button onClick={(e)=>{e.stopPropagation();setEditingCategory(id);setEditCategoryName(cat.label);setEditingCategorySource('sidebar');}} title="名前変更"
-                    style={{fontSize:10,width:20,height:20,borderRadius:"50%",border:"0.5px solid var(--accent)",background:"var(--accent-bg)",color:"var(--accent-text)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>✏️</button>}
+                    style={{fontSize:10,width:20,height:20,borderRadius:"50%",border:"0.5px solid var(--accent)",background:"var(--accent-bg)",color:"var(--accent-text)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>✎</button>}
                   {categories.length>1&&<button onClick={(e)=>{e.stopPropagation();deleteCategory(id);}} title="カテゴリ削除"
                     style={{fontSize:10,width:20,height:20,borderRadius:"50%",border:"none",background:"#e74c3c",color:"#fff",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>}
                 </div>
@@ -10250,7 +10268,7 @@ function MasterFee({feeMaster,setFeeMaster}){
           ))}
         </div>
         <div style={{padding:"8px 12px",borderTop:"0.5px solid var(--border)",fontSize:10,color:"var(--text3)"}}>
-          ≡ ドラッグで並び替え ・ {isMobile?"✏️":"ダブルクリック"}で名前変更
+          ≡ ドラッグで並び替え ・ {isMobile?"✎":"ダブルクリック"}で名前変更
         </div>
       </div>
 
@@ -10263,7 +10281,7 @@ function MasterFee({feeMaster,setFeeMaster}){
           <div onClick={()=>{setEditingCategory(selCat);setEditCategoryName(current.label||"");setEditingCategorySource('detail');}}
             title="クリックで名前変更"
             style={{fontSize:14,fontWeight:500,marginBottom:12,cursor:"pointer",display:"inline-block",padding:"2px 6px",borderRadius:4}}>
-            {current.label||"—"}<span style={{fontSize:11,opacity:0.4,marginLeft:8}}>✏️</span>
+            {current.label||"—"}<span style={{fontSize:11,opacity:0.4,marginLeft:8}}>✎</span>
           </div>
         )}
         <div style={{background:"var(--bg)",border:"0.5px solid var(--border)",borderRadius:10,overflow:"hidden"}}>
@@ -10358,7 +10376,7 @@ function MasterMinWage({data,setData}){
               <>
                 <span style={{fontSize:12,textAlign:"right",fontVariantNumeric:"tabular-nums"}}>¥{w.wage.toLocaleString()}</span>
                 <span style={{fontSize:11,color:"var(--text3)"}}>{w.effective}</span>
-                <button onClick={()=>setEditIdx(i)} style={{fontSize:10,padding:"2px 6px",borderRadius:3,border:"0.5px solid var(--border)",background:"transparent",color:"var(--text3)",cursor:"pointer"}}>編集</button>
+                <EditBtn onClick={()=>setEditIdx(i)}/>
               </>
             )}
           </div>
@@ -10573,7 +10591,7 @@ function MasterTemplate({templates,setTemplates,data,setData}){
                 {sel.note&&<div style={{fontSize:11,color:"#854F0B",marginTop:4}}>{sel.note}</div>}
               </div>
               <div style={{display:"flex",gap:6}}>
-                <button onClick={startEdit} style={{fontSize:11,padding:"5px 12px",borderRadius:5,border:"0.5px solid var(--accent)",background:"var(--accent-bg)",color:"var(--accent-text)",cursor:"pointer"}}>編集</button>
+                <EditBtn onClick={startEdit}/>
                 <button onClick={deleteTemplate} style={{fontSize:11,padding:"5px 12px",borderRadius:5,border:"0.5px solid #E57373",background:"#FFEBEE",color:"#C62828",cursor:"pointer"}}>削除</button>
               </div>
             </div>
