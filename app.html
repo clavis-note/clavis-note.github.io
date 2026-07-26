@@ -2580,7 +2580,7 @@ function ProspectDetailModal({prospect,clients,onUpdate,onDelete,onGenerate,onPr
             </div>
             <div>
               <div style={{fontSize:10,color:"#999",marginBottom:3}}>宛先名</div>
-              <input value={p.bill_to_name||""} onChange={e=>up("bill_to_name",e.target.value)} style={{width:"100%",fontSize:13,padding:"5px 8px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/>
+              <IMEInput value={p.bill_to_name||""} onChange={v=>up("bill_to_name",v)} style={{width:"100%",fontSize:13,padding:"5px 8px",borderRadius:4,border:"0.5px solid rgba(0,0,0,0.15)",background:"var(--bg2)"}}/>
             </div>
             <div>
               <div style={{fontSize:10,color:"#999",marginBottom:3}}>敬称</div>
@@ -7824,9 +7824,13 @@ function resolveHonorific(p) {
   if (typeof p.honorific === "string") return p.honorific;
   return p.bill_type === "company" ? "御中" : "様";
 }
-function resolveBillName(p) {
+// 帳票に出力する宛名（宛先名＋敬称）を組み立てる。
+// bill_to_name が空でも displayBillTo と同じフォールバック（会社紐付けなら会社名、案件のみなら申請人名）を
+// 適用し、「画面に見えている宛先名」と「帳票に出る宛名」が常に一致するようにする。
+function resolveBillName(p, clients, cases) {
   const h = resolveHonorific(p);
-  const clean = (p.bill_to_name || "").replace(/\s*(様|御中)\s*$/, "");
+  const raw = displayBillTo(p, clients, cases);
+  const clean = (raw || "").replace(/\s*(様|御中)\s*$/, "");
   return h ? clean + " " + h : clean;
 }
 // テンプレートに挿入するユーザー入力テキストをHTMLエスケープ。
@@ -7892,7 +7896,7 @@ function generateEstimate(p, cases, clients, office) {
   const expBillable = calcExpBillable(p.expenses);
   const grandTotal = taxedItemsTotal + expBillable;
 
-  const billCompany = resolveBillName(p);
+  const billCompany = resolveBillName(p, clients, cases);
   const estDate = p.estimate_date ? new Date(p.estimate_date).toLocaleDateString("ja-JP", {year:"numeric",month:"long",day:"numeric"}) : "";
   const estNumber = p.estimate_number || "";
   const estValid = p.estimate_valid ? new Date(p.estimate_valid).toLocaleDateString("ja-JP", {year:"numeric",month:"long",day:"numeric"}) : "";
@@ -7933,7 +7937,7 @@ function generateEstimate(p, cases, clients, office) {
 
   const fileName = buildDocFileName({
     dateRaw: p.estimate_date || new Date().toISOString().slice(0, 10),
-    billName: p.bill_to_name,
+    billName: displayBillTo(p, clients, cases),
     amount: grandTotal,
     docType: "見積書",
     officeName: ofc.name,
@@ -8081,7 +8085,7 @@ function generateInvoice(p, cases, clients, office) {
   const remainingTotal = grandTotal - paidTotal;
   const hasPaid = paidTotal > 0;
 
-  const billCompany = resolveBillName(p);
+  const billCompany = resolveBillName(p, clients, cases);
   const invDate = p.invoice_date
     ? new Date(p.invoice_date).toLocaleDateString("ja-JP", {year:"numeric",month:"long",day:"numeric"})
     : new Date().toLocaleDateString("ja-JP", {year:"numeric",month:"long",day:"numeric"});
@@ -8144,7 +8148,7 @@ function generateInvoice(p, cases, clients, office) {
 
   const fileName = buildDocFileName({
     dateRaw: p.invoice_date || new Date().toISOString().slice(0, 10),
-    billName: p.bill_to_name,
+    billName: displayBillTo(p, clients, cases),
     amount: grandTotal,
     docType: "請求書",
     officeName: ofc.name,
@@ -8327,7 +8331,7 @@ function generateReceipt(p, cases, clients, office, paymentLogId) {
   }
   const paid = receiptAmount;
 
-  const recipientName = resolveBillName(p);
+  const recipientName = resolveBillName(p, clients, cases);
   let subject;
   if (p.subject && p.subject.trim()) {
     subject = p.subject.trim();
@@ -8348,7 +8352,7 @@ function generateReceipt(p, cases, clients, office, paymentLogId) {
 
   const fileName = buildDocFileName({
     dateRaw: receiptDateRaw,
-    billName: p.bill_to_name,
+    billName: displayBillTo(p, clients, cases),
     amount: paid,
     docType: "領収書",
     officeName: ofc.name,
@@ -8549,7 +8553,8 @@ function PaymentDetail({p,cases,clients,office,onUpdate,onDelete,onSplit,onItemS
         <div style={{display:"flex",flexDirection:isMobile?"column":"row",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10,gap:isMobile?8:0}}>
           <div style={{flex:1}}>
             <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3,flexWrap:"wrap"}}>
-              <input type="text" value={displayBillTo(p,clients,cases)} onChange={e=>update("bill_to_name",e.target.value)} placeholder="宛先名"
+              <IMEInput type="text" value={p.bill_to_name||""} onChange={v=>update("bill_to_name",v)} placeholder={displayBillTo(p,clients,cases)||"宛先名"}
+                title="未入力のときはグレー表示の名前がそのまま帳票に出力されます"
                 style={{fontSize:15,fontWeight:500,border:"0.5px solid rgba(0,0,0,0.1)",background:"var(--bg2)",padding:"3px 8px",borderRadius:5,flex:"1 1 180px",minWidth:0,maxWidth:260}}/>
               <select value={typeof p.honorific==="string"?p.honorific:(p.bill_type==="company"?"御中":"様")}
                 onChange={e=>update("honorific",e.target.value)}
@@ -8996,7 +9001,7 @@ function exportPaymentsCSV(payments, cases, clients, office, start, end){
   const COLS=["種別","日付","宛先","件名","案件化ステータス","税抜額","消費税額","税込額","入金額","入金状況","書類番号","案件ID"];
   const rows=[];
   (payments||[]).forEach(p=>{
-    const billTo=resolveBillName(p);
+    const billTo=resolveBillName(p, clients, cases);
     const subject=paymentDocSubject(p, cases);
     const caseIds=(p.case_ids||[]).join(" / ");
     const promote=p.is_prospect?"未案件化(見込)":"案件化済み";
