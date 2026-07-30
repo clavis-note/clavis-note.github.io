@@ -2,7 +2,7 @@
 """ルートと blog/ の公開HTMLから sitemap.xml を自動生成する。
 
 除外ルール:
-  - EXCLUDE に列挙したファイル（アプリ本体・デモ・旧ローンチページ）
+  - EXCLUDE に列挙したファイル（アプリ本体・旧ローンチページ）
   - <meta name="robots" content="noindex"> を持つページ
 
 lastmod は git の最終コミット日（取れなければ当日）。
@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parent.parent
 BASE = "https://clavis-note.com"
 
 # noindex 検出に加えての保険。検索結果に出したくないページを明示除外。
-EXCLUDE = {"app.html", "demo.html", "index-launch-eve.html"}
+EXCLUDE = {"app.html", "index-launch-eve.html"}
 
 NOINDEX_RE = re.compile(r'<meta[^>]+name=["\']robots["\'][^>]*noindex', re.I)
 
