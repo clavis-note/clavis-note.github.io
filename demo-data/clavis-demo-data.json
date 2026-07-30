@@ -1,0 +1,1301 @@
+{
+  "office": {
+    "name": "サンプル国際行政書士事務所",
+    "representative": "鍵谷 誠",
+    "postal": "190-0012",
+    "address1": "東京都立川市曙町",
+    "address2": "2-34-5 クラヴィスビル3F",
+    "phone": "042-000-0000",
+    "email": "info@sample-gyosei.example",
+    "bank_lines": [
+      "サンプル銀行 立川支店 普通 1234567",
+      "口座名義 サンプル国際行政書士事務所"
+    ],
+    "credential_expiry": "2027-05-26",
+    "license_key": "",
+    "onboarding_completed": true,
+    "tour_completed": true
+  },
+  "clients": [
+    {
+      "client_id": "D001",
+      "client_type": "immigration",
+      "name_roman": "THAPA RAM",
+      "name_kana": "タパ ラム",
+      "nationality": "ネパール",
+      "dob": "1992-04-15",
+      "gender": "男",
+      "passport_number": "PA1234567",
+      "passport_expiry": "2028-07-19",
+      "entry_date": "2018-06-10",
+      "residence_card": "AB12345678CD",
+      "residence_status": "技能",
+      "residence_expiry": "2026-09-13",
+      "residence_period": "3年",
+      "phone": "080-0000-1001",
+      "email": "ram@example.com",
+      "company_name": "株式会社サンプル飲食",
+      "store": "立川店",
+      "work_start_date": "2018-07-01",
+      "notes": "",
+      "address": "東京都立川市",
+      "postal_code": "190-0011",
+      "occupation": "調理師",
+      "home_residence": "",
+      "dependent_of": null,
+      "client_status": "active",
+      "relationship": null,
+      "school_name": null,
+      "coe_phase": false,
+      "coe_category": null,
+      "photo": null,
+      "archived": false,
+      "salary_history": [
+        {
+          "id": "S001",
+          "work_id": "WH001",
+          "effective_date": "2018-07-01",
+          "monthly_salary": 210000,
+          "hourly_wage": 1211,
+          "weekly_hours": 40,
+          "employment_type": "正社員",
+          "pref": "東京都",
+          "min_wage_check": true
+        },
+        {
+          "id": "S002",
+          "work_id": "WH001",
+          "effective_date": "2025-04-01",
+          "monthly_salary": 255000,
+          "hourly_wage": 1471,
+          "weekly_hours": 40,
+          "employment_type": "正社員",
+          "pref": "東京都",
+          "min_wage_check": true
+        }
+      ],
+      "work_history": [
+        {
+          "id": "WH001",
+          "company_name": "株式会社サンプル飲食",
+          "country": "日本",
+          "start_date": "2018-07-01",
+          "end_date": "",
+          "auto": true,
+          "store": "立川店"
+        }
+      ],
+      "drive_path": "",
+      "drive_url": "",
+      "education_school": "カトマンズ調理専門学校",
+      "education_date": "2016-03-15",
+      "custody_status": null,
+      "custody_received_date": "",
+      "custody_return_due": "",
+      "custody_reason": "",
+      "custody_returned_date": "",
+      "custody_history": []
+    },
+    {
+      "client_id": "D002",
+      "client_type": "immigration",
+      "name_roman": "SITA THAPA",
+      "name_kana": "シタ タパ",
+      "nationality": "ネパール",
+      "dob": "1995-08-22",
+      "gender": "女",
+      "passport_number": "PA7654321",
+      "passport_expiry": "2029-01-15",
+      "entry_date": "2019-12-15",
+      "residence_card": "EF98765432GH",
+      "residence_status": "家族滞在",
+      "residence_expiry": "2026-09-13",
+      "residence_period": "3年",
+      "phone": "080-0000-1002",
+      "email": "",
+      "company_name": "",
+      "store": "",
+      "work_start_date": "",
+      "notes": "D001 THAPA RAM の配偶者",
+      "address": "東京都立川市",
+      "postal_code": "190-0011",
+      "occupation": "",
+      "home_residence": "",
+      "dependent_of": "D001",
+      "client_status": "active",
+      "relationship": "妻",
+      "school_name": null,
+      "coe_phase": false,
+      "coe_category": null,
+      "photo": null,
+      "archived": false,
+      "salary_history": [],
+      "work_history": [],
+      "drive_path": "",
+      "drive_url": "",
+      "education_school": "",
+      "education_date": "",
+      "custody_status": null,
+      "custody_received_date": "",
+      "custody_return_due": "",
+      "custody_reason": "",
+      "custody_returned_date": "",
+      "custody_history": []
+    },
+    {
+      "client_id": "D003",
+      "client_type": "immigration",
+      "name_roman": "NGUYEN VAN MINH",
+      "name_kana": "グエン ヴァン ミン",
+      "nationality": "ベトナム",
+      "dob": "1990-12-03",
+      "gender": "男",
+      "passport_number": "PB2345678",
+      "passport_expiry": "2028-01-21",
+      "entry_date": "2017-04-01",
+      "residence_card": "IJ23456789KL",
+      "residence_status": "技術・人文知識・国際業務",
+      "residence_expiry": "2026-11-27",
+      "residence_period": "5年",
+      "phone": "080-0000-1003",
+      "email": "minh@example.com",
+      "company_name": "株式会社サンプルIT",
+      "store": "",
+      "work_start_date": "2017-04-15",
+      "notes": "",
+      "address": "東京都新宿区",
+      "postal_code": "160-0023",
+      "occupation": "システムエンジニア",
+      "home_residence": "",
+      "dependent_of": null,
+      "client_status": "active",
+      "relationship": null,
+      "school_name": null,
+      "coe_phase": false,
+      "coe_category": null,
+      "photo": null,
+      "archived": false,
+      "salary_history": [
+        {
+          "id": "S003",
+          "work_id": "WH002",
+          "effective_date": "2017-04-15",
+          "monthly_salary": 280000,
+          "hourly_wage": 1615,
+          "weekly_hours": 40,
+          "employment_type": "正社員",
+          "pref": "東京都",
+          "min_wage_check": true
+        }
+      ],
+      "work_history": [
+        {
+          "id": "WH002",
+          "company_name": "株式会社サンプルIT",
+          "country": "日本",
+          "start_date": "2017-04-15",
+          "end_date": "",
+          "auto": true,
+          "store": ""
+        }
+      ],
+      "drive_path": "",
+      "drive_url": "",
+      "education_school": "ハノイ工科大学",
+      "education_date": "2015-06-30",
+      "custody_status": null,
+      "custody_received_date": "",
+      "custody_return_due": "",
+      "custody_reason": "",
+      "custody_returned_date": "",
+      "custody_history": []
+    },
+    {
+      "client_id": "D004",
+      "client_type": "immigration",
+      "name_roman": "LI MING",
+      "name_kana": "リ ミン",
+      "nationality": "中国",
+      "dob": "1988-03-18",
+      "gender": "男",
+      "passport_number": "PC3456789",
+      "passport_expiry": "2029-07-14",
+      "entry_date": "2015-08-20",
+      "residence_card": "MN34567890OP",
+      "residence_status": "永住者",
+      "residence_expiry": "2032-07-28",
+      "residence_period": "無期限",
+      "phone": "080-0000-1004",
+      "email": "li.ming@example.com",
+      "company_name": "株式会社サンプル商事",
+      "store": "本店",
+      "work_start_date": "2015-09-01",
+      "notes": "永住許可取得済み",
+      "address": "千葉県市川市",
+      "postal_code": "272-0021",
+      "occupation": "貿易事務",
+      "home_residence": "",
+      "dependent_of": null,
+      "client_status": "active",
+      "relationship": null,
+      "school_name": null,
+      "coe_phase": false,
+      "coe_category": null,
+      "photo": null,
+      "archived": false,
+      "salary_history": [],
+      "work_history": [
+        {
+          "id": "WH003",
+          "company_name": "株式会社サンプル商事",
+          "country": "日本",
+          "start_date": "2015-09-01",
+          "end_date": "",
+          "auto": true,
+          "store": "本店"
+        }
+      ],
+      "drive_path": "",
+      "drive_url": "",
+      "education_school": "北京大学",
+      "education_date": "2012-07-10",
+      "custody_status": null,
+      "custody_received_date": "",
+      "custody_return_due": "",
+      "custody_reason": "",
+      "custody_returned_date": "",
+      "custody_history": []
+    },
+    {
+      "client_id": "D005",
+      "client_type": "immigration",
+      "name_roman": "SANTOS MARIA",
+      "name_kana": "サントス マリア",
+      "nationality": "フィリピン",
+      "dob": "1993-09-05",
+      "gender": "女",
+      "passport_number": "PD4567890",
+      "passport_expiry": "2027-10-23",
+      "entry_date": "2020-02-14",
+      "residence_card": "QR45678901ST",
+      "residence_status": "特定技能1号",
+      "residence_expiry": "2026-08-14",
+      "residence_period": "1年",
+      "phone": "080-0000-1005",
+      "email": "",
+      "company_name": "株式会社サンプル介護",
+      "store": "立川施設",
+      "work_start_date": "2020-03-01",
+      "notes": "⚠️在留期限間近（要更新申請）",
+      "address": "東京都立川市",
+      "postal_code": "190-0001",
+      "occupation": "介護職員",
+      "home_residence": "",
+      "dependent_of": null,
+      "client_status": "active",
+      "relationship": null,
+      "school_name": null,
+      "coe_phase": false,
+      "coe_category": null,
+      "photo": null,
+      "archived": false,
+      "salary_history": [],
+      "work_history": [
+        {
+          "id": "WH004",
+          "company_name": "株式会社サンプル介護",
+          "country": "日本",
+          "start_date": "2020-03-01",
+          "end_date": "",
+          "auto": true,
+          "store": "立川施設"
+        }
+      ],
+      "drive_path": "",
+      "drive_url": "",
+      "education_school": "マニラ看護学校",
+      "education_date": "2014-04-20",
+      "custody_status": null,
+      "custody_received_date": "",
+      "custody_return_due": "",
+      "custody_reason": "",
+      "custody_returned_date": "",
+      "custody_history": []
+    },
+    {
+      "client_id": "D006",
+      "client_type": "immigration",
+      "name_roman": "KIM JISOO",
+      "name_kana": "キム ジス",
+      "nationality": "韓国",
+      "dob": "1996-11-30",
+      "gender": "女",
+      "passport_number": "PE5678901",
+      "passport_expiry": "2027-05-26",
+      "entry_date": "2022-09-01",
+      "residence_card": "UV56789012WX",
+      "residence_status": "留学",
+      "residence_expiry": "2027-02-15",
+      "residence_period": "2年3月",
+      "phone": "080-0000-1006",
+      "email": "jisoo@example.com",
+      "company_name": "",
+      "store": "",
+      "work_start_date": "",
+      "notes": "卒業後の就職（技人国への変更）希望",
+      "address": "東京都豊島区",
+      "postal_code": "170-0013",
+      "occupation": "",
+      "home_residence": "",
+      "dependent_of": null,
+      "client_status": "student",
+      "relationship": null,
+      "school_name": "日本語学校サンプルアカデミー",
+      "coe_phase": false,
+      "coe_category": null,
+      "photo": null,
+      "archived": false,
+      "salary_history": [],
+      "work_history": [],
+      "drive_path": "",
+      "drive_url": "",
+      "education_school": "ソウル大学",
+      "education_date": "2022-02-28",
+      "custody_status": null,
+      "custody_received_date": "",
+      "custody_return_due": "",
+      "custody_reason": "",
+      "custody_returned_date": "",
+      "custody_history": []
+    },
+    {
+      "client_id": "D007",
+      "client_type": "immigration",
+      "name_roman": "GURUNG BIKASH",
+      "name_kana": "グルン ビカス",
+      "nationality": "ネパール",
+      "dob": "1994-01-25",
+      "gender": "男",
+      "passport_number": "PF6789012",
+      "passport_expiry": "2030-05-30",
+      "entry_date": "",
+      "residence_card": "",
+      "residence_status": "",
+      "residence_expiry": "",
+      "residence_period": "",
+      "phone": "",
+      "email": "",
+      "company_name": "株式会社サンプル飲食",
+      "store": "八王子店",
+      "work_start_date": "",
+      "notes": "COE申請中（来日前）。現地はポカラ在住。",
+      "address": "",
+      "postal_code": "",
+      "occupation": "",
+      "home_residence": "ネパール・ポカラ",
+      "dependent_of": null,
+      "client_status": "incoming",
+      "relationship": null,
+      "school_name": null,
+      "coe_phase": true,
+      "coe_category": "work",
+      "photo": null,
+      "archived": false,
+      "salary_history": [],
+      "work_history": [],
+      "drive_path": "",
+      "drive_url": "",
+      "education_school": "ポカラ調理技術学校",
+      "education_date": "2014-11-30",
+      "custody_status": null,
+      "custody_received_date": "",
+      "custody_return_due": "",
+      "custody_reason": "",
+      "custody_returned_date": "",
+      "custody_history": []
+    },
+    {
+      "client_id": "D008",
+      "client_type": "immigration",
+      "name_roman": "SHARMA HARI",
+      "name_kana": "シャルマ ハリ",
+      "nationality": "ネパール",
+      "dob": "1985-07-12",
+      "gender": "男",
+      "passport_number": "PG7890123",
+      "passport_expiry": "2024-06-30",
+      "entry_date": "2010-04-20",
+      "residence_card": "YZ67890123AB",
+      "residence_status": "技能",
+      "residence_expiry": "2024-08-15",
+      "residence_period": "3年",
+      "phone": "",
+      "email": "",
+      "company_name": "",
+      "store": "",
+      "work_start_date": "",
+      "notes": "2024年に帰国済み",
+      "address": "",
+      "postal_code": "",
+      "occupation": "",
+      "home_residence": "",
+      "dependent_of": null,
+      "client_status": "returned",
+      "relationship": null,
+      "school_name": null,
+      "coe_phase": false,
+      "coe_category": null,
+      "photo": null,
+      "archived": false,
+      "salary_history": [],
+      "work_history": [],
+      "drive_path": "",
+      "drive_url": "",
+      "education_school": "",
+      "education_date": "",
+      "custody_status": null,
+      "custody_received_date": "",
+      "custody_return_due": "",
+      "custody_reason": "",
+      "custody_returned_date": "",
+      "custody_history": []
+    },
+    {
+      "client_id": "D009",
+      "client_type": "general",
+      "name_roman": "",
+      "name_kana": "",
+      "nationality": "",
+      "dob": "",
+      "gender": "",
+      "passport_number": "",
+      "passport_expiry": "",
+      "entry_date": "",
+      "residence_card": "",
+      "residence_status": "",
+      "residence_expiry": "",
+      "residence_period": "",
+      "phone": "03-0000-2001",
+      "email": "info@sample-corp.example",
+      "company_name": "株式会社サンプルコーポレーション",
+      "store": "",
+      "work_start_date": "",
+      "notes": "会社設立コンサル案件",
+      "address": "東京都港区",
+      "postal_code": "107-0052",
+      "occupation": "",
+      "home_residence": "",
+      "dependent_of": null,
+      "client_status": "active",
+      "relationship": null,
+      "school_name": null,
+      "coe_phase": false,
+      "coe_category": null,
+      "photo": null,
+      "archived": false,
+      "salary_history": [],
+      "work_history": [],
+      "drive_path": "",
+      "drive_url": "",
+      "education_school": "",
+      "education_date": "",
+      "custody_status": null,
+      "custody_received_date": "",
+      "custody_return_due": "",
+      "custody_reason": "",
+      "custody_returned_date": "",
+      "custody_history": []
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "DC001",
+      "no": 1,
+      "category": "国際",
+      "client_id": "D001",
+      "template_id": "T03",
+      "case_title": "技能（調理）継続更新",
+      "status": "書類収集中",
+      "accepted_date": "2026-07-05",
+      "applied_date": null,
+      "result_date": null,
+      "receipt_number": "",
+      "result": "",
+      "new_card": "",
+      "period": "",
+      "next_renewal": "",
+      "fee": 55000,
+      "paid": 0,
+      "applicant": "THAPA RAM",
+      "applicant_id": "D001",
+      "requester": "株式会社サンプル飲食",
+      "requester_id": "",
+      "notes": "在留期限まで45日。妻（家族滞在）と同時申請予定。",
+      "official_req_no": "",
+      "invoice_no": "",
+      "invoice_date": "",
+      "due_date": "",
+      "bill_to": "",
+      "docs": [
+        {
+          "id": "d1",
+          "name": "在留カード（表裏コピー）",
+          "group": null,
+          "status": "取得済"
+        },
+        {
+          "id": "d2",
+          "name": "パスポート（身分事項・査証ページコピー）",
+          "group": null,
+          "status": "取得済"
+        },
+        {
+          "id": "d3",
+          "name": "写真（縦4cm×横3cm）",
+          "group": null,
+          "status": "未取得"
+        },
+        {
+          "id": "d4",
+          "name": "課税証明書（市区町村発行）",
+          "group": null,
+          "status": "未取得"
+        },
+        {
+          "id": "d5",
+          "name": "法定調書合計表",
+          "group": null,
+          "status": "未取得"
+        }
+      ],
+      "hearing_items": [
+        {
+          "id": "h1",
+          "type": "text",
+          "label": "最終学歴の学校名",
+          "link": "education_school",
+          "answer": "カトマンズ調理専門学校",
+          "date": ""
+        },
+        {
+          "id": "h2",
+          "type": "date",
+          "label": "卒業年月日",
+          "link": "education_date",
+          "answer": "",
+          "date": "2016-03-15"
+        }
+      ],
+      "additional_requests": [],
+      "contacts": [
+        {
+          "id": "ct1",
+          "name": "田中 花子",
+          "role": "勤務先担当",
+          "phone": "042-000-0001",
+          "email": "tanaka@sample-foods.example",
+          "note": "書類回収の窓口"
+        }
+      ],
+      "comm_log": [
+        {
+          "id": "cl1",
+          "date": "2026-07-05",
+          "contact_name": "本人",
+          "method": "対面",
+          "content": "更新のご依頼。妻の分も同時に受任。"
+        },
+        {
+          "id": "cl2",
+          "date": "2026-07-20",
+          "contact_name": "田中 花子",
+          "method": "メール",
+          "content": "法定調書合計表の準備を依頼。"
+        }
+      ],
+      "payment_logs": [],
+      "doc_count": "",
+      "case_category": "更新",
+      "residence_status": "技能"
+    },
+    {
+      "case_id": "DC002",
+      "no": 2,
+      "category": "国際",
+      "client_id": "D003",
+      "template_id": "T21",
+      "case_title": "技術・人文知識・国際業務 継続更新",
+      "status": "申請中",
+      "accepted_date": "2026-06-20",
+      "applied_date": "2026-07-25",
+      "result_date": null,
+      "receipt_number": "東オン認12345678",
+      "result": "",
+      "new_card": "",
+      "period": "",
+      "next_renewal": "",
+      "fee": 60500,
+      "paid": 0,
+      "applicant": "NGUYEN VAN MINH",
+      "applicant_id": "D003",
+      "requester": "株式会社サンプルIT",
+      "requester_id": "",
+      "notes": "",
+      "official_req_no": "",
+      "invoice_no": "",
+      "invoice_date": "",
+      "due_date": "",
+      "bill_to": "",
+      "docs": [
+        {
+          "id": "d1",
+          "name": "在留カード（表裏コピー）",
+          "group": null,
+          "status": "提出済"
+        },
+        {
+          "id": "d2",
+          "name": "パスポート",
+          "group": null,
+          "status": "提出済"
+        },
+        {
+          "id": "d3",
+          "name": "写真（縦4cm×横3cm）",
+          "group": null,
+          "status": "提出済"
+        },
+        {
+          "id": "d4",
+          "name": "住民票（世帯全員）",
+          "group": null,
+          "status": "提出済"
+        },
+        {
+          "id": "d5",
+          "name": "課税証明書",
+          "group": null,
+          "status": "提出済"
+        },
+        {
+          "id": "d6",
+          "name": "納税証明書",
+          "group": null,
+          "status": "提出済"
+        },
+        {
+          "id": "d7",
+          "name": "源泉徴収票",
+          "group": null,
+          "status": "提出済"
+        },
+        {
+          "id": "d8",
+          "name": "在職証明書",
+          "group": null,
+          "status": "提出済"
+        }
+      ],
+      "hearing_items": [],
+      "additional_requests": [],
+      "contacts": [],
+      "comm_log": [],
+      "payment_logs": [],
+      "doc_count": "",
+      "case_category": "更新",
+      "residence_status": "技術・人文知識・国際業務"
+    },
+    {
+      "case_id": "DC003",
+      "no": 3,
+      "category": "国際",
+      "client_id": "D005",
+      "template_id": null,
+      "case_title": "特定技能1号 在留期間更新",
+      "status": "相談中",
+      "accepted_date": "2026-07-23",
+      "applied_date": null,
+      "result_date": null,
+      "receipt_number": "",
+      "result": "",
+      "new_card": "",
+      "period": "",
+      "next_renewal": "",
+      "fee": 66000,
+      "paid": 0,
+      "applicant": "SANTOS MARIA",
+      "applicant_id": "D005",
+      "requester": "株式会社サンプル介護",
+      "requester_id": "",
+      "notes": "在留期限まで15日。至急対応。",
+      "official_req_no": "",
+      "invoice_no": "",
+      "invoice_date": "",
+      "due_date": "",
+      "bill_to": "",
+      "docs": [],
+      "hearing_items": [],
+      "additional_requests": [],
+      "contacts": [],
+      "comm_log": [],
+      "payment_logs": [],
+      "doc_count": "",
+      "case_category": "更新",
+      "residence_status": "特定技能1号"
+    },
+    {
+      "case_id": "DC004",
+      "no": 4,
+      "category": "国際",
+      "client_id": "D004",
+      "template_id": "T30",
+      "case_title": "永住許可申請",
+      "status": "許可",
+      "accepted_date": "2025-07-15",
+      "applied_date": "2026-01-11",
+      "result_date": "2026-06-30",
+      "receipt_number": "東オン認99999999",
+      "result": "許可",
+      "new_card": "YES",
+      "period": "無期限",
+      "next_renewal": "",
+      "fee": 150000,
+      "paid": 0,
+      "applicant": "LI MING",
+      "applicant_id": "D004",
+      "requester": "LI MING",
+      "requester_id": "",
+      "notes": "無事許可。おめでとうございます！",
+      "official_req_no": "",
+      "invoice_no": "",
+      "invoice_date": "",
+      "due_date": "",
+      "bill_to": "",
+      "docs": [],
+      "hearing_items": [],
+      "additional_requests": [],
+      "contacts": [],
+      "comm_log": [],
+      "payment_logs": [],
+      "doc_count": "",
+      "case_category": "永住",
+      "residence_status": "永住者"
+    },
+    {
+      "case_id": "DC005",
+      "no": 5,
+      "category": "国際",
+      "client_id": "D002",
+      "template_id": "T05",
+      "case_title": "家族滞在 初回担当更新",
+      "status": "書類収集中",
+      "accepted_date": "2026-07-10",
+      "applied_date": null,
+      "result_date": null,
+      "receipt_number": "",
+      "result": "",
+      "new_card": "",
+      "period": "",
+      "next_renewal": "",
+      "fee": 44000,
+      "paid": 0,
+      "applicant": "SITA THAPA",
+      "applicant_id": "D002",
+      "requester": "THAPA RAM",
+      "requester_id": "",
+      "notes": "D001（夫）と同時申請",
+      "official_req_no": "",
+      "invoice_no": "",
+      "invoice_date": "",
+      "due_date": "",
+      "bill_to": "",
+      "docs": [
+        {
+          "id": "d1",
+          "name": "写真（縦4cm×横3cm）※16歳以上",
+          "group": null,
+          "status": "取得済"
+        },
+        {
+          "id": "d2",
+          "name": "在留カード（本人）",
+          "group": null,
+          "status": "取得済"
+        },
+        {
+          "id": "d3",
+          "name": "パスポート（本人）",
+          "group": null,
+          "status": "取得済"
+        },
+        {
+          "id": "d4",
+          "name": "在留カード（扶養者）",
+          "group": null,
+          "status": "取得済"
+        },
+        {
+          "id": "d5",
+          "name": "パスポート（扶養者）",
+          "group": null,
+          "status": "取得済"
+        },
+        {
+          "id": "d6",
+          "name": "婚姻証明書",
+          "group": "続柄証明",
+          "status": "未取得"
+        },
+        {
+          "id": "d7",
+          "name": "出生証明書",
+          "group": "続柄証明",
+          "status": "不要"
+        },
+        {
+          "id": "d8",
+          "name": "扶養者の在職証明書",
+          "group": null,
+          "status": "未取得"
+        },
+        {
+          "id": "d9",
+          "name": "扶養者の課税証明書",
+          "group": null,
+          "status": "未取得"
+        }
+      ],
+      "hearing_items": [],
+      "additional_requests": [],
+      "contacts": [],
+      "comm_log": [],
+      "payment_logs": [],
+      "doc_count": "",
+      "case_category": "更新",
+      "residence_status": "家族滞在"
+    },
+    {
+      "case_id": "DC006",
+      "no": 6,
+      "category": "国際",
+      "client_id": "D007",
+      "template_id": "T01",
+      "case_title": "技能（調理）COE",
+      "status": "申請中",
+      "accepted_date": "2026-05-31",
+      "applied_date": "2026-07-16",
+      "result_date": null,
+      "receipt_number": "東オン認55555555",
+      "result": "",
+      "new_card": "",
+      "period": "",
+      "next_renewal": "",
+      "fee": 110000,
+      "paid": 0,
+      "applicant": "GURUNG BIKASH",
+      "applicant_id": "D007",
+      "requester": "株式会社サンプル飲食",
+      "requester_id": "",
+      "notes": "八王子店の新規招へい。結果待ち。",
+      "official_req_no": "",
+      "invoice_no": "",
+      "invoice_date": "",
+      "due_date": "",
+      "bill_to": "",
+      "docs": [
+        {
+          "id": "d1",
+          "name": "写真（縦4cm×横3cm）",
+          "group": null,
+          "status": "提出済"
+        },
+        {
+          "id": "d2",
+          "name": "パスポート",
+          "group": null,
+          "status": "提出済"
+        },
+        {
+          "id": "d3",
+          "name": "職務経歴書",
+          "group": null,
+          "status": "提出済"
+        },
+        {
+          "id": "d4",
+          "name": "雇用契約書",
+          "group": "招へい企業資料",
+          "status": "提出済"
+        },
+        {
+          "id": "d5",
+          "name": "登記事項証明書",
+          "group": "招へい企業資料",
+          "status": "提出済"
+        }
+      ],
+      "hearing_items": [],
+      "additional_requests": [],
+      "contacts": [],
+      "comm_log": [],
+      "payment_logs": [],
+      "doc_count": "",
+      "case_category": "認定（COE）",
+      "residence_status": "技能"
+    },
+    {
+      "case_id": "DG001",
+      "no": 7,
+      "category": "会社設立",
+      "client_id": "D009",
+      "template_id": null,
+      "case_title": "株式会社設立手続",
+      "status": "作業中",
+      "accepted_date": "2026-07-15",
+      "applied_date": null,
+      "result_date": null,
+      "receipt_number": "",
+      "result": "",
+      "new_card": "",
+      "period": "",
+      "next_renewal": "",
+      "fee": 100000,
+      "paid": 0,
+      "applicant": "株式会社サンプルコーポレーション",
+      "applicant_id": "",
+      "requester": "株式会社サンプルコーポレーション",
+      "requester_id": "",
+      "notes": "定款作成中",
+      "official_req_no": "",
+      "invoice_no": "",
+      "invoice_date": "",
+      "due_date": "",
+      "bill_to": "",
+      "docs": [],
+      "hearing_items": [],
+      "additional_requests": [],
+      "contacts": [],
+      "comm_log": [
+        {
+          "id": "cl3",
+          "date": "2026-07-15",
+          "contact_name": "佐藤 次郎",
+          "method": "対面",
+          "content": "設立スケジュールの打ち合わせ。"
+        }
+      ],
+      "payment_logs": [],
+      "doc_count": "",
+      "case_type": "general"
+    }
+  ],
+  "payments": [
+    {
+      "payment_id": "PM001",
+      "case_ids": [
+        "DC001",
+        "DC005"
+      ],
+      "client_ids": [
+        "D001",
+        "D002"
+      ],
+      "bill_type": "individual",
+      "bill_to_name": "THAPA RAM",
+      "honorific": "様",
+      "tax_mode": "tax_incl",
+      "invoice_number": "INV-2026-0031",
+      "invoice_date": "2026-07-22",
+      "due_date": "2026-08-21",
+      "items": [
+        {
+          "id": "i1",
+          "name": "在留期間更新許可申請（技能）",
+          "unit_price": 55000,
+          "quantity": 1,
+          "applicant": "THAPA RAM"
+        },
+        {
+          "id": "i2",
+          "name": "在留期間更新許可申請（家族滞在）",
+          "unit_price": 44000,
+          "quantity": 1,
+          "applicant": "SITA THAPA"
+        }
+      ],
+      "expenses": [],
+      "payments_history": [],
+      "notes": "",
+      "is_prospect": false,
+      "prospect_archived": false
+    },
+    {
+      "payment_id": "PM002",
+      "case_ids": [
+        "DC002"
+      ],
+      "client_ids": [
+        "D003"
+      ],
+      "bill_type": "company",
+      "bill_to_name": "株式会社サンプルIT",
+      "honorific": "御中",
+      "tax_mode": "tax_excl",
+      "invoice_number": "INV-2026-0024",
+      "invoice_date": "2026-06-25",
+      "due_date": "2026-07-25",
+      "items": [
+        {
+          "id": "i1",
+          "name": "在留期間更新許可申請（技人国）",
+          "unit_price": 55000,
+          "quantity": 1
+        }
+      ],
+      "expenses": [],
+      "payments_history": [
+        {
+          "id": "h1",
+          "date": "2026-07-18",
+          "amount": 60500,
+          "method": "振込",
+          "note": ""
+        }
+      ],
+      "notes": "",
+      "is_prospect": false,
+      "prospect_archived": false
+    },
+    {
+      "payment_id": "PM003",
+      "case_ids": [
+        "DC004"
+      ],
+      "client_ids": [
+        "D004"
+      ],
+      "bill_type": "individual",
+      "bill_to_name": "LI MING",
+      "honorific": "様",
+      "tax_mode": "tax_incl",
+      "invoice_number": "INV-2026-0008",
+      "invoice_date": "2026-07-02",
+      "due_date": "2026-08-01",
+      "items": [
+        {
+          "id": "i1",
+          "name": "永住許可申請 報酬",
+          "unit_price": 150000,
+          "quantity": 1
+        }
+      ],
+      "expenses": [
+        {
+          "id": "e1",
+          "date": "2026-01-11",
+          "name": "収入印紙代（立替）",
+          "amount": 8000,
+          "billable": true
+        }
+      ],
+      "payments_history": [
+        {
+          "id": "h1",
+          "date": "2026-07-10",
+          "amount": 158000,
+          "method": "振込",
+          "note": ""
+        }
+      ],
+      "notes": "",
+      "is_prospect": false,
+      "prospect_archived": false
+    },
+    {
+      "payment_id": "PM004",
+      "case_ids": [
+        "DC006"
+      ],
+      "client_ids": [
+        "D007"
+      ],
+      "bill_type": "company",
+      "bill_to_name": "株式会社サンプル飲食",
+      "honorific": "御中",
+      "tax_mode": "tax_incl",
+      "invoice_number": "INV-2026-0019",
+      "invoice_date": "2026-06-15",
+      "due_date": "2026-07-15",
+      "items": [
+        {
+          "id": "i1",
+          "name": "在留資格認定証明書交付申請（技能）",
+          "unit_price": 110000,
+          "quantity": 1
+        }
+      ],
+      "expenses": [],
+      "payments_history": [
+        {
+          "id": "h1",
+          "date": "2026-06-20",
+          "amount": 55000,
+          "method": "振込",
+          "note": "着手金"
+        }
+      ],
+      "notes": "",
+      "is_prospect": false,
+      "prospect_archived": false
+    },
+    {
+      "payment_id": "PM005",
+      "case_ids": [
+        "DG001"
+      ],
+      "client_ids": [
+        "D009"
+      ],
+      "bill_type": "company",
+      "bill_to_name": "株式会社サンプルコーポレーション",
+      "honorific": "御中",
+      "tax_mode": "tax_incl",
+      "invoice_number": "INV-2026-0027",
+      "invoice_date": "2026-07-18",
+      "due_date": "2026-08-17",
+      "items": [
+        {
+          "id": "i1",
+          "name": "株式会社設立手続 報酬",
+          "unit_price": 100000,
+          "quantity": 1
+        }
+      ],
+      "expenses": [
+        {
+          "id": "e1",
+          "date": "2026-07-20",
+          "name": "定款認証手数料（立替）",
+          "amount": 52000,
+          "billable": true
+        }
+      ],
+      "payments_history": [
+        {
+          "id": "h1",
+          "date": "2026-07-20",
+          "amount": 50000,
+          "method": "振込",
+          "note": "着手金"
+        }
+      ],
+      "notes": "",
+      "is_prospect": false,
+      "prospect_archived": false
+    },
+    {
+      "payment_id": "PROSP001",
+      "case_ids": [],
+      "client_ids": [],
+      "bill_type": "company",
+      "bill_to_name": "株式会社サンプル物流",
+      "honorific": "御中",
+      "tax_mode": "tax_incl",
+      "invoice_number": "",
+      "invoice_date": "",
+      "due_date": "",
+      "items": [
+        {
+          "id": "i1",
+          "name": "在留資格認定証明書交付申請（特定技能1号）",
+          "unit_price": 82500,
+          "quantity": 3
+        }
+      ],
+      "expenses": [],
+      "payments_history": [],
+      "notes": "",
+      "is_prospect": true,
+      "prospect_archived": false,
+      "subject": "特定技能1号 COE申請（3名）",
+      "estimate_number": "EST-2026-0012",
+      "estimate_date": "2026-07-27",
+      "estimate_valid": "2026-08-26",
+      "estimate_note": "ご発注後、着手金として50%を申し受けます。"
+    }
+  ],
+  "companies": [
+    {
+      "company_id": "CO001",
+      "name": "株式会社サンプル飲食",
+      "short_name": "サンプル飲食",
+      "pref": "東京都",
+      "status": "active"
+    },
+    {
+      "company_id": "CO002",
+      "name": "株式会社サンプルIT",
+      "short_name": "サンプルIT",
+      "pref": "東京都",
+      "status": "active"
+    },
+    {
+      "company_id": "CO003",
+      "name": "株式会社サンプル商事",
+      "short_name": "サンプル商事",
+      "pref": "千葉県",
+      "status": "active"
+    },
+    {
+      "company_id": "CO004",
+      "name": "株式会社サンプル介護",
+      "short_name": "サンプル介護",
+      "pref": "東京都",
+      "status": "active"
+    },
+    {
+      "company_id": "CO005",
+      "name": "株式会社サンプルコーポレーション",
+      "short_name": "サンプル法人",
+      "pref": "東京都",
+      "status": "active"
+    }
+  ],
+  "links": [
+    {
+      "id": "L1",
+      "name": "オンライン申請システム",
+      "url": "https://www.ras-immi.moj.go.jp/",
+      "icon": "🖥️",
+      "category": "申請"
+    },
+    {
+      "id": "L2",
+      "name": "出入国在留管理庁",
+      "url": "https://www.moj.go.jp/isa/",
+      "icon": "🏛️",
+      "category": "入管"
+    },
+    {
+      "id": "L3",
+      "name": "在留カード番号確認",
+      "url": "https://lapse-immi.moj.go.jp/ZEC/appl/e0/ZEC2/pages/FZECST011.aspx",
+      "icon": "💳",
+      "category": "入管"
+    },
+    {
+      "id": "L5",
+      "name": "東京都最低賃金",
+      "url": "https://jsite.mhlw.go.jp/tokyo-roudoukyoku/news_topics/chingin_toukei/chingin.html",
+      "icon": "📊",
+      "category": "参考"
+    },
+    {
+      "id": "L6",
+      "name": "日本行政書士会連合会",
+      "url": "https://www.gyosei.or.jp/",
+      "icon": "📜",
+      "category": "参考"
+    }
+  ]
+}
