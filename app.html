@@ -1240,6 +1240,19 @@ function initials(n){ if(!n) return "?"; const p=n.split(" "); return p.length>=
 function avColor(id){ return AVATAR_COLORS[parseInt((id||"C0").replace(/\D/g,"")||"0")%AVATAR_COLORS.length]; }
 const fmt = n => "¥"+n.toLocaleString();
 
+// 履歴の表示用ソート：日付(YYYY-MM-DD文字列)の新しい順。保存配列は変更せず表示時のみ並べ替える。
+// 同日付は「新しく登録したものが上」を維持する。comm_log は先頭挿入・additional_requests は
+// 末尾追加と挿入方向が異なるため、newestFirst に元配列の向き（新しい登録が先頭か）を渡す。
+// 日付が空のエントリは消さず末尾にまとめる。
+function sortByDateDesc(arr, dateKey, newestFirst=true){
+  return arr.map((e,i)=>({e,i})).sort((a,b)=>{
+    const da=a.e[dateKey]||"", db=b.e[dateKey]||"";
+    if(!da!==!db) return da?-1:1;        // 日付なしは末尾
+    if(da!==db) return da<db?1:-1;       // 新しい日付が上
+    return newestFirst?a.i-b.i:b.i-a.i;  // 同日付は登録の新しい順
+  }).map(x=>x.e);
+}
+
 // 顔写真用の最大寸法・品質。アバター用途なので256pxで十分。
 const PHOTO_MAX_DIM=256;
 const PHOTO_QUALITY=0.85;
@@ -3024,6 +3037,25 @@ function mergeExtractedToClient(existing, extracted){
   const addrAllowed = dc.isResidenceCard || dc.isApplication;
   const currentJobAllowed = !dc.isResignation;
   const merged = {...existing};
+  // 在留カードの読み込みで番号が変わる場合、上書きされる前に現在のカード情報を履歴へ退避する。
+  //  ・同じ番号の読み直しは何もしない（空白・大小文字の揺れは同一番号とみなす）
+  //  ・履歴に同じ在留カード番号のエントリが既にあれば追加しない（重複禁止）
+  //  ・「最後にポイポイしたカードが現在」原則は維持。在留期限の新旧比較・並べ替えは行わない
+  if(dc.isResidenceCard && extracted.residence_card && existing.residence_card){
+    const normCard = s=>String(s||"").replace(/\s/g,"").toUpperCase();
+    const hist = existing.residence_history||[];
+    if(normCard(extracted.residence_card)!==normCard(existing.residence_card)
+       && !hist.some(h=>normCard(h.residence_card)===normCard(existing.residence_card))){
+      merged.residence_history = [{
+        id:"rh"+Date.now(),
+        residence_card:existing.residence_card||"",
+        residence_expiry:existing.residence_expiry||"",
+        residence_status:existing.residence_status||"",
+        residence_period:existing.residence_period||"",
+        archived_date:new Date().toISOString().slice(0,10)
+      },...hist];
+    }
+  }
   Object.entries(FIELD_MAP).forEach(([src,dst])=>{
     if(!extracted[src]) return;
     if((dst==="address"||dst==="postal_code") && !addrAllowed) return;
@@ -4287,7 +4319,7 @@ function TabCaseHistory({c,cases,payments,onNavigateCase,onNewCase}){
                 {/* やり取り履歴 */}
                 {commLog.length>0&&<div>
                   <div style={{fontSize:11,color:"#666",fontWeight:500,marginBottom:6}}>💬 やり取り履歴（直近5件）</div>
-                  {commLog.slice(0,5).map(l=>{
+                  {sortByDateDesc(commLog,"date").slice(0,5).map(l=>{
                     const mIcon={"電話":"📞","メール":"✉️","LINE":"💬","対面":"🤝","郵送":"📮","作業":"✍️","その他":"📝"}[l.method]||"📝";
                     return(
                       <div key={l.id} style={{padding:"4px 0",borderBottom:"0.5px solid rgba(0,0,0,0.05)"}}>
@@ -6475,7 +6507,7 @@ function CaseDetail({c,onUpdate,onDelete,clients,allCases,payments,templates,com
           <span>追加資料対応履歴{(c.additional_requests||[]).length>0&&<span style={{fontSize:10,color:"#A32D2D",marginLeft:6,fontWeight:500}}>{(c.additional_requests||[]).length}件</span>}</span>
         </div>
         {addlReqOpen&&(<>
-        {(c.additional_requests||[]).map(r=>{
+        {sortByDateDesc(c.additional_requests||[],"requested_date",false).map(r=>{
           const isSubmitted=!!r.submitted_date;
           const deadlineDays=r.deadline_date?Math.ceil((new Date(r.deadline_date)-new Date(new Date().toDateString()))/86400000):null;
           return(
@@ -6715,7 +6747,7 @@ function CommLogSection({logs,contacts,onChange}){
         </div>
       )}
       {logs.length===0&&!showForm&&<div style={{fontSize:12,color:"#bbb",textAlign:"center",padding:8}}>やり取りの記録はありません</div>}
-      {logs.map(l=>{
+      {sortByDateDesc(logs,"date").map(l=>{
         const mIcon={"電話":"📞","メール":"✉️","LINE":"💬","対面":"🤝","郵送":"📮","作業":"✍️","その他":"📝"}[l.method]||"📝";
         return(
           <div key={l.id} style={{padding:"8px 10px",borderLeft:"2px solid #D3D1C7",marginBottom:4,marginLeft:4,display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
@@ -7439,9 +7471,10 @@ function NewPaymentModal({onClose,onSave,cases,clients,payments,feeMaster,compan
   const [dueDate,setDueDate]=useState("");
 
   // 案件リスト（すでに請求に紐づいてる案件は除外）
+  // 相談中は除外しない：相談段階の見積・着手金請求に対応するため（見込案件はクライアント未登録の仮見積用）
   const billedCaseIds=new Set((payments||[]).flatMap(p=>p.case_ids));
   const availableCases=cases.filter(c=>{
-    if(["相談中","キャンセル","取下"].includes(c.status)&&!c.fee) return false;
+    if(["キャンセル","取下"].includes(c.status)&&!c.fee) return false;
     if(billedCaseIds.has(c.case_id)) return false;
     return true;
   });
@@ -7560,7 +7593,7 @@ function NewPaymentModal({onClose,onSave,cases,clients,payments,feeMaster,compan
                 <option value="">選択してください</option>
                 {availableCases.map(c=>{
                   const applicantName=c.applicant||(clients.find(x=>x.client_id===c.client_id)?.name_roman)||"";
-                  return <option key={c.case_id} value={c.case_id}>{applicantName?`${applicantName} ／ `:""}{c.case_title}</option>;
+                  return <option key={c.case_id} value={c.case_id}>{applicantName?`${applicantName} ／ `:""}{c.case_title}{c.status==="相談中"?"〔相談中〕":""}</option>;
                 })}
               </select>:<div style={{padding:"10px 12px",background:"#FEF8EE",borderRadius:6,fontSize:12,color:"#854F0B",border:"0.5px solid #F5D9A4",lineHeight:1.6}}>
                 💡 紐付け可能な案件がありません。<br/>
@@ -7625,7 +7658,7 @@ function NewPaymentModal({onClose,onSave,cases,clients,payments,feeMaster,compan
                         background:checked?"var(--accent)":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
                         {checked&&<span style={{color:"#fff",fontSize:10}}>✓</span>}
                       </div>
-                      <div><div style={{fontSize:12,fontWeight:500}}>{applicantName}</div><div style={{fontSize:11,color:"var(--text2)"}}>{c.case_title}</div></div>
+                      <div><div style={{fontSize:12,fontWeight:500,display:"flex",alignItems:"center",gap:6}}>{applicantName}{c.status==="相談中"&&<span style={{fontSize:10,padding:"1px 6px",borderRadius:3,background:CASE_STATUS_COLORS["相談中"].bg,color:CASE_STATUS_COLORS["相談中"].color,fontWeight:500,border:"0.5px solid #D3D1C7"}}>相談中</span>}</div><div style={{fontSize:11,color:"var(--text2)"}}>{c.case_title}</div></div>
                     </div>
                     {checked&&<div style={{padding:"6px 10px 8px",background:"var(--bg2)",borderRadius:"0 0 6px 6px",border:"0.5px solid var(--accent)",borderTop:"none"}}>
                       <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
