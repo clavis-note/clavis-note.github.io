@@ -1,0 +1,27 @@
+# 公開する JSON データファイルの検証。
+# updates.json が壊れると更新履歴ページが静的フォールバックに落ちて新しい履歴が消えるため、
+# 壊れたまま本番へ出ないよう push / PR で検証する（2026-09-03 の事故を受けて追加）。
+name: Validate data files
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "**.json"
+      - "scripts/validate_data.py"
+      - ".github/workflows/validate-data.yml"
+  pull_request:
+    paths:
+      - "**.json"
+      - "scripts/validate_data.py"
+  workflow_dispatch: {}
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - run: python scripts/validate_data.py
