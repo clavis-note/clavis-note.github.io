@@ -79,7 +79,9 @@ const DEFAULT_TEMPLATES = {
   T22:{label:"技術・人文知識・国際業務 転職後初更新",hearing:[],docs:[{id:"d1",name:"在留カード(表裏コピー)",group:null},{id:"d2",name:"パスポート",group:null},{id:"d3",name:"写真(縦4cm×横3cm)",group:null},{id:"d4",name:"住民票(世帯全員)",group:null},{id:"d5",name:"課税証明書",group:null},{id:"d6",name:"納税証明書",group:null},{id:"d7",name:"職務経歴書",group:null},{id:"d8",name:"退職証明書(前職)",group:null},{id:"d9",name:"雇用契約書",group:"転職先書類"},{id:"d10",name:"登記事項証明書",group:"転職先書類"},{id:"d11",name:"決算文書(直近)",group:"転職先書類"},{id:"d12",name:"法定調書合計表",group:"転職先書類"}]},
   T30:{label:"永住許可申請",hearing:[{id:"h1",type:"date",label:"来日年月日"},{id:"h2",type:"text",label:"過去5年の海外渡航履歴"},{id:"h3",type:"text",label:"納税状況・年金加入状況"}],docs:[{id:"d1",name:"在留カード(表裏コピー)",group:null},{id:"d2",name:"パスポート",group:null},{id:"d3",name:"写真(縦4cm×横3cm)",group:null},{id:"d4",name:"申請理由書",group:null},{id:"d5",name:"住民票(世帯全員)",group:"住民・身分関係"},{id:"d6",name:"住民票記載事項証明書",group:"住民・身分関係"},{id:"d7",name:"戸籍謄本(日本人配偶者の場合)",group:"住民・身分関係"},{id:"d8",name:"課税証明書(直近5年分)",group:"納税・収入関係"},{id:"d9",name:"納税証明書(直近5年分)",group:"納税・収入関係"},{id:"d10",name:"源泉徴収票(直近)",group:"納税・収入関係"},{id:"d11",name:"年金記録(ねんきん定期便等)",group:"年金・社会保険"},{id:"d12",name:"健康保険証コピー",group:"年金・社会保険"},{id:"d13",name:"雇用契約書",group:"勤務先関係"},{id:"d14",name:"在職証明書",group:"勤務先関係"},{id:"d15",name:"身元保証書",group:"その他"},{id:"d16",name:"預貯金通帳コピー",group:"その他"}]},
 };
-const CASE_STATUS_LIST=["相談中","書類収集中","申請中","追加資料対応中","許可","不許可","完了","完了（結果待ち）","キャンセル","保留"];
+// ステータスは実務順（自分が動く → 相手待ち → 結果が出た → 終わった）。
+// 案件管理サイドバーの並び順とドロップダウンの選択肢が同じ順になる（文字列は変えないので既存データに影響なし）。
+const CASE_STATUS_LIST=["相談中","書類収集中","追加資料対応中","申請中","完了（結果待ち）","許可","不許可","完了","保留","キャンセル"];
 const DOC_STATUS_CYCLE={"未取得":"取得済","取得済":"提出済","提出済":"未取得","不要":"未取得"};
 const DOC_STATUS_STYLE={"未取得":{bg:"transparent",chkBg:"transparent",chkBorder:"#ccc",textColor:"#666"},"取得済":{bg:"#FEFAF3",chkBg:"#EF9F27",chkBorder:"#BA7517",textColor:"#1a1a1a"},"提出済":{bg:"#F5FBF0",chkBg:"#1D9E75",chkBorder:"#1D9E75",textColor:"#1a1a1a"},"不要":{bg:"#F5F5F5",chkBg:"transparent",chkBorder:"#ddd",textColor:"#bbb"}};
 
@@ -100,7 +102,7 @@ function isImmigrationCase(c){
   return c.category==="国際" || !!c.template_id || (typeof c.case_id==="string" && c.case_id.startsWith("A"));
 }
 const GENERAL_CASE_CATEGORIES=JOURNAL_CATEGORIES.filter(c=>c!=="国際");
-const GENERAL_STATUS_LIST=["相談中","受任","作業中","提出済","完了","キャンセル","保留"];
+const GENERAL_STATUS_LIST=["相談中","受任","作業中","提出済","完了","保留","キャンセル"];
 const COMM_METHODS=["電話","メール","LINE","対面","郵送","作業","その他"];
 
 // 令和8年度 行政書士申請取次関係研修会 日程データ
@@ -117,6 +119,16 @@ const DEFAULT_TRAINING_SCHEDULE = {
     {no:8,type:"事務研修会（新規）",period:"2027-02-19〜2027-03-01",enroll_start:"2027-01-07",enroll_end:"2027-01-14",cert_date:"2027-03-19",cost:30000},
   ]
 };
+
+// 研修日程アラートを出す「届出済証明書の残日数」の上限（約1年半）。
+// 年4回の実務研修会に対して十分な申込機会を確保しつつ、更新直後に毎回鳴るのを防ぐ。
+const TRAINING_ALERT_MAX_DAYS=540;
+// 今期の更新研修を受講済みか。受講記録（office.training_done）は記録時点の届出済証明書の有効期限に紐づけて保存し、
+// 有効期限を新しい日付に更新すると自動的に不一致＝未受講（次サイクル）になる。
+function isTrainingDoneForCurrent(o){
+  const td=o&&o.training_done;
+  return !!(td && td.expiry && o.credential_expiry && td.expiry===o.credential_expiry);
+}
 
 function getSystemAlerts(office){
   const alerts=[];
@@ -140,17 +152,21 @@ function getSystemAlerts(office){
       alerts.push({id:"sys-cred",icon:"📜",label:`${level} 届出済証明書`,due:o.credential_expiry,days,note:`有効期限${days<=0?"切れ！至急更新を！":`まで${days}日`}`});
     }
   }
-  // 研修日程アラート（申込期間の事前通知）
-  // 届出済証明書(credential_expiry)未登録時はそもそも申請取次の対象外とみなして抑止する。
-  // ＝シークレットタブ・初期状態では研修アラートを出さない（常表示の解消）
-  if(o.credential_expiry){
+  // 研修日程アラート（申込期間の事前通知）。「いま行動が必要な人にだけ鳴る」ようにする：
+  //  ・届出済証明書(credential_expiry)未登録 → 申請取次の対象外とみなして出さない（従来どおり）
+  //  ・残日数が TRAINING_ALERT_MAX_DAYS（540日）超 → 出さない（更新直後に申込期間のたびに鳴るのを防ぐ）
+  //  ・今期の更新研修を受講済み（training_done が現在の有効期限に紐づく）→ 出さない
+  //  ・期限切れ（残日数0以下）→ 更新手続き不可なので、事務研修会（新規）の申込期間を対象にする
+  //  ・それ以外 → 実務研修会（更新）の申込期間を対象にする（30日前〜申込終了日）
+  const credDays=o.credential_expiry?getDays(o.credential_expiry):null;
+  if(credDays!==null && credDays<=TRAINING_ALERT_MAX_DAYS && !isTrainingDoneForCurrent(o)){
     const schedule=o.training_schedule||DEFAULT_TRAINING_SCHEDULE;
     const today=new Date(new Date().toDateString());
+    const wantNew=credDays<=0;
     if(schedule&&schedule.sessions){
       schedule.sessions.forEach(s=>{
-        // Clavis Note利用者は基本的に既届出＝更新対象なので、実務研修会（更新）のみ通知。
-        // 事務研修会（新規）は研修日程モーダル側に資料として残す
-        if(!s.type||!s.type.includes("更新")) return;
+        const type=String(s.type||"");
+        if(wantNew ? !type.includes("新規") : !type.includes("更新")) return;
         const eStart=new Date(s.enroll_start);
         const eEnd=new Date(s.enroll_end);
         const daysToStart=Math.ceil((eStart-today)/86400000);
@@ -1244,6 +1260,18 @@ const fmt = n => "¥"+n.toLocaleString();
 // 同日付は「新しく登録したものが上」を維持する。comm_log は先頭挿入・additional_requests は
 // 末尾追加と挿入方向が異なるため、newestFirst に元配列の向き（新しい登録が先頭か）を渡す。
 // 日付が空のエントリは消さず末尾にまとめる。
+// 案件管理サイドバーの並び順：ステータス（実務順）→ 受任日の新しい順（受任日なしは同ステータス内の末尾）。
+// リストに無いステータス（旧データ等）は末尾にまとめる。入管タブ・一般タブとも同じルール。
+function statusRank(status, list){ const i=list.indexOf(status); return i<0?list.length:i; }
+function sortCasesForSidebar(arr, list){
+  return [...arr].sort((a,b)=>{
+    const ra=statusRank(a.status,list), rb=statusRank(b.status,list);
+    if(ra!==rb) return ra-rb;
+    const da=a.accepted_date||"", db=b.accepted_date||"";
+    if(!da!==!db) return da?-1:1;
+    return db.localeCompare(da);
+  });
+}
 function sortByDateDesc(arr, dateKey, newestFirst=true){
   return arr.map((e,i)=>({e,i})).sort((a,b)=>{
     const da=a.e[dateKey]||"", db=b.e[dateKey]||"";
@@ -1443,7 +1471,7 @@ async function readDocument(fileBase64, mediaType, apiKey){
   "address": "日本国内の現住所（日本語）。本国（海外）の住所は絶対にここへ入れずnullにする",
   "home_residence": "本国の居住地。パスポートの出生地（Place of Birth）を読み取り、入管申請の入力形式『国名（カタカナ）　出生地（カタカナ）』（全角スペース区切り）に変換して返す。英字の地名は日本語のカタカナ読みに変換し（例: BAGLUNG→バグルン、NAWALPARASI→ナワルパラシ）、国名を国籍からカタカナで前置する（例: ネパール）。総合例: 「ネパール　バグルン」。出生地が読み取れなければnull。履歴書・退職証明書・在留申請書などに記載された海外の住所はここに入れない（ソースはパスポートの出生地のみ）",
   "residence_status": "在留資格（日本語のみ。在留カード・在留申請書の記載から読み取る。例: 技術・人文知識・国際業務、特定技能1号、家族滞在。書類に記載が無ければnull。例示をそのまま返さない）",
-  "residence_period": "在留期間（例: 1年、3年、5年、6月、11月など。在留カードの「在留期間」欄から読み取る）",
+  "residence_period": "在留期間（例: 1年、3年、5年、6月、11月など。在留カードの「在留期間」欄から読み取る。2026年6月以降交付の新様式在留カードには在留期間の欄が無いので、記載が無ければnull。満了日から推測しない（推定はアプリ側で行う））",
   "residence_expiry": "YYYY-MM-DD形式（在留期間の満了日）",
   "residence_card": "在留カード番号",
   "passport_number": "パスポート番号",
@@ -1471,6 +1499,7 @@ async function readDocument(fileBase64, mediaType, apiKey){
 注意：
 - document_type は必ず判定して返す（どうしても判別不能な時のみnull）
 - 在留資格は日本語のみ返す（英語表記は除外）
+- 新様式在留カード（2026年6月〜交付。券面に「在留期間」「許可の種類」「許可年月日」「交付年月日」の記載が無いもの）では residence_period を null にする。在留期間の満了日（residence_expiry）は従来どおり読み取る
 - パスポートの場合、residence_status / residence_period / residence_expiry / residence_card は必ずnullにする（上陸許可証印・過去の在留資格シール・査証から読まない。これらは在留カードのみがソース）
 - 日付は必ずYYYY-MM-DD形式
 - address は日本国内の現住所のみ。退職証明書・パスポート等にある本国（海外）の住所は address に入れずnullにする
@@ -3027,6 +3056,20 @@ function classifyDocType(dt){
   };
 }
 
+// 新様式在留カード（2026年6月〜交付）用：券面に無い在留期間を、満了日と今日の差（月数）に最も近い候補で推定する。
+// どの候補からも ±2か月超ずれる場合は null（推定を出さない）。確定は人が行う前提（residence_period_estimated フラグで「推定」表示）。
+const RESIDENCE_PERIOD_CANDIDATES=[["3月",3],["4月",4],["6月",6],["1年",12],["1年3月",15],["2年",24],["2年3月",27],["3年",36],["4年",48],["5年",60]];
+function estimateResidencePeriod(expiry, today){
+  if(!expiry) return null;
+  const e=new Date(expiry); if(isNaN(e)) return null;
+  const t=today?new Date(today):new Date(new Date().toDateString());
+  const months=(e-t)/86400000/30.4375;
+  if(months<=0) return null;
+  let best=null, bestDiff=Infinity;
+  for(const [label,m] of RESIDENCE_PERIOD_CANDIDATES){ const d=Math.abs(months-m); if(d<bestDiff){ bestDiff=d; best=label; } }
+  return bestDiff<=2?best:null;
+}
+
 // ポイポイ式の明細表示用：クライアント側フィールド名 → 画面上の日本語ラベル
 const POI_FIELD_LABELS = {
   name_roman:"氏名（ローマ字）", name_kana:"氏名（カナ）", nationality:"国籍", dob:"生年月日", gender:"性別",
@@ -3110,6 +3153,20 @@ function mergeExtractedToClient(existing, extracted, report){
   if(extracted.name_kana && (!existing.name_kana || isPlaceholder(existing.name_kana))){
     merged.name_kana_estimated = true;
   }
+  // 新様式在留カード（券面に在留期間なし）：AI は residence_period を null で返す。
+  // 既存の在留期間を残すと更新前の値（例: 1年→3年に変わっていても「1年」）が居座って危険なので、
+  // 満了日から推定して置き換え、推定フラグを立てる（推定できなければ空にする）。旧様式（読み取り値あり）は推定解除。
+  const newStyleCard = dc.isResidenceCard && !extracted.residence_period && !!extracted.residence_expiry;
+  if(newStyleCard){
+    const est = estimateResidencePeriod(extracted.residence_expiry);
+    const prevPeriod = merged.residence_period||"";
+    merged.residence_period = est||"";
+    merged.residence_period_estimated = !!est;
+    if(est) log({field:"residence_period",label:"在留期間",value:est,prev:prevPeriod,outcome:"applied",changed:prevPeriod!==est,estimated:true,reason:"新様式カード（在留期間の記載なし）のため満了日から推定"});
+    else if(prevPeriod) log({field:"residence_period",label:"在留期間",value:"",prev:prevPeriod,outcome:"applied",changed:true,reason:"新様式カードのため既存の在留期間をクリア（満了日から推定できず。手動で入力してください）"});
+  } else if(dc.isResidenceCard && extracted.residence_period){
+    merged.residence_period_estimated = false;
+  }
   // 職歴は累積。会社名（正規化）×開始月が一致するエントリは同一とみなし重複追加しない。
   if(extracted.work_history && Array.isArray(extracted.work_history) && extracted.work_history.length>0){
     const wh0 = existing.work_history||[];
@@ -3130,6 +3187,7 @@ function mergeExtractedToClient(existing, extracted, report){
   if(dc.isResidenceCard || dc.isPassport){
     const keys = dc.isResidenceCard ? POI_KEY_FIELDS_RESIDENCE_CARD : POI_KEY_FIELDS_PASSPORT;
     keys.forEach(dst=>{
+      if(dst==="residence_period" && newStyleCard) return; // 新様式は記載自体が無い（推定で対応済み）
       const src = Object.keys(FIELD_MAP).find(k=>FIELD_MAP[k]===dst);
       if(src && !extracted[src]) log({field:dst,label:POI_FIELD_LABELS[dst]||dst,outcome:"missing"});
     });
@@ -3155,7 +3213,7 @@ function createClientFromExtracted(extracted, report){
     name_roman:"", name_kana:"", name_kana_estimated:false,
     nationality:"", dob:"", gender:"",
     passport_number:"", passport_expiry:"",
-    entry_date:"", residence_card:"", residence_status:"", residence_expiry:"", residence_period:"",
+    entry_date:"", residence_card:"", residence_status:"", residence_expiry:"", residence_period:"", residence_period_estimated:false,
     phone:"", email:"",
     company_name:"", store:"", work_start_date:"",
     notes:"", address:"", postal_code:"",
@@ -3685,9 +3743,20 @@ function Dashboard({data,setData,onNavClient,onNavCase,onNavPayment,onNavMaster}
             return(<div>
               <div style={{fontSize:16,fontWeight:600,marginBottom:4}}>📅 研修日程</div>
               <div style={{fontSize:12,color:"#666",marginBottom:14}}>{sch.fiscal_year}　申請取次関係研修会</div>
-              {o.credential_expiry&&<div style={{background:"#FFF8E1",borderRadius:8,padding:"8px 12px",marginBottom:14,fontSize:12}}>
+              {o.credential_expiry&&<div style={{background:"#FFF8E1",borderRadius:8,padding:"8px 12px",marginBottom:10,fontSize:12}}>
                 <span style={{fontWeight:500}}>届出済証明書</span>：{o.credential_expiry}まで（残{Math.ceil((new Date(o.credential_expiry)-today)/86400000)}日）
+                {isTrainingDoneForCurrent(o)&&<div style={{color:"#3B6D11",fontWeight:500,marginTop:4}}>✅ 今期の更新研修は受講済みとして記録されています{o.training_done.session?`（${o.training_done.session}）`:""}</div>}
               </div>}
+              {(()=>{
+                const cd=o.credential_expiry?getDays(o.credential_expiry):null;
+                const expired=cd!==null&&cd<=0;
+                return <div style={{fontSize:11,color:"#666",marginBottom:8,lineHeight:1.6}}>
+                  {expired
+                    ?"⛔ 届出済証明書が期限切れのため更新手続きはできません。事務研修会（新規）を受講して再取得してください。"
+                    :"既届出の方は実務研修会（更新）が対象です。事務研修会（新規）は新規届出向けですが、実務研修会の定員に漏れた場合や期限切れ後の再取得にも使えます（1年以内発行の修了証書は更新手続きにも使用できる特例あり）。"}
+                  {cd!==null&&cd>TRAINING_ALERT_MAX_DAYS&&<div style={{color:"#999"}}>※ 研修アラートは有効期限の残りが{TRAINING_ALERT_MAX_DAYS}日以内になると表示されます。</div>}
+                </div>;
+              })()}
               <div style={{maxHeight:320,overflowY:"auto"}}>
                 <table style={{width:"100%",fontSize:11,borderCollapse:"collapse"}}>
                   <thead><tr style={{background:"#f5f5f5"}}>
@@ -3698,7 +3767,13 @@ function Dashboard({data,setData,onNavClient,onNavCase,onNavPayment,onNavMaster}
                     <th style={{padding:"5px 6px",textAlign:"left",fontWeight:600,fontSize:10}}>費用</th>
                     <th style={{padding:"5px 6px",textAlign:"left",fontWeight:600,fontSize:10}}>状態</th>
                   </tr></thead>
-                  <tbody>{sch.sessions.map(s=>{
+                  <tbody>{(()=>{
+                    // 主表示＝実務研修会（更新）。期限切れ時は事務研修会（新規）が主。従の方は淡色で後ろに並べる（資料として残す）
+                    const cd=o.credential_expiry?getDays(o.credential_expiry):null;
+                    const primaryKey=(cd!==null&&cd<=0)?"新規":"更新";
+                    const isPrimary=s=>String(s.type||"").includes(primaryKey);
+                    return [...sch.sessions].sort((x,y)=>(isPrimary(y)?1:0)-(isPrimary(x)?1:0)||(x.no-y.no));
+                  })().map(s=>{
                     const eStart=new Date(s.enroll_start);
                     const eEnd=new Date(s.enroll_end);
                     const daysToStart=Math.ceil((eStart-today)/86400000);
@@ -3707,9 +3782,11 @@ function Dashboard({data,setData,onNavClient,onNavCase,onNavPayment,onNavMaster}
                     const isOpen=daysToStart<=0&&daysToEnd>=0;
                     const isSoon=daysToStart>0&&daysToStart<=30;
                     const isTarget=a.id===`sys-train-${s.no}`;
+                    const cdRow=o.credential_expiry?getDays(o.credential_expiry):null;
+                    const secondary=!String(s.type||"").includes((cdRow!==null&&cdRow<=0)?"新規":"更新");
                     const statusLabel=isPast?"終了":isOpen?"🔔 受付中":isSoon?`あと${daysToStart}日`:"—";
                     const rowBg=isTarget?"#E6F1FB":isOpen?"#FFF8E1":isSoon?"#FFF3E0":"transparent";
-                    return(<tr key={s.no} style={{background:rowBg,opacity:isPast?0.45:1}}>
+                    return(<tr key={s.no} style={{background:rowBg,opacity:isPast?0.45:secondary?0.6:1}}>
                       <td style={{padding:"5px 6px",fontWeight:isTarget?600:400}}>{s.no}</td>
                       <td style={{padding:"5px 6px"}}>{s.type}</td>
                       <td style={{padding:"5px 6px",fontSize:10}}>{s.period}</td>
@@ -4102,10 +4179,15 @@ function TabBasic({c,editMode,update,allClients,hl}){
             <div style={lbl}>在留資格</div>
             <select value={c.residence_status||""} onChange={e=>update("residence_status",e.target.value)} style={{...selS,...hlS("residence_status")}}><option value="">選択してください</option>{RESIDENCE_STATUSES.map(s=><option key={s} value={s}>{s}</option>)}</select>
           </div>}
-          {!isGenClient&&<div>
-            <div style={lbl}>在留期間</div>
-            {(()=>{const opts=["6月","1年","3年","5年","3月","4月","11月","15日","30日","90日"];const cur=c.residence_period;if(cur&&!opts.includes(cur))opts.unshift(cur);return <select value={cur||""} onChange={e=>update("residence_period",e.target.value)} style={{...selS,...hlS("residence_period")}}><option value="">選択</option>{opts.map(s=><option key={s} value={s}>{s}</option>)}</select>;})()}
-          </div>}
+          {!isGenClient&&(()=>{
+            // 新様式在留カード（券面に在留期間なし）から満了日で推定した値は「推定」バッジ＋薄字。人が確定・手直しした時点でフラグを消す（カナ氏名と同じ挙動）
+            const isEstPeriod=!!(c.residence_period_estimated&&c.residence_period);
+            const opts=["6月","1年","3年","5年","3月","4月","11月","15日","30日","90日"];const cur=c.residence_period;if(cur&&!opts.includes(cur))opts.unshift(cur);
+            return <div>
+              <div style={{...lbl,display:"flex",alignItems:"center"}}>在留期間{isEstPeriod&&<span style={{marginLeft:6,fontSize:9,color:"#B0883B",background:"#FBF1DD",borderRadius:3,padding:"0 5px",fontWeight:600,letterSpacing:0}}>推定</span>}{isEstPeriod&&<HelpInfo title="在留期間（推定）" size={13}>{"新様式の在留カード（2026年6月以降交付）には在留期間の記載がありません。この値は在留期間の満了日から推定したものです。\n\n許可通知書などでご確認のうえ、正しい在留期間を選び直して確定してください（選び直すと「推定」の表示は消えます）。"}</HelpInfo>}</div>
+              <select value={cur||""} onChange={e=>{update("residence_period",e.target.value);if(c.residence_period_estimated)update("residence_period_estimated",false);}} style={{...selS,...hlS("residence_period"),...(isEstPeriod?{color:"#9aa0a6",fontStyle:"italic"}:{})}}><option value="">選択</option>{opts.map(s=><option key={s} value={s}>{s}</option>)}</select>
+            </div>;
+          })()}
           {!isGenClient&&<div>
             <div style={lbl}>在留期限</div>
             <div style={{display:"flex",gap:6,alignItems:"center"}}>
@@ -4852,7 +4934,7 @@ function PoiResultBanner({report,open,onToggle,onClose}){
           <span style={{fontWeight:500,minWidth:110}}>{e.label}</span>
           {isWh(e)
             ?<span>{e.added}件追加{e.skipped>0?`・${e.skipped}件は重複のためスキップ`:""}</span>
-            :<span>{e.prev&&e.changed?<><span style={{color:"var(--text3)",textDecoration:"line-through"}}>{fmtVal(e.prev)}</span> → </>:null}{fmtVal(e.value)}{!e.changed&&<span style={{color:"var(--text3)"}}>（変更なし）</span>}</span>}
+            :<span>{e.prev&&e.changed?<><span style={{color:"var(--text3)",textDecoration:"line-through"}}>{fmtVal(e.prev)}</span> → </>:null}{fmtVal(e.value)||<span style={{color:"var(--text3)"}}>（空欄）</span>}{e.estimated&&<span style={{marginLeft:4,fontSize:9,color:"#B0883B",background:"#FBF1DD",borderRadius:3,padding:"0 5px",fontWeight:600}}>推定</span>}{!e.changed&&<span style={{color:"var(--text3)"}}>（変更なし）</span>}{e.reason&&e.outcome==="applied"&&<span style={{color:"var(--text3)",marginLeft:4}}>— {e.reason}</span>}</span>}
           {fileTag(e)}
         </div>)}
         {(r.kept.length>0||r.excluded.length>0)&&<>
@@ -7266,8 +7348,11 @@ function CaseManagement({data,setData,navigateCaseId,clearNavigate,onNavigateToC
   const generalCases=cases.filter(c=>c.case_type==="general");
   const currentCases=subTab==="immigration"?immigrationCases:generalCases;
 
-  const filtered=[...currentCases.filter(c=>{const q=search.toLowerCase();return(!q||[c.case_title,c.applicant||"",c.requester||""].some(s=>s.toLowerCase().includes(q)))&&(filterStatus==="全て"||c.status===filterStatus);})].sort((a,b)=>subTab==="immigration"?((a.applied_date?"1":"0").localeCompare(b.applied_date?"1":"0")||(b.applied_date||"").localeCompare(a.applied_date||"")):((b.accepted_date||"").localeCompare(a.accepted_date||"")));
-  const activeStatuses=["全て",...new Set(currentCases.map(c=>c.status))];
+  // 並び順はステータス（実務順）→ 受任日降順。動く案件が上、終わった案件が下（申請日ベースの旧ロジックは撤去）
+  const statusOrder=subTab==="immigration"?CASE_STATUS_LIST:GENERAL_STATUS_LIST;
+  const filtered=sortCasesForSidebar(currentCases.filter(c=>{const q=search.toLowerCase();return(!q||[c.case_title,c.applicant||"",c.requester||""].some(s=>s.toLowerCase().includes(q)))&&(filterStatus==="全て"||c.status===filterStatus);}), statusOrder);
+  // フィルターチップも出現順ではなくステータスの実務順（リスト外の旧ステータスは末尾）
+  const activeStatuses=["全て",...[...new Set(currentCases.map(c=>c.status))].sort((a,b)=>statusRank(a,statusOrder)-statusRank(b,statusOrder))];
   const sel=cases.find(c=>c.case_id===selected?.case_id)||null;
   const nextNo=cases.length>0?Math.max(...cases.map(d=>Number(d.no)||0))+1:1;
   const isGeneral=sel?.case_type==="general"||(!sel?.template_id&&sel?.category!=="国際"&&sel?.case_id?.startsWith("G"));
@@ -9690,6 +9775,43 @@ function MasterOffice({office,setOffice}){
               <input value={o.credential_number||""} onChange={e=>up("credential_number",e.target.value)} style={inputS} placeholder="例: 行-26-000123"/>
             </div>
           </div>
+          {/* 今期の更新研修（受講済み記録）。記録は現在の有効期限に紐づき、期限を更新すると自動でリセットされる */}
+          {o.credential_expiry&&(()=>{
+            const done=isTrainingDoneForCurrent(o);
+            const td=o.training_done||{};
+            const sch=o.training_schedule||DEFAULT_TRAINING_SCHEDULE;
+            const renewSessions=(sch.sessions||[]).filter(s=>String(s.type||"").includes("更新"));
+            const credDays=getDays(o.credential_expiry);
+            const setDone=patch=>up("training_done",{expiry:o.credential_expiry,session:td.session||"",cert_date:td.cert_date||"",...patch});
+            return(
+              <div style={{borderTop:"0.5px solid var(--border)",paddingTop:14,marginBottom:14}}>
+                <div style={{fontSize:11,fontWeight:500,color:"var(--text2)",marginBottom:8}}>🎓 今期の更新研修（有効期限 {o.credential_expiry} まで）</div>
+                <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:12,color:"var(--text)"}}>
+                  <input type="checkbox" checked={done} onChange={e=>e.target.checked?setDone({}):up("training_done",null)}/>
+                  実務研修会（更新）を受講済み
+                </label>
+                {done&&<div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginTop:8}}>
+                  <div>
+                    <div style={labelS}>受講した回（任意）</div>
+                    <select value={td.session||""} onChange={e=>setDone({session:e.target.value})} style={inputS}>
+                      <option value="">選択</option>
+                      {renewSessions.map(s=><option key={s.no} value={`第${s.no}回 ${s.type}`}>第{s.no}回 {s.type}（{s.period}）</option>)}
+                      {td.session&&!renewSessions.some(s=>`第${s.no}回 ${s.type}`===td.session)&&<option value={td.session}>{td.session}</option>}
+                    </select>
+                  </div>
+                  <div>
+                    <div style={labelS}>修了証書の日付（任意）</div>
+                    <DateInput max="9999-12-31" min="1900-01-01" value={td.cert_date||""} onChange={v=>setDone({cert_date:v})} style={inputS}/>
+                  </div>
+                </div>}
+                <div style={{fontSize:10,color:"var(--text3)",marginTop:6,lineHeight:1.6}}>
+                  研修日程アラートは、有効期限の残りが{TRAINING_ALERT_MAX_DAYS}日（約1年半）以内で、今期の更新研修が未受講のときだけ表示されます。有効期限を新しい日付に更新すると、受講済みの記録は自動でリセットされます。
+                  {credDays!==null&&credDays>TRAINING_ALERT_MAX_DAYS&&<span>（現在は残り{credDays}日のためアラートは出ません）</span>}
+                  {credDays!==null&&credDays<=0&&<span>（期限切れのため、事務研修会（新規）の申込期間がアラート対象になります）</span>}
+                </div>
+              </div>
+            );
+          })()}
           {/* 研修日程 */}
           <div style={{borderTop:"0.5px solid var(--border)",paddingTop:14}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
@@ -10613,6 +10735,25 @@ function MasterMinWage({data,setData}){
 }
 
 // ── 書類テンプレート管理 ──
+// 書類グループ選択：既存グループを常に全件一覧で表示する自前ドロップダウン。
+// datalist は入力済みの値に前方一致する候補しか出さない（ブラウザ仕様）ため不採用。
+// 「＋ 新しいグループ…」で自由入力、「（グループなし）」で null に戻す。グループのマスターは持たない。
+function GroupSelect({value,options,onChange,style}){
+  const NEW="__new__";
+  const opts=[...(options||[])]; if(value&&!opts.includes(value)) opts.unshift(value);
+  return(
+    <select value={value||""} onChange={e=>{
+      const v=e.target.value;
+      if(v===NEW){ const name=window.prompt("新しいグループ名を入力してください"); const t=(name||"").trim(); if(t) onChange(t); return; }
+      onChange(v||null);
+    }} style={style}>
+      <option value="">（グループなし）</option>
+      {opts.map(g=><option key={g} value={g}>{g}</option>)}
+      <option value={NEW}>＋ 新しいグループ…</option>
+    </select>
+  );
+}
+
 function MasterTemplate({templates,setTemplates,data,setData}){
   const isMobile=useMobile();
   const [selId,setSelId]=useState(null);
@@ -10630,6 +10771,11 @@ function MasterTemplate({templates,setTemplates,data,setData}){
   const [editDocs,setEditDocs]=useState([]);
   const [editHearing,setEditHearing]=useState([]);
   const [idEditUnlocked,setIdEditUnlocked]=useState(false);
+  // グループ候補：保存済み全テンプレートの group ＋ 編集中の行の group（保存前でも下の行の候補に出る）
+  const groupOptions=[...new Set([
+    ...Object.entries(templates).filter(([k,t])=>k!=="_order"&&t&&Array.isArray(t.docs)).flatMap(([,t])=>t.docs.map(d=>d.group)),
+    ...editDocs.map(d=>d.group)
+  ].filter(Boolean))].sort((a,b)=>a.localeCompare(b,"ja"));
   
   // サイドバー並び替え用
   const [dragTplIdx,setDragTplIdx]=useState(null);
@@ -10691,10 +10837,13 @@ function MasterTemplate({templates,setTemplates,data,setData}){
     const newId=editId.toUpperCase().trim();
     if(!newId){alert("IDを入力してください");return;}
     if(newId!==selId && templates[newId]){alert("このIDは既に存在します");return;}
+    // 書類名・項目名が空（空白のみ含む）の行は静かに除外する（「＋追加」直後の未入力行）
+    const cleanDocs=editDocs.filter(d=>String(d.name||"").trim()).map(d=>({...d,name:String(d.name).trim()}));
+    const cleanHearing=editHearing.filter(h=>String(h.label||"").trim()).map(h=>({...h,label:String(h.label).trim()}));
 
     if(newId===selId){
       // ID変更なし
-      setTemplates(prev=>({...prev,[selId]:{label:editLabel,note:editNote,docs:editDocs,hearing:editHearing}}));
+      setTemplates(prev=>({...prev,[selId]:{label:editLabel,note:editNote,docs:cleanDocs,hearing:cleanHearing}}));
     }else{
       // ID変更あり → 影響件数を計算してconfirm
       const affectedCount=(data.cases||[]).filter(c=>c.template_id===selId).length;
@@ -10703,7 +10852,7 @@ function MasterTemplate({templates,setTemplates,data,setData}){
       setData(prev=>{
         const newTemplates={...prev.templates};
         delete newTemplates[selId];
-        newTemplates[newId]={label:editLabel,note:editNote,docs:editDocs,hearing:editHearing};
+        newTemplates[newId]={label:editLabel,note:editNote,docs:cleanDocs,hearing:cleanHearing};
         if(newTemplates._order)newTemplates._order=newTemplates._order.map(k=>k===selId?newId:k);
         const newCases=(prev.cases||[]).map(c=>c.template_id===selId?{...c,template_id:newId}:c);
         return {...prev,templates:newTemplates,cases:newCases};
@@ -10717,7 +10866,8 @@ function MasterTemplate({templates,setTemplates,data,setData}){
 
   function addDoc(){
     const newId="D"+Date.now().toString().slice(-6);
-    setEditDocs(prev=>[...prev,{id:newId,name:"新規書類",group:null}]);
+    // 書類名は空＋placeholder「新規書類」。空のまま保存すると saveEdit で静かに除外される
+    setEditDocs(prev=>[...prev,{id:newId,name:"",group:null}]);
   }
   function updateDoc(idx,field,val){
     setEditDocs(prev=>prev.map((d,i)=>i===idx?{...d,[field]:val}:d));
@@ -10728,7 +10878,7 @@ function MasterTemplate({templates,setTemplates,data,setData}){
 
   function addHearing(){
     const newId="H"+Date.now().toString().slice(-6);
-    setEditHearing(prev=>[...prev,{id:newId,type:"text",label:"新規項目"}]);
+    setEditHearing(prev=>[...prev,{id:newId,type:"text",label:""}]); // 項目名は空＋placeholder「新規項目」
   }
   function updateHearing(idx,field,val){
     setEditHearing(prev=>prev.map((h,i)=>i===idx?{...h,[field]:val}:h));
@@ -10884,16 +11034,12 @@ function MasterTemplate({templates,setTemplates,data,setData}){
                 <div style={{fontSize:11,fontWeight:500,color:"var(--text2)"}}>📄 必要書類</div>
                 <button onClick={addDoc} style={{fontSize:10,padding:"3px 8px",borderRadius:4,border:"0.5px solid var(--accent)",background:"var(--accent-bg)",color:"var(--accent-text)",cursor:"pointer"}}>＋追加</button>
               </div>
-              {/* 既存グループ名を収集 */}
-              {(()=>{const groups=[...new Set(Object.entries(templates).filter(([k,t])=>k!=="_order"&&t&&Array.isArray(t.docs)).flatMap(([,t])=>t.docs.map(d=>d.group)).filter(Boolean))];return(
-                <datalist id="group-suggestions">{groups.map(g=><option key={g} value={g}/>)}</datalist>
-              );})()}
               {editDocs.map((d,i)=>(
                 <div key={d.id} onDragOver={e=>{e.preventDefault();}} onDrop={()=>{moveDoc(dragDocIdx,i);setDragDocIdx(null);}}
                   style={{display:"flex",gap:6,marginBottom:6,alignItems:"center",background:dragDocIdx===i?"var(--accent-bg)":"transparent",borderRadius:4,padding:"2px 0"}}>
                   <span draggable onDragStart={()=>setDragDocIdx(i)} onDragEnd={()=>setDragDocIdx(null)} style={{cursor:"grab",color:"var(--text3)",fontSize:14,padding:"0 4px",userSelect:"none"}}>≡</span>
-                  <input value={d.name} onChange={e=>updateDoc(i,"name",e.target.value)} style={{flex:1,fontSize:12,padding:"5px 8px",borderRadius:4,border:"0.5px solid var(--border)",background:"var(--bg2)"}} placeholder="書類名"/>
-                  <input list="group-suggestions" value={d.group||""} onChange={e=>updateDoc(i,"group",e.target.value||null)} style={{width:100,fontSize:11,padding:"5px 6px",borderRadius:4,border:"0.5px solid var(--border)",background:"var(--bg2)"}} placeholder="グループ"/>
+                  <input value={d.name||""} onChange={e=>updateDoc(i,"name",e.target.value)} style={{flex:1,fontSize:12,padding:"5px 8px",borderRadius:4,border:"0.5px solid var(--border)",background:"var(--bg2)"}} placeholder="新規書類"/>
+                  <GroupSelect value={d.group} options={groupOptions} onChange={v=>updateDoc(i,"group",v)} style={{width:130,fontSize:11,padding:"5px 6px",borderRadius:4,border:"0.5px solid var(--border)",background:"var(--bg2)",color:d.group?"var(--text)":"var(--text3)"}}/>
                   <button onClick={()=>removeDoc(i)} style={{fontSize:14,border:"none",background:"none",color:"#E57373",cursor:"pointer",padding:"2px 6px"}}>×</button>
                 </div>
               ))}
@@ -10908,7 +11054,7 @@ function MasterTemplate({templates,setTemplates,data,setData}){
                 <div key={h.id} onDragOver={e=>{e.preventDefault();}} onDrop={()=>{moveHearing(dragHearingIdx,i);setDragHearingIdx(null);}}
                   style={{display:"flex",gap:6,marginBottom:6,alignItems:"center",background:dragHearingIdx===i?"var(--accent-bg)":"transparent",borderRadius:4,padding:"2px 0"}}>
                   <span draggable onDragStart={()=>setDragHearingIdx(i)} onDragEnd={()=>setDragHearingIdx(null)} style={{cursor:"grab",color:"var(--text3)",fontSize:14,padding:"0 4px",userSelect:"none"}}>≡</span>
-                  <input value={h.label} onChange={e=>updateHearing(i,"label",e.target.value)} style={{flex:1,fontSize:12,padding:"5px 8px",borderRadius:4,border:"0.5px solid var(--border)",background:"var(--bg2)"}} placeholder="項目名"/>
+                  <input value={h.label||""} onChange={e=>updateHearing(i,"label",e.target.value)} style={{flex:1,fontSize:12,padding:"5px 8px",borderRadius:4,border:"0.5px solid var(--border)",background:"var(--bg2)"}} placeholder="新規項目"/>
                   <select value={h.type} onChange={e=>updateHearing(i,"type",e.target.value)} style={{width:100,fontSize:11,padding:"5px 6px",borderRadius:4,border:"0.5px solid var(--border)",background:"var(--bg2)"}}>
                     <option value="text">テキスト</option>
                     <option value="date">年月日</option>
