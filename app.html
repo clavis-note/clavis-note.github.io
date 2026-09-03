@@ -2966,6 +2966,17 @@ function PromoteProspectModal({prospect,clients,cases,onPromote,onClose}){
 
 // 氏名正規化（スペース全除去 + 大文字統一）
 function normName(s){ return (s||"").replace(/\s+/g,"").toUpperCase(); }
+// 氏名の語単位の前方一致。在留カード（父称・部族名込みで4語）とパスポート（2語）のように語数が違っても、
+// 短い方が長い方の先頭と語単位で一致すれば true（例: "KUYBOKOV IBROKHIMJON" と "KUYBOKOV IBROKHIMJON USMONKUL UGLI"）。
+// 同姓同名の別人リスクがあるため、必ず生年月日一致と組み合わせて使う（氏名のみでは使わない）。
+function namePrefixMatch(a,b){
+  const wa=String(a||"").trim().toUpperCase().split(/\s+/).filter(Boolean);
+  const wb=String(b||"").trim().toUpperCase().split(/\s+/).filter(Boolean);
+  const n=Math.min(wa.length,wb.length);
+  if(n===0) return false;
+  for(let i=0;i<n;i++){ if(wa[i]!==wb[i]) return false; }
+  return true;
+}
 
 // 現職の投影を一本化する共通ロジック。
 // 「所属会社(company_name)＋店舗(store)＋勤務開始日(work_start_date)」を現勤務先の“正本”とし、
@@ -3028,6 +3039,10 @@ function findMatchingClients(extracted, clients){
       m = liveClients.filter(c=>normName(c.name_roman)===reversed && c.dob===extracted.date_of_birth);
       if(m.length>0) return m;
     }
+    // 語単位の前方一致（父称・部族名で在留カードとパスポートの語数が違うケース）。
+    // 生年月日一致が条件。第4段階（氏名のみ）には入れない（同姓同名の別人リスク）
+    m = liveClients.filter(c=>c.name_roman && c.dob && c.dob===extracted.date_of_birth && namePrefixMatch(c.name_roman, extracted.name_roman));
+    if(m.length>0) return m;
   }
   // 4. 氏名のみ
   if(extracted.name_roman){
@@ -3406,6 +3421,8 @@ function Dashboard({data,setData,onNavClient,onNavCase,onNavPayment,onNavMaster}
         const partsA=a.name_roman.trim().split(/\s+/);
         const partsB=b.name_roman.trim().split(/\s+/);
         if(partsA.length===2 && normName(partsA[1]+" "+partsA[0])===nb) return true;
+        // 語数が違っても（父称付き等）、生年月日が一致し語単位の前方一致なら同一人物（別人混入と誤判定しない）
+        if(a.date_of_birth && a.date_of_birth===b.date_of_birth && namePrefixMatch(a.name_roman,b.name_roman)) return true;
         const sortedA=partsA.slice().sort().join(" ").toUpperCase();
         const sortedB=partsB.slice().sort().join(" ").toUpperCase();
         return sortedA===sortedB;
@@ -4982,6 +4999,9 @@ function ClientLedger({data,setData,navigateClientId,navigatePoiReport,clearNavi
   const [poiError,setPoiError]=useState(null);
   const [poiResult,setPoiResult]=useState(null);   // buildPoiReport の結果（読み取り→反映の明細）
   const [poiDetailOpen,setPoiDetailOpen]=useState(false);
+  // 名寄せ不一致の身元書類を、別のクライアント選択中にポイポイしたときの確認モーダル
+  // {ordered:[{file,extracted}], extracted:代表の抽出データ, selected:選択中クライアント}
+  const [poiConfirm,setPoiConfirm]=useState(null);
   const [poiDragOver,setPoiDragOver]=useState(false);
   const [showPoiOverlay,setShowPoiOverlay]=useState(false);
   const [poiOverlayDragOver,setPoiOverlayDragOver]=useState(false);
@@ -5005,6 +5025,45 @@ function ClientLedger({data,setData,navigateClientId,navigatePoiReport,clearNavi
     window.addEventListener('clavis-close-detail',handleClose);
     return()=>window.removeEventListener('clavis-close-detail',handleClose);
   },[]);
+
+  // ポイポイ式：抽出データ（1人分・順序確定済み）をクライアントへ反映し、選択・明細バナー・トーストを更新する。
+  // processPoipoiFiles の通常フローと、名寄せ確認モーダル（poiConfirm）からの再開の両方から呼ばれる。
+  //  ordered: [{file,extracted}]（新規作成時は先頭が identity ファイル）／ targetId: マージ先／ createNew: 新規作成
+  const finalizePoipoi=(ordered, targetId, createNew)=>{
+    const t=document.getElementById("toast");
+    const liveTarget = createNew ? null : clients.find(c=>c.client_id===targetId);
+    if(!createNew && !liveTarget){
+      if(t){t.textContent="⚠️ 対象クライアントが見つかりませんでした";t.style.opacity=1;setTimeout(()=>t.style.opacity=0,3000);}
+      return;
+    }
+    const {client:mergedClient, entries} = applyExtractionsToClient(liveTarget, ordered);
+    if(createNew) targetId=mergedClient.client_id;
+
+    setClients(prev=>{
+      if(createNew) return [mergedClient, ...prev];
+      // state は prev ベースで再マージ（並行更新に対する安全側）。明細は live ベースで確定した entries を使う。
+      return prev.map(c=>c.client_id===targetId?applyExtractionsToClient(c, ordered).client:c);
+    });
+
+    // 選択中クライアントをマージ後の live データで更新する。
+    // 本人にポイポイした場合も必ず更新（ヘッダーの在留資格バッジ等が古いスナップショットのまま残らないように）。
+    const switched = targetId!==selected?.client_id;
+    setSelected(mergedClient);
+    if(switched){
+      setTab("基本情報");
+      if(isMobile) setShowDetail(true);
+    }
+
+    const report=buildPoiReport(targetId, ordered, entries);
+    setPoiResult(report);
+    setPoiDetailOpen(false);
+    if(t){
+      t.textContent= ordered.length>1
+        ? `📷 ${ordered.length}件の書類を1人分として処理：${report.read}項目を読み取り → ${report.applied.length}項目を反映`
+        : `📷 ${report.read}項目を読み取り → ${report.applied.length}項目を反映`;
+      t.style.opacity=1;setTimeout(()=>t.style.opacity=0,2500);
+    }
+  };
 
   // ポイポイ式：ファイル処理の共通関数（ボタン・D&D両方から呼ばれる）
   // 【1人分厳格モード】
@@ -5039,6 +5098,8 @@ function ClientLedger({data,setData,navigateClientId,navigatePoiReport,clearNavi
         const partsA=a.name_roman.trim().split(/\s+/);
         const partsB=b.name_roman.trim().split(/\s+/);
         if(partsA.length===2 && normName(partsA[1]+" "+partsA[0])===nb) return true;
+        // 語数が違っても（父称付き等）、生年月日が一致し語単位の前方一致なら同一人物（別人混入と誤判定しない）
+        if(a.date_of_birth && a.date_of_birth===b.date_of_birth && namePrefixMatch(a.name_roman,b.name_roman)) return true;
         // ソート一致（語順違い吸収）
         const sortedA=partsA.slice().sort().join(" ").toUpperCase();
         const sortedB=partsB.slice().sort().join(" ").toUpperCase();
@@ -5047,7 +5108,7 @@ function ClientLedger({data,setData,navigateClientId,navigatePoiReport,clearNavi
       return true; // 判定不能 → 寛容に同一扱い
     };
 
-    setPoiReading(true);setPoiError(null);setPoiResult(null);setPoiDetailOpen(false);
+    setPoiReading(true);setPoiError(null);setPoiResult(null);setPoiDetailOpen(false);setPoiConfirm(null);
     const t=document.getElementById("toast");
 
     try{
@@ -5133,6 +5194,12 @@ function ClientLedger({data,setData,navigateClientId,navigatePoiReport,clearNavi
         // 新規 or 空の selected を再利用
         if(liveSelected && !selectedHasIdentity){
           targetId=liveSelected.client_id;
+        }else if(liveSelected){
+          // 名寄せ不一致＋身元ありのクライアントを選択中 → 黙って新規作成せず、紐付け先を確認する
+          // （在留カードは父称込み4語・パスポートは2語で氏名が一致しない等、重複クライアントが静かに生まれるのを防ぐ）
+          const ordered=[identityExts[0], ...extractions.filter(e=>e!==identityExts[0])];
+          setPoiConfirm({ordered, extracted:identityExts[0].extracted, selected:liveSelected});
+          return;
         }else{
           createNew=true; // Phase 4 で identityExts[0] を先頭に新規作成（targetId はそこで確定）
         }
@@ -5161,42 +5228,9 @@ function ClientLedger({data,setData,navigateClientId,navigatePoiReport,clearNavi
         }
       }
 
-      // === Phase 4: 反映（明細付き） ===
-      // 新規作成は第1identityファイルで骨格を作り、残りを順にマージ（applyExtractionsToClient が一括で行う）
+      // === Phase 4/5: 反映・明細（finalizePoipoi に共通化。確認モーダルからの再開でも同じ処理を通す） ===
       const ordered = createNew ? [identityExts[0], ...extractions.filter(e=>e!==identityExts[0])] : extractions;
-      const liveTarget = createNew ? null : clients.find(c=>c.client_id===targetId);
-      if(!createNew && !liveTarget){
-        if(t){t.textContent="⚠️ 対象クライアントが見つかりませんでした";t.style.opacity=1;setTimeout(()=>t.style.opacity=0,3000);}
-        return;
-      }
-      const {client:mergedClient, entries} = applyExtractionsToClient(liveTarget, ordered);
-      if(createNew) targetId=mergedClient.client_id;
-
-      setClients(prev=>{
-        if(createNew) return [mergedClient, ...prev];
-        // state は prev ベースで再マージ（並行更新に対する安全側）。明細は live ベースで確定した entries を使う。
-        return prev.map(c=>c.client_id===targetId?applyExtractionsToClient(c, ordered).client:c);
-      });
-
-      // 選択中クライアントをマージ後の live データで更新する。
-      // 本人にポイポイした場合も必ず更新（ヘッダーの在留資格バッジ等が古いスナップショットのまま残らないように）。
-      const switched = targetId!==selected?.client_id;
-      setSelected(mergedClient);
-      if(switched){
-        setTab("基本情報");
-        if(isMobile) setShowDetail(true);
-      }
-
-      // === Phase 5: 明細バナー・トースト ===
-      const report=buildPoiReport(targetId, ordered, entries);
-      setPoiResult(report);
-      setPoiDetailOpen(false);
-      if(t){
-        t.textContent= extractions.length>1
-          ? `📷 ${extractions.length}件の書類を1人分として処理：${report.read}項目を読み取り → ${report.applied.length}項目を反映`
-          : `📷 ${report.read}項目を読み取り → ${report.applied.length}項目を反映`;
-        t.style.opacity=1;setTimeout(()=>t.style.opacity=0,2500);
-      }
+      finalizePoipoi(ordered, targetId, createNew);
     }catch(e){
       console.error("ポイポイ式エラー:",e);
       setPoiError(e.message||"読み取りに失敗しました");
@@ -5581,6 +5615,59 @@ function ClientLedger({data,setData,navigateClientId,navigatePoiReport,clearNavi
           </>
         )}
       </div>
+      {/* ポイポイ式：名寄せ不一致の確認モーダル（ダッシュボードの多重マッチモーダルと同じ見た目） */}
+      {poiConfirm&&(()=>{
+        const ex=poiConfirm.extracted||{};
+        const sc=poiConfirm.selected||{};
+        const docType=String(ex.document_type||"").trim()||"身元書類";
+        const row=(label,v)=><div style={{display:"flex",gap:8,fontSize:12,lineHeight:1.7}}><span style={{color:"var(--text3)",minWidth:64}}>{label}</span><span style={{color:"var(--text)",fontWeight:500}}>{v||"—"}</span></div>;
+        const box={flex:1,minWidth:0,background:"var(--bg2)",borderRadius:8,padding:"10px 12px"};
+        return(
+          <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9000,padding:16}}>
+            <div style={{background:"var(--bg)",borderRadius:12,maxWidth:520,width:"100%",maxHeight:"85vh",display:"flex",flexDirection:"column",border:"0.5px solid rgba(0,0,0,0.15)"}}>
+              <div style={{padding:"14px 18px",borderBottom:"0.5px solid rgba(0,0,0,0.1)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <span style={{fontSize:14,fontWeight:500}}>📷 紐付け先を確認してください</span>
+                <button onClick={()=>setPoiConfirm(null)} style={{border:"none",background:"none",fontSize:18,cursor:"pointer",color:"#999"}}>×</button>
+              </div>
+              <div style={{padding:"12px 18px",fontSize:12,color:"var(--text2)",borderBottom:"0.5px solid rgba(0,0,0,0.06)",lineHeight:1.6}}>
+                読み取った{docType}は、登録済みのクライアントと一致しませんでした。<br/>
+                選択中のクライアントと同じ人物なら「紐付ける」を、別の人なら「新規作成」を選んでください。
+              </div>
+              <div style={{padding:"12px 18px",display:"flex",gap:10,flexWrap:"wrap"}}>
+                <div style={box}>
+                  <div style={{fontSize:10,color:"var(--text3)",fontWeight:600,marginBottom:4}}>📄 読み取った{docType}</div>
+                  {row("氏名",ex.name_roman)}
+                  {row("生年月日",ex.date_of_birth)}
+                  {row("国籍",ex.nationality)}
+                  {ex.residence_card&&row("在留カード",ex.residence_card)}
+                  {ex.passport_number&&row("旅券番号",ex.passport_number)}
+                </div>
+                <div style={box}>
+                  <div style={{fontSize:10,color:"var(--text3)",fontWeight:600,marginBottom:4}}>👤 選択中のクライアント</div>
+                  {row("氏名",sc.name_roman)}
+                  {row("生年月日",sc.dob)}
+                  {row("国籍",sc.nationality)}
+                  {sc.residence_card&&row("在留カード",sc.residence_card)}
+                  {sc.passport_number&&row("旅券番号",sc.passport_number)}
+                </div>
+              </div>
+              <div style={{padding:"10px 18px",borderTop:"0.5px solid rgba(0,0,0,0.1)",display:"flex",justifyContent:"space-between",gap:8,flexWrap:"wrap"}}>
+                <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                  <button onClick={()=>{const pc=poiConfirm;setPoiConfirm(null);finalizePoipoi(pc.ordered, pc.selected.client_id, false);}} style={{fontSize:12,padding:"6px 14px",cursor:"pointer",borderRadius:6,border:"none",background:"linear-gradient(135deg,#378ADD,#2563EB)",color:"#fff",fontWeight:600}}>
+                    👤 {sc.name_roman||"選択中のクライアント"} に紐付ける
+                  </button>
+                  <button onClick={()=>{const pc=poiConfirm;setPoiConfirm(null);finalizePoipoi(pc.ordered, null, true);}} style={{fontSize:12,padding:"6px 14px",cursor:"pointer",borderRadius:6,border:"0.5px solid #EF9F27",background:"#FEFAF3",color:"#854F0B",fontWeight:500}}>
+                    ✨ 新規クライアントとして作成
+                  </button>
+                </div>
+                <button onClick={()=>setPoiConfirm(null)} style={{fontSize:12,padding:"6px 14px",cursor:"pointer",borderRadius:6,border:"0.5px solid rgba(0,0,0,0.15)",background:"transparent",color:"var(--text2)"}}>
+                  キャンセル
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
       {/* ポイポイ式オーバーレイ：D&Dゾーン + ファイル選択リンク。
           新規登録時は常時表示（handleAddClientで起動）。枠内クリックで閉じ→手入力フォームへ。 */}
       {showPoiOverlay&&(()=>{
