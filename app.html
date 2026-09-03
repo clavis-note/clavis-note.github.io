@@ -1355,6 +1355,10 @@ const LICENSE_CACHE_KEY = "clavis-license-status";
 const LICENSE_CACHE_MS = 7*24*60*60*1000; // 7日
 // 再課金導線（LPの「30日間無料で始める」と同一のStripe Payment Link）
 const SUBSCRIBE_URL = "https://buy.stripe.com/8x2fZicdl78hd7DfYB3Je01?prefilled_promo_code=FOUNDER";
+// ご契約内容の確認・解約（Stripe カスタマーポータルのログインリンク）。
+// ユーザーがメールアドレスを入力 → Stripe からログイン用リンクがメールで届く → ポータルで自分でキャンセルできる。
+// LP・FAQ・特商法ページにも同じURLを掲載（差し替え時は index.html / tokushoho.html / clavis-api の welcome メールも更新）。
+const BILLING_PORTAL_URL = "https://billing.stripe.com/p/login/9B6eVea5deAJebHbIl3Je00";
 
 function readLicenseCache(){
   try{ const r=localStorage.getItem(LICENSE_CACHE_KEY); return r?JSON.parse(r):null; }catch(e){ return null; }
@@ -1438,7 +1442,7 @@ async function readDocument(fileBase64, mediaType, apiKey){
   "postal_code": "郵便番号（ハイフンなし7桁。日本国内の住所のもののみ）",
   "address": "日本国内の現住所（日本語）。本国（海外）の住所は絶対にここへ入れずnullにする",
   "home_residence": "本国の居住地。パスポートの出生地（Place of Birth）を読み取り、入管申請の入力形式『国名（カタカナ）　出生地（カタカナ）』（全角スペース区切り）に変換して返す。英字の地名は日本語のカタカナ読みに変換し（例: BAGLUNG→バグルン、NAWALPARASI→ナワルパラシ）、国名を国籍からカタカナで前置する（例: ネパール）。総合例: 「ネパール　バグルン」。出生地が読み取れなければnull。履歴書・退職証明書・在留申請書などに記載された海外の住所はここに入れない（ソースはパスポートの出生地のみ）",
-  "residence_status": "在留資格（日本語のみ。例: 技能、技術・人文知識・国際業務）",
+  "residence_status": "在留資格（日本語のみ。在留カード・在留申請書の記載から読み取る。例: 技術・人文知識・国際業務、特定技能1号、家族滞在。書類に記載が無ければnull。例示をそのまま返さない）",
   "residence_period": "在留期間（例: 1年、3年、5年、6月、11月など。在留カードの「在留期間」欄から読み取る）",
   "residence_expiry": "YYYY-MM-DD形式（在留期間の満了日）",
   "residence_card": "在留カード番号",
@@ -1467,6 +1471,7 @@ async function readDocument(fileBase64, mediaType, apiKey){
 注意：
 - document_type は必ず判定して返す（どうしても判別不能な時のみnull）
 - 在留資格は日本語のみ返す（英語表記は除外）
+- パスポートの場合、residence_status / residence_period / residence_expiry / residence_card は必ずnullにする（上陸許可証印・過去の在留資格シール・査証から読まない。これらは在留カードのみがソース）
 - 日付は必ずYYYY-MM-DD形式
 - address は日本国内の現住所のみ。退職証明書・パスポート等にある本国（海外）の住所は address に入れずnullにする
 - home_residence はパスポートの出生地（Place of Birth）のみがソース。出生地と国籍から『国名（カタカナ）　出生地（カタカナ）』形式（全角スペース区切り）に変換して返す（例: ネパール　バグルン）。英字の地名はカタカナ読みに変換。履歴書・退職証明書・在留申請書等に記載された海外住所は home_residence に入れない（null）。address に本国住所を入れない既存ルールは従来どおり維持
@@ -1763,11 +1768,11 @@ function DateInput({value, onChange, ...rest}){
   );
 }
 
-function Field({label,value,editMode,field,update,type="text",estimated=false,onConfirm,placeholder=""}){
+function Field({label,value,editMode,field,update,type="text",estimated=false,onConfirm,placeholder="",highlight=false}){
   // estimated: 推定値（OCRフリガナ推定等）。薄いグレー＋「推定」バッジで目視確認を促し、
   // ユーザーがフォーカス（確認）or 編集した時点で onConfirm() を呼び通常表示に戻す。
   const isEst = estimated && !!value;
-  const inputStyle={fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:isEst?"#9aa0a6":"var(--text)",fontStyle:isEst?"italic":"normal",width:"100%"};
+  const inputStyle={fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:isEst?"#9aa0a6":"var(--text)",fontStyle:isEst?"italic":"normal",width:"100%",...(highlight?{background:"#FFF7D6",borderColor:"#E2C165"}:{})};
   const confirm=()=>{ if(isEst&&onConfirm) onConfirm(); };
   return(
     <div style={{display:"flex",flexDirection:"column",gap:3}}>
@@ -3016,26 +3021,48 @@ function classifyDocType(dt){
   dt = String(dt||"");
   return {
     isResidenceCard: dt.includes("在留カード"),
+    isPassport:      dt.includes("パスポート") || /passport/i.test(dt),
     isApplication:   dt.includes("申請"),
     isResignation:   dt.includes("退職"),
   };
 }
 
+// ポイポイ式の明細表示用：クライアント側フィールド名 → 画面上の日本語ラベル
+const POI_FIELD_LABELS = {
+  name_roman:"氏名（ローマ字）", name_kana:"氏名（カナ）", nationality:"国籍", dob:"生年月日", gender:"性別",
+  phone:"電話番号", email:"メールアドレス", postal_code:"郵便番号", address:"住所", home_residence:"本国の居住地",
+  residence_status:"在留資格", residence_period:"在留期間", residence_expiry:"在留期限", residence_card:"在留カード番号",
+  passport_number:"パスポート番号", passport_expiry:"パスポート有効期限",
+  company_name:"所属会社", store:"店舗・部署", work_start_date:"勤務開始日", work_history:"職歴"
+};
+// 身元書類（在留カード・パスポート）で null だったときに「読み取れなかった」として明細に出す主要項目。
+// 補助書類（退職証明書等）ではそもそも記載が無いので出さない。
+const POI_KEY_FIELDS_RESIDENCE_CARD = ["name_roman","nationality","dob","gender","address","residence_status","residence_period","residence_expiry","residence_card"];
+const POI_KEY_FIELDS_PASSPORT = ["name_roman","nationality","dob","gender","passport_number","passport_expiry"];
+
 // 抽出データを既存クライアントにマージ
 //  - 在留・パスポート系の在留情報は常時上書き
 //  - 住所/郵便番号は「在留カード・在留申請書」由来のみ採用（退職証明書等の本国住所混入を防ぐ）。
 //    在留カード由来は常に最新で上書き（後から在留カードをポイポイした時も住所を更新）。
+//  - パスポート由来では在留資格・在留期間・在留期限・在留カード番号・住所・郵便番号を更新しない
+//    （パスポートに在留資格の記載は無く、上陸許可証印やプロンプトの例示から誤読した値で上書きしないため）。
 //  - 現勤務先系(company_name/store/work_start_date)は退職証明書からは採らない（退職した会社を現職にしない）。
 //  - 書類の処理順に依存せず、上記ソース規則で最終的に在留カードの住所・現職が勝つ。
-function mergeExtractedToClient(existing, extracted){
+//  - report（配列）を渡すと「何を反映し、何を保持・除外したか」を項目単位で push する（ポイポイ明細用）。
+//    エントリ形式: {source, field, label, value, prev, outcome:"applied"|"kept"|"excluded"|"missing", reason, changed}
+function mergeExtractedToClient(existing, extracted, report){
   const ALWAYS_OVERWRITE = ["residence_status","residence_period","residence_expiry","residence_card","passport_number","passport_expiry"];
   // home_residence は ALWAYS_OVERWRITE に含めない＝空欄のときだけ出生地で充当（初期値方式）。手動・再ポイポイ問わず既存値は維持。
   const FIELD_MAP = {"name_roman":"name_roman","name_kana":"name_kana","nationality":"nationality","date_of_birth":"dob","gender":"gender","phone":"phone","email":"email","postal_code":"postal_code","address":"address","home_residence":"home_residence","residence_status":"residence_status","residence_period":"residence_period","residence_expiry":"residence_expiry","residence_card":"residence_card","passport_number":"passport_number","passport_expiry":"passport_expiry","company_name":"company_name","store":"store","work_start_date":"work_start_date"};
+  // 在留カード由来の記載事項。パスポートからは更新しない（二重防御：プロンプト側でも null を指示）
+  const PASSPORT_EXCLUDED = ["residence_status","residence_period","residence_expiry","residence_card","address","postal_code"];
   const PLACEHOLDER_PATTERNS = ["未定","未登録","未記入","不明","N/A","未記載"];
   const isPlaceholder = v => typeof v==="string" && PLACEHOLDER_PATTERNS.some(p=>v.includes(p));
   const dc = classifyDocType(extracted.document_type);
   const addrAllowed = dc.isResidenceCard || dc.isApplication;
   const currentJobAllowed = !dc.isResignation;
+  const docLabel = String(extracted.document_type||"").trim() || "書類";
+  const log = entry => { if(Array.isArray(report)) report.push({source:docLabel, ...entry}); };
   const merged = {...existing};
   // 在留カードの読み込みで番号が変わる場合、上書きされる前に現在のカード情報を履歴へ退避する。
   //  ・同じ番号の読み直しは何もしない（空白・大小文字の揺れは同一番号とみなす）
@@ -3058,12 +3085,24 @@ function mergeExtractedToClient(existing, extracted){
   }
   Object.entries(FIELD_MAP).forEach(([src,dst])=>{
     if(!extracted[src]) return;
-    if((dst==="address"||dst==="postal_code") && !addrAllowed) return;
-    if((dst==="company_name"||dst==="store"||dst==="work_start_date") && !currentJobAllowed) return;
+    const val = extracted[src];
+    const label = POI_FIELD_LABELS[dst]||dst;
+    if(dc.isPassport && PASSPORT_EXCLUDED.includes(dst)){
+      log({field:dst,label,value:val,outcome:"excluded",reason:"パスポート由来のため除外（在留カードの記載事項）"}); return;
+    }
+    if((dst==="address"||dst==="postal_code") && !addrAllowed){
+      log({field:dst,label,value:val,outcome:"excluded",reason:`${docLabel}のため住所は除外（在留カード・在留申請書のみ採用）`}); return;
+    }
+    if((dst==="company_name"||dst==="store"||dst==="work_start_date") && !currentJobAllowed){
+      log({field:dst,label,value:val,outcome:"excluded",reason:"退職証明書のため現勤務先には反映しない"}); return;
+    }
     const cur = merged[dst];
     const forceOverwrite = ALWAYS_OVERWRITE.includes(dst) || ((dst==="address"||dst==="postal_code") && dc.isResidenceCard);
     if(forceOverwrite || !cur || isPlaceholder(cur)){
-      merged[dst] = extracted[src];
+      merged[dst] = val;
+      log({field:dst,label,value:val,prev:cur||"",outcome:"applied",changed:String(cur||"")!==String(val)});
+    } else {
+      log({field:dst,label,value:val,prev:cur,outcome:"kept",reason:String(cur)===String(val)?"既存の値と同じ（変更なし）":"既存の値を保持"});
     }
   });
   // name_kana が抽出値で上書きされた場合は推定値 → 目視確認用にフラグ
@@ -3083,6 +3122,17 @@ function mergeExtractedToClient(existing, extracted){
       }))
       .filter(ne=> ne.company_name && !wh0.some(ex=>sameWork(ex,ne)));
     merged.work_history = [...wh0, ...newEntries];
+    const skipped = extracted.work_history.length - newEntries.length;
+    log({field:"work_history",label:"職歴",outcome:newEntries.length>0?"applied":"kept",changed:newEntries.length>0,
+         added:newEntries.length,skipped,reason:newEntries.length>0?"":"すべて登録済み（重複のためスキップ）"});
+  }
+  // 身元書類なのに主要項目が null → 「読み取れなかった」として明細に出す（鮮明な画像で再読取を促す）
+  if(dc.isResidenceCard || dc.isPassport){
+    const keys = dc.isResidenceCard ? POI_KEY_FIELDS_RESIDENCE_CARD : POI_KEY_FIELDS_PASSPORT;
+    keys.forEach(dst=>{
+      const src = Object.keys(FIELD_MAP).find(k=>FIELD_MAP[k]===dst);
+      if(src && !extracted[src]) log({field:dst,label:POI_FIELD_LABELS[dst]||dst,outcome:"missing"});
+    });
   }
   // 現勤務先(所属会社＝正本)から現職(auto)を投影・整理する。store も反映。
   //  merged.company_name は上のソース規則により退職証明書からは入らない＝退職した会社が現職化しない。
@@ -3096,40 +3146,54 @@ function mergeExtractedToClient(existing, extracted){
   return merged;
 }
 
-// 抽出データから新規クライアントを生成
-function createClientFromExtracted(extracted){
-  const id = "C"+Date.now();
-  const dc = classifyDocType(extracted.document_type);
-  const addrAllowed = dc.isResidenceCard || dc.isApplication;
-  const currentJobAllowed = !dc.isResignation;
-  const wh = (extracted.work_history && Array.isArray(extracted.work_history))
-    ? extracted.work_history.map((w,i)=>({
-        id:"wh-poi-"+Date.now()+"-"+i,
-        company_name:w.company||"",country:w.country||"",
-        start_date:w.start?w.start+"-01":"",end_date:w.end?w.end+"-01":""
-      }))
-    : [];
-  return {
-    client_id:id, client_type:"immigration",
-    name_roman:extracted.name_roman||"", name_kana:extracted.name_kana||"",
-    name_kana_estimated:!!extracted.name_kana, // OCR由来カナは在留カードに無く推定値 → 目視確認用にフラグ
-    nationality:extracted.nationality||"",
-    dob:extracted.date_of_birth||"", gender:extracted.gender||"",
-    passport_number:extracted.passport_number||"", passport_expiry:extracted.passport_expiry||"",
-    entry_date:"", residence_card:extracted.residence_card||"",
-    residence_status:extracted.residence_status||"技能",
-    residence_expiry:extracted.residence_expiry||"",
-    residence_period:extracted.residence_period||"",
-    phone:extracted.phone||"", email:extracted.email||"",
-    company_name:(currentJobAllowed&&extracted.company_name)||"", store:(currentJobAllowed&&extracted.store)||"",
-    work_start_date:(currentJobAllowed&&extracted.work_start_date)||"",
-    notes:"", address:(addrAllowed&&extracted.address)||"", postal_code:(addrAllowed&&extracted.postal_code)||"",
-    occupation:"", home_residence:extracted.home_residence||"", // home_residence＝パスポート出生地（プロンプトでソース限定済み）
+// 抽出データから新規クライアントを生成。
+// 空の骨格に mergeExtractedToClient を適用する形にし、書類種別ごとの採用規則（住所・現職・パスポート除外）と
+// 明細（report）を既存クライアントへのマージと完全に同じロジックで得る。
+function createClientFromExtracted(extracted, report){
+  const blank = {
+    client_id:"C"+Date.now(), client_type:"immigration",
+    name_roman:"", name_kana:"", name_kana_estimated:false,
+    nationality:"", dob:"", gender:"",
+    passport_number:"", passport_expiry:"",
+    entry_date:"", residence_card:"", residence_status:"", residence_expiry:"", residence_period:"",
+    phone:"", email:"",
+    company_name:"", store:"", work_start_date:"",
+    notes:"", address:"", postal_code:"",
+    occupation:"", home_residence:"", // home_residence＝パスポート出生地（プロンプトでソース限定済み）
     dependent_of:null, client_status:"active", relationship:null, school_name:null,
-    photo:null, archived:false, salary_history:[], work_history:wh,
+    photo:null, archived:false, salary_history:[], work_history:[],
     drive_path:"", drive_url:"",
     education_school:"", education_date:""
   };
+  const merged = mergeExtractedToClient(blank, extracted, report);
+  if(!merged.residence_status) merged.residence_status = "技能"; // 新規登録時の既定値（従来どおり）
+  return merged;
+}
+
+// ポイポイ式：抽出データ配列（1人分）をクライアントへ順に反映し、明細付きで返す。
+//  base: 既存クライアント（マージ）／ null（新規作成。extractions[0] で骨格を作り残りをマージ）
+//  戻り値 {client, entries}。entries の各行にはファイル名（file）を付与する。
+function applyExtractionsToClient(base, extractions){
+  const entries=[];
+  let client=base||null;
+  for(const e of extractions){
+    const before=entries.length;
+    client = client ? mergeExtractedToClient(client, e.extracted, entries) : createClientFromExtracted(e.extracted, entries);
+    const fname = (e.file&&e.file.name)||"";
+    for(let k=before;k<entries.length;k++) entries[k].file=fname;
+  }
+  return {client, entries};
+}
+// 明細（entries）をバナー表示用に集計する。
+//  read: AIが値を返した項目数（反映＋保持＋除外）／ highlight: 今回値が入った・変わったフィールド
+function buildPoiReport(clientId, extractions, entries){
+  const files = extractions.map(e=>({name:(e.file&&e.file.name)||"", docType:String((e.extracted||{}).document_type||"").trim()||"その他"}));
+  const applied = entries.filter(x=>x.outcome==="applied");
+  const kept = entries.filter(x=>x.outcome==="kept");
+  const excluded = entries.filter(x=>x.outcome==="excluded");
+  const missing = entries.filter(x=>x.outcome==="missing");
+  const highlight = [...new Set(applied.filter(x=>x.changed&&x.field!=="work_history").map(x=>x.field))];
+  return {clientId, files, entries, applied, kept, excluded, missing, read:applied.length+kept.length+excluded.length, highlight, ts:Date.now()};
 }
 
 // ファイルをAI読取するヘルパー（Excelもサポート）
@@ -3240,24 +3304,23 @@ function Dashboard({data,setData,onNavClient,onNavCase,onNavPayment,onNavMaster}
   }
 
   // 抽出データ配列を一括で1人のクライアントへ反映するヘルパー（厳格モード共通）
+  // 戻り値は明細（buildPoiReport）。遷移先のクライアント詳細で同じ明細バナーを出すため onNavClient に渡す。
   function commitExtractionsToClient(extractions, targetClientId){
+    const live=clients.find(c=>c.client_id===targetClientId);
+    if(!live) return null;
+    const {entries}=applyExtractionsToClient(live, extractions);
     setData(prev=>({
       ...prev,
-      clients: prev.clients.map(c=>{
-        if(c.client_id!==targetClientId) return c;
-        let merged=c;
-        for(const e of extractions){ merged=mergeExtractedToClient(merged, e.extracted); }
-        return merged;
-      })
+      // state は prev ベースで再マージ（並行更新に対する安全側）。明細は live ベースで確定した entries を使う。
+      clients: prev.clients.map(c=> c.client_id!==targetClientId ? c : applyExtractionsToClient(c, extractions).client)
     }));
+    return buildPoiReport(targetClientId, extractions, entries);
   }
   function commitExtractionsAsNew(extractions){
     if(extractions.length===0) return null;
-    const base=createClientFromExtracted(extractions[0].extracted);
-    let merged=base;
-    for(let i=1;i<extractions.length;i++){ merged=mergeExtractedToClient(merged, extractions[i].extracted); }
+    const {client:merged, entries}=applyExtractionsToClient(null, extractions);
     setData(prev=>({...prev, clients:[merged, ...prev.clients]}));
-    return merged.client_id;
+    return {id:merged.client_id, report:buildPoiReport(merged.client_id, extractions, entries)};
   }
 
   // 【1人分厳格モード】複数ファイル投入時も別人混入は警告で停止する。
@@ -3367,15 +3430,15 @@ function Dashboard({data,setData,onNavClient,onNavCase,onNavPayment,onNavMaster}
 
       if(matches.length===0){
         // 新規作成 → 全extractionsをマージ
-        const newId=commitExtractionsAsNew(extractions);
+        const created=commitExtractionsAsNew(extractions);
         showToast(extractions.length>1?`✨ 新規クライアントを作成しました（${extractions.length}件分マージ）`:"✨ 新規クライアントを作成しました");
-        if(onNavClient && newId) onNavClient(newId);
+        if(onNavClient && created) onNavClient(created.id, created.report);
       } else if(matches.length===1){
         // 自動マージ
         const targetId=matches[0].client_id;
-        commitExtractionsToClient(extractions, targetId);
+        const report=commitExtractionsToClient(extractions, targetId);
         showToast(`☁️ ${matches[0].name_roman||"既存クライアント"} に統合しました${extractions.length>1?`（${extractions.length}件分）`:""}`);
-        if(onNavClient) onNavClient(targetId);
+        if(onNavClient) onNavClient(targetId, report);
       } else {
         // 多重マッチ → モーダル表示（解決時に全extractionsをまとめてマージ）
         setPoiCandidates({extractions, candidates:matches});
@@ -3404,19 +3467,19 @@ function Dashboard({data,setData,onNavClient,onNavCase,onNavPayment,onNavMaster}
   function handlePoiCandidateSelect(clientId){
     if(!poiCandidates) return;
     const exts=poiCandidates.extractions||[];
-    commitExtractionsToClient(exts, clientId);
+    const report=commitExtractionsToClient(exts, clientId);
     const target=clients.find(c=>c.client_id===clientId);
     showToast(`☁️ ${target?.name_roman||"既存クライアント"} に統合しました${exts.length>1?`（${exts.length}件分）`:""}`);
     setPoiCandidates(null);
-    if(onNavClient) onNavClient(clientId);
+    if(onNavClient) onNavClient(clientId, report);
   }
   function handlePoiCandidateNew(){
     if(!poiCandidates) return;
     const exts=poiCandidates.extractions||[];
-    const newId=commitExtractionsAsNew(exts);
+    const created=commitExtractionsAsNew(exts);
     showToast(exts.length>1?`✨ 新規クライアントを作成しました（${exts.length}件分マージ）`:"✨ 新規クライアントを作成しました");
     setPoiCandidates(null);
-    if(onNavClient && newId) onNavClient(newId);
+    if(onNavClient && created) onNavClient(created.id, created.report);
   }
 
   const alerts=[];
@@ -3832,8 +3895,9 @@ function CopyBtn({get,toast}){
 }
 // ラベル＋入力欄＋コピーボタンの1行。fmt 省略時はそのままコピー。ime=true で IME 合成対応入力。
 // info を渡すとラベル横に汎用ヘルプUI（iマーク＋モーダル）を表示。infoTitle 省略時はラベルから（…）を除いた文字列をモーダル見出しに使う。
-function CopyTextField({label,value,field,update,fmt,toast,placeholder,mono,ime,info,infoTitle}){
-  const inp={fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)",flex:1,width:"auto",fontFamily:mono?"monospace":"inherit"};
+function CopyTextField({label,value,field,update,fmt,toast,placeholder,mono,ime,info,infoTitle,highlight=false}){
+  // highlight: ポイポイ式で今回値が入った・変わった項目を薄い黄色で示す
+  const inp={fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)",flex:1,width:"auto",fontFamily:mono?"monospace":"inherit",...(highlight?{background:"#FFF7D6",borderColor:"#E2C165"}:{})};
   return(
     <div>
       <div style={{fontSize:10,color:"var(--text3)",fontWeight:500,marginBottom:3,letterSpacing:"0.05em",display:"flex",alignItems:"center"}}>{label}{info&&<HelpInfo title={infoTitle||(typeof label==="string"?label.replace(/（[^）]*）/g,""):label)} size={13}>{info}</HelpInfo>}</div>
@@ -3924,7 +3988,7 @@ function ResidenceHistorySection({c,update}){
   );
 }
 
-function TabBasic({c,editMode,update,allClients}){
+function TabBasic({c,editMode,update,allClients,hl}){
   const isMobile=useMobile();
   const isGenClient=c.client_type==="general";
   const isFamily=c.residence_status==="家族滞在"||(c.coe_phase&&c.coe_category==="family");
@@ -3933,6 +3997,9 @@ function TabBasic({c,editMode,update,allClients}){
   const lbl={fontSize:10,color:"var(--text3)",fontWeight:500,marginBottom:3,letterSpacing:"0.05em"};
   const selS={fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)",width:"100%"};
   const dateS={fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)",flex:1};
+  // ポイポイ式で今回値が入った・変わったフィールドを薄い黄色でハイライト（hl: フィールド名の配列。別クライアント選択で解除）
+  const hlSet=new Set(hl||[]);
+  const hlS=f=>hlSet.has(f)?{background:"#FFF7D6",borderColor:"#E2C165"}:{};
   return(
     <div style={{display:"flex",flexDirection:"column",gap:14}}>
       {cropSrc&&<ImageCropModal src={cropSrc} onSave={b64=>update("photo",b64)} onClose={()=>setCropSrc(null)}/>}
@@ -3969,7 +4036,7 @@ function TabBasic({c,editMode,update,allClients}){
           <div>
             <div style={lbl}>{isGenClient?"氏名":"氏名（ローマ字）"}</div>
             <div style={{display:"flex",gap:6,alignItems:"center"}}>
-              <input value={c.name_roman||""} onChange={e=>update("name_roman",e.target.value)} placeholder={isGenClient?"氏名":"例: THAPA RAM"} style={{...selS,width:"auto",flex:1}}/>
+              <input value={c.name_roman||""} onChange={e=>update("name_roman",e.target.value)} placeholder={isGenClient?"氏名":"例: THAPA RAM"} style={{...selS,width:"auto",flex:1,...hlS("name_roman")}}/>
               {!isGenClient&&<CopyBtn get={()=>fmtUpper(c.name_roman)} toast="📋 氏名（半角大文字）をコピー"/>}
             </div>
           </div>
@@ -3979,7 +4046,7 @@ function TabBasic({c,editMode,update,allClients}){
               onFocus={()=>{if(c.name_kana_estimated)update("name_kana_estimated",false);}}
               onChange={e=>{if(c.name_kana_estimated)update("name_kana_estimated",false);update("name_kana",e.target.value);}}
               placeholder={isGenClient?"ふりがな":"例: タパ ラム"}
-              style={{...selS,color:(c.name_kana_estimated&&c.name_kana)?"#9aa0a6":"var(--text)",fontStyle:(c.name_kana_estimated&&c.name_kana)?"italic":"normal"}}/>
+              style={{...selS,color:(c.name_kana_estimated&&c.name_kana)?"#9aa0a6":"var(--text)",fontStyle:(c.name_kana_estimated&&c.name_kana)?"italic":"normal",...hlS("name_kana")}}/>
           </div>
           {editMode&&!c.photo&&<div style={{fontSize:10,color:"var(--text3)"}}>＋ボタンで写真を追加</div>}
           {editMode&&c.photo&&<button onClick={()=>update("photo",null)} style={{fontSize:10,padding:"2px 8px",cursor:"pointer",borderRadius:4,border:"0.5px solid var(--border)",background:"transparent",color:"var(--text3)",alignSelf:"flex-start"}}>写真を削除</button>}
@@ -3989,65 +4056,65 @@ function TabBasic({c,editMode,update,allClients}){
       {/* === 申請情報 ===（入管オンライン申請の入力順。説明は別途、汎用ヘルプUIのiマーク＋モーダルへ移す予定）*/}
       <Card title={isGenClient?"基本情報":"申請情報"} help={isGenClient?null:<HelpInfo title="申請情報の並び順">{"この欄の項目は、入管のオンライン申請システムに入力していく順番に合わせて並べています。\n\n上から順に、各項目の横にあるコピーボタンで転記していくと、申請画面の流れに沿ってスムーズに入力できます。"}</HelpInfo>}>
         <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14}}>
-          {!isGenClient&&<Field label="国籍" value={c.nationality} editMode={editMode} field="nationality" update={update} placeholder="例: ベトナム"/>}
+          {!isGenClient&&<Field label="国籍" value={c.nationality} editMode={editMode} field="nationality" update={update} placeholder="例: ベトナム" highlight={hlSet.has("nationality")}/>}
           {!isGenClient&&<div>
             <div style={lbl}>生年月日</div>
             <div style={{display:"flex",gap:6,alignItems:"center"}}>
-              <DateInput max="9999-12-31" min="1900-01-01" value={c.dob||""} onChange={v=>update("dob",v)} style={dateS}/>
+              <DateInput max="9999-12-31" min="1900-01-01" value={c.dob||""} onChange={v=>update("dob",v)} style={{...dateS,...hlS("dob")}}/>
               <CopyBtn get={()=>fmtYMD8(c.dob)} toast="📋 生年月日（YYYYMMDD）をコピー"/>
             </div>
           </div>}
           {!isGenClient&&<div>
             <div style={lbl}>性別</div>
-            <select value={c.gender||""} onChange={e=>update("gender",e.target.value)} style={selS}><option value="">選択してください</option><option value="男">男</option><option value="女">女</option></select>
+            <select value={c.gender||""} onChange={e=>update("gender",e.target.value)} style={{...selS,...hlS("gender")}}><option value="">選択してください</option><option value="男">男</option><option value="女">女</option></select>
           </div>}
           {!isGenClient&&<CopyTextField label="職業" value={c.occupation} field="occupation" update={update} ime placeholder="例: 調理師" toast="📋 職業をコピー"/>}
-          {!isGenClient&&<CopyTextField label="本国の居住地（※出生地を転記）" value={c.home_residence} field="home_residence" update={update} ime fmt={fmtZen} placeholder="例: ネパール　カトマンズ" toast="📋 本国の居住地（全角）をコピー" infoTitle="本国の居住地" info={"ポイポイ式では、パスポートの出生地（Place of Birth）を「国名＋カタカナ」に変換して自動転記しています（例: ネパール　バグルン）。\nカタカナ読みは推定のため、現在の本国居住地はクライアントへの確認のうえ、手動で上書きしてください。\n\n※自動転記は空欄のときのみ。一度入力された値は再ポイポイでも上書きされません。"}/>}
+          {!isGenClient&&<CopyTextField label="本国の居住地（※出生地を転記）" value={c.home_residence} field="home_residence" update={update} highlight={hlSet.has("home_residence")} ime fmt={fmtZen} placeholder="例: ネパール　カトマンズ" toast="📋 本国の居住地（全角）をコピー" infoTitle="本国の居住地" info={"ポイポイ式では、パスポートの出生地（Place of Birth）を「国名＋カタカナ」に変換して自動転記しています（例: ネパール　バグルン）。\nカタカナ読みは推定のため、現在の本国居住地はクライアントへの確認のうえ、手動で上書きしてください。\n\n※自動転記は空欄のときのみ。一度入力された値は再ポイポイでも上書きされません。"}/>}
           {/* 住所（郵便番号込み）*/}
           <div style={{gridColumn:"1/-1"}}>
             <div style={lbl}>住所</div>
             <div style={{display:"flex",flexDirection:"column",gap:6}}>
               <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
                 <span style={{fontSize:11,color:"var(--text2)",whiteSpace:"nowrap"}}>〒</span>
-                <input value={c.postal_code||""} onChange={e=>update("postal_code",e.target.value)} placeholder="000-0000" style={{fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)",width:120}}/>
+                <input value={c.postal_code||""} onChange={e=>update("postal_code",e.target.value)} placeholder="000-0000" style={{fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)",width:120,...hlS("postal_code")}}/>
                 <button onClick={async()=>{const pc=(c.postal_code||"").replace(/-/g,"");if(pc.length!==7){const t=document.getElementById("toast");if(t){t.textContent="郵便番号を7桁で入力してから押してください";t.style.opacity=1;setTimeout(()=>t.style.opacity=0,2500);}return;}try{const r=await fetch(`https://zipcloud.ibsnet.co.jp/api/search?zipcode=${pc}`);const j=await r.json();if(j.results&&j.results[0]){const a=j.results[0];update("address",(a.address1||"")+(a.address2||"")+(a.address3||""));}}catch(e){console.error(e);}}} style={{fontSize:11,padding:"4px 10px",borderRadius:5,cursor:"pointer",border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)",whiteSpace:"nowrap"}}>🔍 住所検索</button>
                 <CopyBtn get={()=>fmtDigits(c.postal_code)} toast="📋 郵便番号（ハイフンなし）をコピー"/>
                 <a href="https://www.post.japanpost.jp/zipcode/" target="_blank" rel="noopener noreferrer" style={{fontSize:11,color:"var(--text2)",whiteSpace:"nowrap"}}>郵便番号を調べる</a>
               </div>
               <div style={{display:"flex",gap:6,alignItems:"center"}}>
-                <IMEInput value={c.address||""} onChange={v=>update("address",v)} placeholder="住所を入力" style={{fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)",flex:1}}/>
+                <IMEInput value={c.address||""} onChange={v=>update("address",v)} placeholder="住所を入力" style={{fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)",flex:1,...hlS("address")}}/>
                 <CopyBtn get={()=>fmtAddr(c.address)} toast="📋 住所（全角）をコピー"/>
               </div>
             </div>
           </div>
-          <CopyTextField label="電話番号" value={c.phone} field="phone" update={update} fmt={fmtDigits} toast="📋 電話番号（ハイフンなし）をコピー" placeholder="例: 03-1234-5678"/>
-          <CopyTextField label="メールアドレス" value={c.email} field="email" update={update} toast="📋 メールアドレスをコピー"/>
-          {!isGenClient&&<CopyTextField label="パスポート番号" value={c.passport_number} field="passport_number" update={update} mono toast="📋 パスポート番号をコピー"/>}
+          <CopyTextField label="電話番号" value={c.phone} field="phone" update={update} highlight={hlSet.has("phone")} fmt={fmtDigits} toast="📋 電話番号（ハイフンなし）をコピー" placeholder="例: 03-1234-5678"/>
+          <CopyTextField label="メールアドレス" value={c.email} field="email" update={update} highlight={hlSet.has("email")} toast="📋 メールアドレスをコピー"/>
+          {!isGenClient&&<CopyTextField label="パスポート番号" value={c.passport_number} field="passport_number" update={update} highlight={hlSet.has("passport_number")} mono toast="📋 パスポート番号をコピー"/>}
           {!isGenClient&&<div>
             <div style={lbl}>パスポート有効期限</div>
             <div style={{display:"flex",gap:6,alignItems:"center"}}>
-              <DateInput max="9999-12-31" min="1900-01-01" value={c.passport_expiry||""} onChange={v=>update("passport_expiry",v)} style={dateS}/>
+              <DateInput max="9999-12-31" min="1900-01-01" value={c.passport_expiry||""} onChange={v=>update("passport_expiry",v)} style={{...dateS,...hlS("passport_expiry")}}/>
               <AlertBadge days={pdays}/>
               <CopyBtn get={()=>fmtYMD8(c.passport_expiry)} toast="📋 パスポート有効期限（YYYYMMDD）をコピー"/>
             </div>
           </div>}
           {!isGenClient&&<div>
             <div style={lbl}>在留資格</div>
-            <select value={c.residence_status||""} onChange={e=>update("residence_status",e.target.value)} style={selS}><option value="">選択してください</option>{RESIDENCE_STATUSES.map(s=><option key={s} value={s}>{s}</option>)}</select>
+            <select value={c.residence_status||""} onChange={e=>update("residence_status",e.target.value)} style={{...selS,...hlS("residence_status")}}><option value="">選択してください</option>{RESIDENCE_STATUSES.map(s=><option key={s} value={s}>{s}</option>)}</select>
           </div>}
           {!isGenClient&&<div>
             <div style={lbl}>在留期間</div>
-            {(()=>{const opts=["6月","1年","3年","5年","3月","4月","11月","15日","30日","90日"];const cur=c.residence_period;if(cur&&!opts.includes(cur))opts.unshift(cur);return <select value={cur||""} onChange={e=>update("residence_period",e.target.value)} style={selS}><option value="">選択</option>{opts.map(s=><option key={s} value={s}>{s}</option>)}</select>;})()}
+            {(()=>{const opts=["6月","1年","3年","5年","3月","4月","11月","15日","30日","90日"];const cur=c.residence_period;if(cur&&!opts.includes(cur))opts.unshift(cur);return <select value={cur||""} onChange={e=>update("residence_period",e.target.value)} style={{...selS,...hlS("residence_period")}}><option value="">選択</option>{opts.map(s=><option key={s} value={s}>{s}</option>)}</select>;})()}
           </div>}
           {!isGenClient&&<div>
             <div style={lbl}>在留期限</div>
             <div style={{display:"flex",gap:6,alignItems:"center"}}>
-              <DateInput max="9999-12-31" min="1900-01-01" value={c.residence_expiry||""} onChange={v=>update("residence_expiry",v)} style={dateS}/>
+              <DateInput max="9999-12-31" min="1900-01-01" value={c.residence_expiry||""} onChange={v=>update("residence_expiry",v)} style={{...dateS,...hlS("residence_expiry")}}/>
               <AlertBadge days={days}/>
               <CopyBtn get={()=>fmtYMD8(c.residence_expiry)} toast="📋 在留期限（YYYYMMDD）をコピー"/>
             </div>
           </div>}
-          {!isGenClient&&<CopyTextField label="在留カード番号" value={c.residence_card} field="residence_card" update={update} mono fmt={fmtUpper} toast="📋 在留カード番号（半角大文字）をコピー"/>}
+          {!isGenClient&&<CopyTextField label="在留カード番号" value={c.residence_card} field="residence_card" update={update} highlight={hlSet.has("residence_card")} mono fmt={fmtUpper} toast="📋 在留カード番号（半角大文字）をコピー"/>}
           {!isGenClient&&<div style={{gridColumn:"1/-1"}}><ResidenceHistorySection c={c} update={update}/></div>}
           <div style={{gridColumn:"1/-1"}}>
             <div style={lbl}>備考</div>
@@ -4059,8 +4126,8 @@ function TabBasic({c,editMode,update,allClients}){
       {/* === 管理情報 ===（一般クライアントは申請情報のみ）*/}
       {!isGenClient&&<Card title="管理情報">
         <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14}}>
-          <CopyTextField label="所属会社" value={c.company_name} field="company_name" update={update} ime fmt={fmtZen} toast="📋 所属会社（全角）をコピー"/>
-          <CopyTextField label="店舗・部署" value={c.store} field="store" update={update} ime toast="📋 店舗・部署をコピー"/>
+          <CopyTextField label="所属会社" value={c.company_name} field="company_name" update={update} highlight={hlSet.has("company_name")} ime fmt={fmtZen} toast="📋 所属会社（全角）をコピー"/>
+          <CopyTextField label="店舗・部署" value={c.store} field="store" update={update} highlight={hlSet.has("store")} ime toast="📋 店舗・部署をコピー"/>
           <CopyTextField label="最終学歴の学校名" value={c.education_school} field="education_school" update={update} ime fmt={fmtZen} toast="📋 学校名（全角）をコピー"/>
           <div>
             <div style={lbl}>卒業年月日</div>
@@ -4074,7 +4141,7 @@ function TabBasic({c,editMode,update,allClients}){
             <div style={{display:"flex",gap:6,alignItems:"center"}}>
               <DateInput max="9999-12-31" min="1900-01-01" value={c.work_start_date==="未定"?"":c.work_start_date||""} disabled={c.work_start_date==="未定"}
                 onChange={v=>update("work_start_date",v)}
-                style={{fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)",flex:1,opacity:c.work_start_date==="未定"?0.4:1}}/>
+                style={{fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text)",flex:1,opacity:c.work_start_date==="未定"?0.4:1,...hlS("work_start_date")}}/>
               <label style={{fontSize:11,color:"var(--text2)",display:"flex",alignItems:"center",gap:3,cursor:"pointer",whiteSpace:"nowrap"}}>
                 <input type="checkbox" checked={c.work_start_date==="未定"} onChange={e=>update("work_start_date",e.target.checked?"未定":"")}/>未定
               </label>
@@ -4754,7 +4821,61 @@ function ClientLinkFixModal({data,setData,onClose}){
   );
 }
 
-function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToCase}){
+// ポイポイ式の結果バナー：「読み取り → 反映・保持・除外」の件数を1行で出し、クリックで項目単位の明細を展開する。
+// report は buildPoiReport() の戻り値。複数ファイル投入時は各行にファイル名を併記する。
+function PoiResultBanner({report,open,onToggle,onClose}){
+  const r=report;
+  const multi=r.files.length>1;
+  const fmtVal=v=>{ const s=String(v==null?"":v); return s.length>40?s.slice(0,40)+"…":s; };
+  const fileTag=e=>multi?<span style={{color:"var(--text3)",marginLeft:6}}>［{e.file||e.source}］</span>:null;
+  const isWh=e=>e.field==="work_history";
+  const row={display:"flex",gap:6,alignItems:"baseline",flexWrap:"wrap",padding:"2px 0",lineHeight:1.5};
+  const head={fontSize:11,fontWeight:600,marginTop:8,marginBottom:2};
+  const parts=[`${r.applied.length}項目を反映`];
+  if(r.kept.length) parts.push(`${r.kept.length}項目は既存値を保持`);
+  if(r.excluded.length) parts.push(`${r.excluded.length}項目は除外`);
+  const workApplied=r.applied.find(isWh);
+  return(
+    <div style={{background:"#EAF3DE",color:"#3B6D11",fontSize:11,borderBottom:"0.5px solid #CFE3B8"}}>
+      <div onClick={onToggle} style={{padding:"6px 18px",cursor:"pointer",display:"flex",alignItems:"center",gap:8}}>
+        <span style={{flex:1}}>📷 {r.read}項目を読み取り → {parts.join("・")}{workApplied?`（職歴 ${workApplied.added}件追加）`:""}{r.missing.length?` ／ ${r.missing.length}項目は読み取れず`:""}</span>
+        <span style={{fontSize:10,color:"#5B8A2B",whiteSpace:"nowrap"}}>{open?"▲ 閉じる":"▼ 明細を見る"}</span>
+        <button onClick={e=>{e.stopPropagation();onClose();}} title="バナーを消す" style={{border:"none",background:"transparent",color:"#5B8A2B",cursor:"pointer",fontSize:12,padding:"0 2px",lineHeight:1}}>✕</button>
+      </div>
+      {open&&<div style={{padding:"2px 18px 10px",background:"#F4F9EC",color:"var(--text)",maxHeight:260,overflowY:"auto"}}>
+        {multi
+          ?<div style={{fontSize:10,color:"var(--text3)",marginTop:4}}>読み取ったファイル：{r.files.map((f,i)=><span key={i} style={{marginRight:8}}>{f.name||"(名称不明)"}（{f.docType}）</span>)}</div>
+          :r.files[0]&&<div style={{fontSize:10,color:"var(--text3)",marginTop:4}}>書類種別：{r.files[0].docType}</div>}
+        <div style={{...head,color:"#3B6D11"}}>✅ 反映した（{r.applied.length}）</div>
+        {r.applied.length===0&&<div style={{color:"var(--text3)"}}>なし</div>}
+        {r.applied.map((e,i)=><div key={i} style={row}>
+          <span style={{fontWeight:500,minWidth:110}}>{e.label}</span>
+          {isWh(e)
+            ?<span>{e.added}件追加{e.skipped>0?`・${e.skipped}件は重複のためスキップ`:""}</span>
+            :<span>{e.prev&&e.changed?<><span style={{color:"var(--text3)",textDecoration:"line-through"}}>{fmtVal(e.prev)}</span> → </>:null}{fmtVal(e.value)}{!e.changed&&<span style={{color:"var(--text3)"}}>（変更なし）</span>}</span>}
+          {fileTag(e)}
+        </div>)}
+        {(r.kept.length>0||r.excluded.length>0)&&<>
+          <div style={{...head,color:"#854F0B"}}>🔒 読み取ったが反映しなかった（{r.kept.length+r.excluded.length}）</div>
+          {[...r.kept,...r.excluded].map((e,i)=><div key={i} style={row}>
+            <span style={{fontWeight:500,minWidth:110}}>{e.label}</span>
+            <span>{isWh(e)?`${e.skipped}件`:fmtVal(e.value)}</span>
+            <span style={{color:"var(--text3)"}}>— {e.reason}{e.outcome==="kept"&&!isWh(e)&&e.prev&&String(e.prev)!==String(e.value)?`（現在: ${fmtVal(e.prev)}）`:""}</span>
+            {fileTag(e)}
+          </div>)}
+        </>}
+        {r.missing.length>0&&<>
+          <div style={{...head,color:"#A32D2D"}}>⚠️ 読み取れなかった（{r.missing.length}）</div>
+          <div style={row}>{r.missing.map((e,i)=><span key={i} style={{padding:"1px 6px",borderRadius:3,background:"#FCEBEB",color:"#A32D2D"}}>{e.label}{multi?`［${e.file||e.source}］`:""}</span>)}</div>
+          <div style={{fontSize:10,color:"var(--text3)"}}>鮮明な画像で再度ポイポイするか、手動で入力してください。</div>
+        </>}
+        <div style={{fontSize:10,color:"var(--text3)",marginTop:8}}>反映した項目はフォーム上で薄い黄色になります（別のクライアントを選ぶと消えます）。</div>
+      </div>}
+    </div>
+  );
+}
+
+function ClientLedger({data,setData,navigateClientId,navigatePoiReport,clearNavigate,onNavigateToCase}){
   const isMobile=useMobile();
   const clients=data.clients;
   const setClients=useCallback(fn=>{
@@ -4777,7 +4898,8 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
   const [tab,setTab]=useState("基本情報");
   const [poiReading,setPoiReading]=useState(false);
   const [poiError,setPoiError]=useState(null);
-  const [poiResult,setPoiResult]=useState(null);
+  const [poiResult,setPoiResult]=useState(null);   // buildPoiReport の結果（読み取り→反映の明細）
+  const [poiDetailOpen,setPoiDetailOpen]=useState(false);
   const [poiDragOver,setPoiDragOver]=useState(false);
   const [showPoiOverlay,setShowPoiOverlay]=useState(false);
   const [poiOverlayDragOver,setPoiOverlayDragOver]=useState(false);
@@ -4843,7 +4965,7 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
       return true; // 判定不能 → 寛容に同一扱い
     };
 
-    setPoiReading(true);setPoiError(null);setPoiResult(null);
+    setPoiReading(true);setPoiError(null);setPoiResult(null);setPoiDetailOpen(false);
     const t=document.getElementById("toast");
 
     try{
@@ -4920,7 +5042,7 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
       }
 
       let targetId=null;
-      let createdClient=null;
+      let createNew=false;
 
       if(matchedClient){
         // 既存クライアントへマージ
@@ -4930,8 +5052,7 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
         if(liveSelected && !selectedHasIdentity){
           targetId=liveSelected.client_id;
         }else{
-          createdClient=createClientFromExtracted(identityExts[0].extracted);
-          targetId=createdClient.client_id;
+          createNew=true; // Phase 4 で identityExts[0] を先頭に新規作成（targetId はそこで確定）
         }
       }else{
         // パターンE: non-identity のみ。職務履歴書・退職証明書など「身元情報を持たない補助書類」は
@@ -4958,43 +5079,40 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
         }
       }
 
-      // === Phase 4: 単一 setClients でまとめてマージ反映 ===
-      // createdClient の場合は第1identityで初期化済みなので二重マージしない
-      const skipFirst=createdClient?identityExts[0]:null;
-      const mergesToApply=extractions.filter(e=>e!==skipFirst);
+      // === Phase 4: 反映（明細付き） ===
+      // 新規作成は第1identityファイルで骨格を作り、残りを順にマージ（applyExtractionsToClient が一括で行う）
+      const ordered = createNew ? [identityExts[0], ...extractions.filter(e=>e!==identityExts[0])] : extractions;
+      const liveTarget = createNew ? null : clients.find(c=>c.client_id===targetId);
+      if(!createNew && !liveTarget){
+        if(t){t.textContent="⚠️ 対象クライアントが見つかりませんでした";t.style.opacity=1;setTimeout(()=>t.style.opacity=0,3000);}
+        return;
+      }
+      const {client:mergedClient, entries} = applyExtractionsToClient(liveTarget, ordered);
+      if(createNew) targetId=mergedClient.client_id;
 
       setClients(prev=>{
-        let result=createdClient?[createdClient, ...prev]:prev;
-        for(const e of mergesToApply){
-          result=result.map(c=>c.client_id===targetId?mergeExtractedToClient(c, e.extracted):c);
-        }
-        return result;
+        if(createNew) return [mergedClient, ...prev];
+        // state は prev ベースで再マージ（並行更新に対する安全側）。明細は live ベースで確定した entries を使う。
+        return prev.map(c=>c.client_id===targetId?applyExtractionsToClient(c, ordered).client:c);
       });
 
-      // 選択クライアント切替（必要時）
-      if(targetId!==selected?.client_id){
-        const baseClient=createdClient || clients.find(c=>c.client_id===targetId);
-        if(baseClient){
-          let snap=baseClient;
-          for(const e of mergesToApply){
-            snap=mergeExtractedToClient(snap, e.extracted);
-          }
-          setSelected(snap);
-          setTab("基本情報");
-          if(isMobile) setShowDetail(true);
-        }
+      // 選択中クライアントをマージ後の live データで更新する。
+      // 本人にポイポイした場合も必ず更新（ヘッダーの在留資格バッジ等が古いスナップショットのまま残らないように）。
+      const switched = targetId!==selected?.client_id;
+      setSelected(mergedClient);
+      if(switched){
+        setTab("基本情報");
+        if(isMobile) setShowDetail(true);
       }
 
-      // === Phase 5: トースト・結果表示 ===
-      const allFilled=extractions.flatMap(e=>Object.entries(e.extracted)
-        .filter(([k,v])=>v!==null && v!=="" && !["work_history","company_info","face_region","card_orientation"].includes(k))
-        .map(([k])=>k));
-      const uniqueFilled=[...new Set(allFilled)];
-      setPoiResult({filled:uniqueFilled, result:extractions[extractions.length-1].extracted});
+      // === Phase 5: 明細バナー・トースト ===
+      const report=buildPoiReport(targetId, ordered, entries);
+      setPoiResult(report);
+      setPoiDetailOpen(false);
       if(t){
         t.textContent= extractions.length>1
-          ? `📷 ${extractions.length}件の書類を1人分として処理しました（${uniqueFilled.length}項目）`
-          : `📷 書類を読み取りました（${uniqueFilled.length}項目）`;
+          ? `📷 ${extractions.length}件の書類を1人分として処理：${report.read}項目を読み取り → ${report.applied.length}項目を反映`
+          : `📷 ${report.read}項目を読み取り → ${report.applied.length}項目を反映`;
         t.style.opacity=1;setTimeout(()=>t.style.opacity=0,2500);
       }
     }catch(e){
@@ -5039,9 +5157,15 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
     if(navigateClientId){
       const t=clients.find(c=>c.client_id===navigateClientId);
       if(t){setSelected(t);setTab("基本情報");setSearch("");setFilterStatus("全て");}
+      // ダッシュボードからのポイポイ → 遷移先でも同じ明細バナーを出す
+      if(navigatePoiReport&&navigatePoiReport.clientId===navigateClientId){setPoiResult(navigatePoiReport);setPoiDetailOpen(false);}
       if(clearNavigate)clearNavigate();
     }
   },[navigateClientId]);
+  // 別クライアントを選んだらポイポイ明細・ハイライトを消す（本人へのポイポイ直後は clientId が一致するので残る）
+  useEffect(()=>{
+    if(poiResult && poiResult.clientId!==(selected?selected.client_id:null)){ setPoiResult(null); setPoiDetailOpen(false); }
+  },[selected?.client_id]);
 
   const statusList=["全て","🛂 入管","📄 一般",...new Set(clients.filter(c=>!c.archived&&c.client_type!=="general").map(c=>c.residence_status).filter(s=>s&&s.trim()))];
   const filtered=clients.filter(c=>{
@@ -5356,11 +5480,9 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
               </div>
             </div>
             {poiError&&<div style={{padding:"6px 18px",background:"#FCEBEB",fontSize:11,color:"#A32D2D"}}>⚠️ {poiError}</div>}
-            {poiResult&&<div style={{padding:"6px 18px",background:"#EAF3DE",fontSize:11,color:"#3B6D11"}}>
-              ✅ {poiResult.filled.length}項目を読み取りました{poiResult.result.work_history&&`（職歴${poiResult.result.work_history.length}件含む）`} — 各タブで確認してください
-            </div>}
+            {poiResult&&poiResult.clientId===cur.client_id&&<PoiResultBanner report={poiResult} open={poiDetailOpen} onToggle={()=>setPoiDetailOpen(v=>!v)} onClose={()=>{setPoiResult(null);setPoiDetailOpen(false);}}/>}
             {cur.client_type!=="general"&&<div style={{padding:"5px 18px",background:"#F8F6F3",fontSize:10,color:"var(--text3)",borderBottom:"0.5px solid var(--border)"}}>
-              💡 ポイポイ式：在留カード・パスポート情報と住所は在留カードから常に最新で反映 ／ 氏名等は既存の情報を維持（退職証明書等の本国住所では上書きされません）
+              💡 ポイポイ式：在留資格・在留期限・住所は在留カードから、旅券番号・有効期限はパスポートから常に最新で反映 ／ 氏名等は既存の情報を維持（パスポートで在留情報は変わらず、退職証明書等の本国住所でも上書きされません）
             </div>}
             <div style={{display:"flex",background:"var(--bg)",borderBottom:"0.5px solid var(--border)",padding:"0 18px"}}>
               {tabs.map(t=>(
@@ -5368,7 +5490,7 @@ function ClientLedger({data,setData,navigateClientId,clearNavigate,onNavigateToC
               ))}
             </div>
             <div style={{flex:1,overflowY:"auto",padding:18}}>
-              {tab==="基本情報"&&<TabBasic c={cur} editMode={true} update={update} allClients={clients}/>}
+              {tab==="基本情報"&&<TabBasic c={cur} editMode={true} update={update} allClients={clients} hl={poiResult&&poiResult.clientId===cur.client_id?poiResult.highlight:null}/>}
               {tab==="扶養者"&&<TabSponsor c={cur} allClients={clients} onSelectClient={handleSelectClient}/>}
               {tab==="扶養家族"&&<TabDependents c={cur} allClients={clients} onSelectClient={handleSelectClient}/>}
               {tab==="案件履歴"&&<TabCaseHistory c={cur} cases={data.cases} payments={data.payments} onNavigateCase={onNavigateToCase} onNewCase={()=>setShowNewCase(true)}/>}
@@ -9652,6 +9774,10 @@ function MasterOffice({office,setOffice}){
               <button onClick={()=>up("_showLicenseKey",!o._showLicenseKey)} style={{fontSize:10,padding:"6px 10px",borderRadius:5,border:"0.5px solid var(--border2)",background:"var(--bg2)",color:"var(--text2)",cursor:"pointer",whiteSpace:"nowrap"}}>{o._showLicenseKey?"隠す":"表示"}</button>
             </div>
             <div style={{fontSize:9,color:"var(--text3)",marginTop:6}}>※ ライセンスキーはこの端末のlocalStorageにのみ保存されます。AIリクエスト時に Clavis サーバーへ認証ヘッダーとして送信されます。</div>
+            <div style={{marginTop:12,paddingTop:10,borderTop:"0.5px solid var(--border)"}}>
+              <a href={BILLING_PORTAL_URL} target="_blank" rel="noopener noreferrer" style={{fontSize:11,color:"var(--accent-text)",fontWeight:500,textDecoration:"none"}}>ご契約内容の確認・解約はこちら →</a>
+              <div style={{fontSize:9,color:"var(--text3)",marginTop:3,lineHeight:1.6}}>Stripe のページでご登録のメールアドレスを入力すると、ご契約管理ページへのログインリンクがメールで届きます。プランの確認・お支払い方法の変更・解約をご自身で行えます。</div>
+            </div>
           </div>
         </div>
       </div>
@@ -11920,6 +12046,7 @@ function App(){
   });
   const [undoCount,setUndoCount]=useState(getUndoCount);
   const [navigateClientId,setNavigateClientId]=useState(null);
+  const [navigatePoiReport,setNavigatePoiReport]=useState(null); // ダッシュボードのポイポイ明細を遷移先のクライアント詳細へ渡す
   const [navigateCaseId,setNavigateCaseId]=useState(null);
   const [navigatePaymentId,setNavigatePaymentId]=useState(null);
   const [gdriveReady,setGdriveReady]=useState(false);
@@ -12016,7 +12143,7 @@ function App(){
   const [swUpdateEntries,setSwUpdateEntries]=useState(null); // updates.json の配列（取得成功時のみ）
   const [showUpdateInfo,setShowUpdateInfo]=useState(false);  // 「更新内容」ポップアップの表示
   const [isOnline,setIsOnline]=useState(typeof navigator!=="undefined"?navigator.onLine:true);
-  function handleNavigateToClient(clientId){setNavigateClientId(clientId);setActiveTab("clients");}
+  function handleNavigateToClient(clientId, poiReport){setNavigateClientId(clientId);setNavigatePoiReport(poiReport||null);setActiveTab("clients");}
   function handleNavigateToCase(caseId){setNavigateCaseId(caseId);setActiveTab("cases");}
   function handleNavigateToPayment(paymentId){setNavigatePaymentId(paymentId);setActiveTab("payments");}
   function handleNavigateToMaster(subtab){
@@ -13571,7 +13698,7 @@ function App(){
           <Dashboard data={data} setData={setData} onNavClient={handleNavigateToClient} onNavCase={handleNavigateToCase} onNavPayment={handleNavigateToPayment} onNavMaster={handleNavigateToMaster}/>
         </div>
       )}
-      {activeTab==="clients"&&<ClientLedger data={data} setData={setData} navigateClientId={navigateClientId} clearNavigate={()=>setNavigateClientId(null)} onNavigateToCase={handleNavigateToCase}/>}
+      {activeTab==="clients"&&<ClientLedger data={data} setData={setData} navigateClientId={navigateClientId} navigatePoiReport={navigatePoiReport} clearNavigate={()=>{setNavigateClientId(null);setNavigatePoiReport(null);}} onNavigateToCase={handleNavigateToCase}/>}
       {activeTab==="cases"&&<CaseManagement data={data} setData={setData} navigateCaseId={navigateCaseId} clearNavigate={()=>setNavigateCaseId(null)} onNavigateToClient={handleNavigateToClient} onNavMaster={handleNavigateToMaster}/>}
       {activeTab==="journal"&&<CaseJournal data={data} setData={setData} onNavCase={handleNavigateToCase}/>}
       {activeTab==="payments"&&<PaymentManagement data={data} setData={setData} navigatePaymentId={navigatePaymentId} clearNavigate={()=>setNavigatePaymentId(null)}/>}

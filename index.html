@@ -1579,6 +1579,8 @@ h1, h2, h3, h4 { font-family: var(--font-serif); font-weight: 700; letter-spacin
   line-height: 1.85;
   color: var(--text-mute);
 }
+.cta-note a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+.cta-note a:hover { color: var(--accent-deep); }
 
 @media (max-width: 980px) {
   .pricing-flow { grid-template-columns: 1fr; }
@@ -3071,7 +3073,8 @@ body.theme-premium .nav-cta {
       <p class="cta-note">
         ※ お申し込みにはクレジットカード登録が必要です。<br>
         ※ 行政書士登録者専用のサービスです。<br>
-        ※ 30日間の無料お試し期間終了後、自動でクーポン適用価格（¥3,300/月）の課金が開始されます。
+        ※ 30日間の無料お試し期間終了後、自動でクーポン適用価格（¥3,300/月）の課金が開始されます。<br>
+        ※ 解約はいつでも<a href="https://billing.stripe.com/p/login/9B6eVea5deAJebHbIl3Je00" target="_blank" rel="noopener">解約ページ</a>からお手続きいただけます。無料お試し期間中の解約なら、料金はかかりません。
       </p>
     </div>
   </div>
@@ -3224,9 +3227,12 @@ body.theme-premium .nav-cta {
         </div>
       </details>
       <details class="faq-item">
-        <summary>継続を中止したい時はどうすればいいですか?</summary>
+        <summary>解約したいときはどうすればいいですか?</summary>
         <div class="faq-answer">
-          次回更新日（決済日）の前日までに、所定の解約手続きをお願いいたします。月途中での解約による日割り精算・返金は行っておりません。解約手続きは <a href="mailto:info@clavis-note.com">info@clavis-note.com</a> までご連絡いただくか、Stripe から送付される決済明細メール内のリンクから直接管理いただけます。解約前に、バックアップ機能で業務データを保存してください。
+          <p>解約は <a href="https://billing.stripe.com/p/login/9B6eVea5deAJebHbIl3Je00" target="_blank" rel="noopener">解約ページ（ご契約管理ページ）</a> からいつでもお手続きいただけます。</p>
+          <p>1. 解約ページで、ご登録のメールアドレスを入力<br>2. 届いたメールのリンクから、ご契約管理ページを開く<br>3. 「プランをキャンセル」を選択</p>
+          <p>解約は現在の請求期間の終了日（次回更新日の前日）をもって成立し、月途中での日割り精算・返金は行っておりません。30日間の無料お試し期間中に解約された場合、料金は発生しません。解約後は新規入力・編集が停止され、閲覧と事件簿のエクスポートのみ可能になりますので、解約前にバックアップ機能で業務データを保存してください。</p>
+          <p>解約ページをご利用いただけない場合は、<a href="mailto:info@clavis-note.com">info@clavis-note.com</a> までご連絡ください。</p>
         </div>
       </details>
     </div>
